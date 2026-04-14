@@ -1,0 +1,442 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<icondef>
+	<meta>
+		<name>YaEmoMidget Smilies</name>
+		<version>2.0</version>
+		<description>Icons © Yandex</description>
+		<creation>2010-03-08</creation>
+		<home>http://yandex.ru</home>
+		<author www='http://www.yandex.ru'>Yandex</author>
+	</meta>
+
+	<icon>
+		<text>:-)</text>
+		<text>:)</text>
+		<text>(-:</text>
+		<text>(:</text>
+		<text>=)</text>
+		<text>:smile:</text>
+		<text>(smile)</text>
+		<object mime='image/gif'>smile.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>;-)</text>
+		<text>;)</text>
+		<text>(-;</text>
+		<text>(;</text>
+		<text>:wink:</text>
+		<text>(wink)</text>
+		<object mime='image/gif'>wink.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:-P</text>
+		<text>:-p</text>
+		<text>:P</text>
+		<text>:p</text>
+		<text>:razz:</text>
+		<text>(razz)</text>
+		<object mime='image/gif'>tongue.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>@}-&gt;--</text>
+		<text>:rose:</text>
+		<object mime='image/gif'>rose.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>B-)</text>
+		<text>B)</text>
+		<text>8-)</text>
+		<text>8)</text>
+		<text>:cool:</text>
+		<text>(cool)</text>
+		<object mime='image/gif'>glasses.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:-O</text>
+		<text>:-o</text>
+		<text>:-0</text>
+		<text>:O</text>
+		<text>:o</text>
+		<text>:0</text>
+		<text>8-O</text>
+		<text>8-o</text>
+		<text>8-0</text>
+		<text>:O</text>
+		<text>:0</text>
+		<text>=-O</text>
+		<text>=O</text>
+		<text>=-0</text>
+		<text>=0</text>
+		<text>:eek:</text>
+		<text>:surprised:</text>
+		<text>(eek)</text>
+		<text>(surprised)</text>
+		<object mime='image/gif'>woot.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:-$</text>
+		<text>:$</text>
+		<text>(D)</text>
+		<text>(d)</text>
+		<object mime='image/gif'>sick.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:-(</text>
+		<text>:(</text>
+		<text>)-:</text>
+		<text>):</text>
+		<text>:sad:</text>
+		<text>(sad)</text>
+		<object mime='image/gif'>sad.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:'-(</text>
+		<text>:'(</text>
+		<object mime='image/gif'>sad_wink.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:-@</text>
+		<text>:@</text>
+		<text>*TIRED*</text>
+		<object mime='image/gif'>tired.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:-[</text>
+		<text>:[</text>
+		<object mime='image/gif'>blush.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:-X</text>
+		<text>:-x</text>
+		<text>:-Х</text>
+		<text>:-х</text>
+		<object mime='image/gif'>tss.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>&gt;:-)</text>
+		<text>&gt;:)</text>
+		<text>:mad:</text>
+		<text>(mad)</text>
+		<object mime='image/gif'>mad.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>o_O</text>
+		<text>O_o</text>
+		<text>o_o</text>
+		<text>O_O</text>
+		<text>%)</text>
+		<text>:oops:</text>
+		<text>(oops)</text>
+		<object mime='image/gif'>brainsucker.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:-D</text>
+		<text>:-d</text>
+		<text>:D</text>
+		<text>:d</text>
+		<text>:-></text>
+		<text>:></text>
+		<text>:-))</text>
+		<text>:-)))</text>
+		<text>:-))))</text>
+		<text>:-)))))</text>
+		<text>:-))))))</text>
+		<text>:-)))))))</text>
+		<text>:-))))))))</text>
+		<text>:-)))))))))</text>
+		<text>:-))))))))))</text>
+		<text>:))</text>
+		<text>:)))</text>
+		<text>:))))</text>
+		<text>:)))))</text>
+		<text>:))))))</text>
+		<text>:)))))))</text>
+		<text>:))))))))</text>
+		<text>:)))))))))</text>
+		<text>:))))))))))</text>
+		<text>:grin:</text>
+		<text>(grin)</text>
+		<text>:lol:</text>
+		<text>(lol)</text>
+		<object mime='image/gif'>lol.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>;-(</text>
+		<text>;(</text>
+		<text>)-;</text>
+		<text>);</text>
+		<object mime='image/png'>worry.png</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:-|</text>
+		<text>:|</text>
+		<text>:-/</text>
+		<text>:/</text>
+		<text>:-\</text>
+		<text>:\</text>
+		<object mime='image/png'>hmm.png</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:-*</text>
+		<text>:*</text>
+		<text>:-{}</text>
+		<text>:kiss:</text>
+		<text>*KISSED*</text>
+		<text>*KISSING*</text>
+		<object mime='image/png'>kiss.png</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:money:</text>
+		<object mime='image/png'>money.png</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:wait:</text>
+		<text>*STOP*</text>
+		<object mime='image/png'>wait.png</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:telephone:</text>
+		<text>:phone:</text>
+		<object mime='image/png'>phone.png</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>]:-&gt;</text>
+		<text>:evil:</text>
+		<text>(evil)</text>
+		<object mime='image/gif'>evil.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>O:-)</text>
+		<text>0:-)</text>
+		<text>O=</text>
+		<text>0=</text>
+		<object mime='image/gif'>angel.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>&lt;3</text>
+		<text>:-*</text>
+		<text>(L)</text>
+		<text>(l)</text>
+		<text>(U)</text>
+		<text>(u)</text>
+		<text>:love:</text>
+		<text>:loved:</text>
+		<text>(love)</text>
+		<text>(loved)</text>
+		<text>:heart:</text>
+		<text>*IN LOVE*</text>
+		<object mime='image/gif'>love.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:brokenheart: </text>
+		<object mime='image/gif'>brokenheart.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>|~|D</text>
+		<text>(H)</text>
+		<text>(h)</text>
+		<text>(B)</text>
+		<text>(b)</text>
+		<text>:beer:</text>
+		<text>(beer)</text>
+		<text>*DRINK*</text>
+		<object mime='image/png'>beer.png</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:coffee: </text>
+		<object mime='image/gif'>cup.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:cake: </text>
+		<object mime='image/gif'>cake.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:wet:</text>
+		<object mime='image/gif'>wet.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:rain:</text>
+		<object mime='image/gif'>rain.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:sun:</text>
+		<object mime='image/gif'>sun.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:cold:</text>
+		<object mime='image/gif'>snow.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:star:</text>
+		<object mime='image/png'>star.png</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:moon:</text>
+		<object mime='image/png'>moon.png</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:earth: </text>
+		<object mime='image/gif'>earth.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>(+1)</text>
+		<text>+1!</text>
+		<text>:yes:</text>
+		<text>*THUMBS UP*</text>
+		<object mime='image/gif'>yes.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>(-1)</text>
+		<text>-1!</text>
+		<text>:no:</text>
+		<object mime='image/gif'>no.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>@=</text>
+		<text>:bomb:</text>
+		<object mime='image/gif'>bomb.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:idea: </text>
+		<object mime='image/gif'>idea.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>[:-}</text>
+		<text>:music:</text>
+		<object mime='image/gif'>music.gif</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:mail:</text>
+		<text>:email:</text>
+		<text>*MAIL*</text>
+		<text>*WRITE*</text>
+		<object mime='image/png'>mail.png</object>
+		<x xmlns='ya:user-selectable'>false</x>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>:jabber:</text>
+		<object mime='image/png'>jabber.png</object>
+		<x xmlns='ya:user-selectable'>false</x>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>[:]||[:]</text>
+		<text>[:]|||[:]</text>
+		<text>[:]||||[:]</text>
+		<text>:]||[:</text>
+		<text>:]|||[:</text>
+		<text>:]||||[:</text>
+		<text>:||:</text>
+		<text>:|||:</text>
+		<text>:||||:</text>
+		<object mime='image/png'>boyan1.png</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+
+	<icon>
+		<text>[:]|||||[:]</text>
+		<text>[:]||||||[:]</text>
+		<text>[:]|||||||[:]</text>
+		<text>:]|||||[:</text>
+		<text>:]||||||[:</text>
+		<text>:]|||||||[:</text>
+		<text>:|||||:</text>
+		<text>:||||||:</text>
+		<text>:|||||||:</text>
+		<text>[:]||||||||[:]</text>
+		<text>[:]|||||||||[:]</text>
+		<text>[:]||||||||||[:]</text>
+		<text>:]||||||||[:</text>
+		<text>:]|||||||||[:</text>
+		<text>:]||||||||||[:</text>
+		<text>:||||||||:</text>
+		<text>:|||||||||:</text>
+		<text>:||||||||||:</text>
+		<x xmlns='ya:user-selectable'>false</x>
+		<object mime='image/png'>boyan2.png</object>
+		<x xmlns='ya:description'></x>
+	</icon>
+</icondef>

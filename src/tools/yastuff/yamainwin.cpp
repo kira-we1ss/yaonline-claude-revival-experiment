@@ -21,13 +21,13 @@
 #include "yamainwin.h"
 
 #include <QDesktopServices>
-#include <qicon.h>
-#include <qapplication.h>
-#include <qtimer.h>
-#include <qobject.h>
+#include <QIcon>
+#include <QApplication>
+#include <QTimer>
+#include <QObject>
 #include <QPainter>
-#include <qsignalmapper.h>
-#include <qmenubar.h>
+#include <QSignalMapper>
+#include <QMenuBar>
 #include <QPixmap>
 #include <QCloseEvent>
 #include <QKeyEvent>
