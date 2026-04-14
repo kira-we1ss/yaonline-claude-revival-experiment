@@ -5,7 +5,7 @@
 # Configuration
 TEMPLATE = app
 TARGET   = yachat
-CONFIG  += qt thread x11
+CONFIG += qt thread c++17
 
 unix:!mac {
 	exists($$[QT_INSTALL_LIBS]/libQtCore.a) {
@@ -20,9 +20,6 @@ windows: {
 
 windows: include($$PWD/../conf_windows.pri)
 
-win32-msvc|win32-msvc.net|win32-msvc2005|win32-msvc2008 {
-	CONFIG += win32-msvc-flags
-}
 
 yapsi_activex_server {
 	CONFIG  += qaxserver qaxcontainer
@@ -35,7 +32,7 @@ else {
 	windows: RC_FILE = ../win32/psi_win32.rc
 }
 
-QT += xml network qt3support
+QT += xml network widgets concurrent sql
 
 #CONFIG += use_crash
 CONFIG += pep
@@ -154,61 +151,20 @@ breakpad {
 	include($$BREAKPAD_PRI)
 }
 
-mac {
-	CARBONCOCOA_PRI = $$PWD/tools/carboncocoa/carboncocoa.pri
-	include($$CARBONCOCOA_PRI)
-}
-
-# Protection against buffer overruns
-unix:debug {
-	# QMAKE_CFLAGS   += -fstack-protector-all -Wstack-protector
-	# QMAKE_CXXFLAGS += -fstack-protector-all -Wstack-protector
-}
-win32-msvc-flags:debug {
-	# QMAKE_CFLAGS   += /GS
-	# QMAKE_CXXFLAGS += /GS
-}
-
-# Speed up compilation process
-win32-msvc-flags:debug {
-	# /MD (Multithreaded runtime)  http://msdn2.microsoft.com/en-us/library/2kzt1wy3.aspx
-	# /Gm (Enable Minimal Rebuild) http://msdn2.microsoft.com/en-us/library/kfz8ad09.aspx
-	# /INCREMENTAL                 http://msdn2.microsoft.com/en-us/library/4khtbfyf.aspx
-	QMAKE_CFLAGS   += /Gm
-	QMAKE_CXXFLAGS += /Gm
-	QMAKE_LFLAGS += /INCREMENTAL
-}
-
-
 # Platform specifics
 unix:!mac {
 	QMAKE_POST_LINK = rm -f ../yachat ; ln -s src/yachat ../yachat
 }
-win32 {
-	# generate program debug detabase
-	win32-msvc-flags {
-		QMAKE_CFLAGS += /Zi
-		QMAKE_LFLAGS += /DEBUG
-	}
-
-	# buggy MSVC workaround
-	# win32-msvc-flags: QMAKE_LFLAGS += /FORCE:MULTIPLE
-}
 mac {
-	# Universal binaries
-	qc_universal {
-		CONFIG += x86 x86_64
-		QMAKE_MAC_SDK=/Developer/SDKs/MacOSX10.5.sdk
-		QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.5
-	}
+    QMAKE_MACOSX_DEPLOYMENT_TARGET = 11.0
+    QMAKE_INFO_PLIST = ../mac/Info.plist
+    RC_FILE = ../mac/application.icns
+    QMAKE_POST_LINK = \
+        mkdir -p `dirname $(TARGET)`/../Resources/iconsets/emoticons; \
+        cp -R tools/yastuff/iconsets/emoticons/* `dirname $(TARGET)`/../Resources/iconsets/emoticons; \
+        cp -R ../certs ../sound `dirname $(TARGET)`/../Resources; \
+        echo "APPLyach" > `dirname $(TARGET)`/../PkgInfo;
 
-	# Frameworks are specified in src.pri
-
-	QMAKE_INFO_PLIST = ../mac/Info.plist
-	RC_FILE = ../mac/application.icns
-	QMAKE_POST_LINK = \
-		mkdir -p `dirname $(TARGET)`/../Resources/iconsets/emoticons; \
-		cp -R tools/yastuff/iconsets/emoticons/* `dirname $(TARGET)`/../Resources/iconsets/emoticons; \
-		cp -R ../certs ../sound `dirname $(TARGET)`/../Resources; \
-		echo "APPLyach" > `dirname $(TARGET)`/../PkgInfo;
+    CARBONCOCOA_PRI = $$PWD/tools/carboncocoa/carboncocoa.pri
+    include($$CARBONCOCOA_PRI)
 }
