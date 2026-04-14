@@ -20,7 +20,6 @@ windows: {
 
 windows: include($$PWD/../conf_windows.pri)
 
-
 yapsi_activex_server {
 	CONFIG  += qaxserver qaxcontainer
 	contains(CONFIG, static): DEFINES += QT_NODLL
@@ -156,15 +155,15 @@ unix:!mac {
 	QMAKE_POST_LINK = rm -f ../yachat ; ln -s src/yachat ../yachat
 }
 mac {
-    QMAKE_MACOSX_DEPLOYMENT_TARGET = 11.0
-    QMAKE_INFO_PLIST = ../mac/Info.plist
-    RC_FILE = ../mac/application.icns
-    QMAKE_POST_LINK = \
-        mkdir -p `dirname $(TARGET)`/../Resources/iconsets/emoticons; \
-        cp -R tools/yastuff/iconsets/emoticons/* `dirname $(TARGET)`/../Resources/iconsets/emoticons; \
-        cp -R ../certs ../sound `dirname $(TARGET)`/../Resources; \
-        echo "APPLyach" > `dirname $(TARGET)`/../PkgInfo;
+	QMAKE_MACOSX_DEPLOYMENT_TARGET = 11.0
+	QMAKE_INFO_PLIST = ../mac/Info.plist
+	RC_FILE = ../mac/application.icns
+	QMAKE_POST_LINK = \
+		mkdir -p `dirname $(TARGET)`/../Resources/iconsets/emoticons; \
+		cp -R tools/yastuff/iconsets/emoticons/* `dirname $(TARGET)`/../Resources/iconsets/emoticons; \
+		cp -R ../certs ../sound `dirname $(TARGET)`/../Resources; \
+		echo "APPLyach" > `dirname $(TARGET)`/../PkgInfo;
 
-    CARBONCOCOA_PRI = $$PWD/tools/carboncocoa/carboncocoa.pri
-    include($$CARBONCOCOA_PRI)
+	CARBONCOCOA_PRI = $$PWD/tools/carboncocoa/carboncocoa.pri
+	include($$CARBONCOCOA_PRI)
 }
