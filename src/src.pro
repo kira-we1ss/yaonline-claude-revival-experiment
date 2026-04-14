@@ -210,6 +210,5 @@ mac {
 		mkdir -p `dirname $(TARGET)`/../Resources/iconsets/emoticons; \
 		cp -R tools/yastuff/iconsets/emoticons/* `dirname $(TARGET)`/../Resources/iconsets/emoticons; \
 		cp -R ../certs ../sound `dirname $(TARGET)`/../Resources; \
-		echo "APPLyach" > `dirname $(TARGET)`/../PkgInfo; \
-		cp ../dsa_pub.pem `dirname $(TARGET)`/../Resources;
+		echo "APPLyach" > `dirname $(TARGET)`/../PkgInfo;
 }
