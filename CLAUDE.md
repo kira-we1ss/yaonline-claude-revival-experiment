@@ -89,6 +89,13 @@ Each layer must produce a working build before starting the next.
 - New unit tests
 - Sparkle / auto-update
 
+## Environment (discovered during implementation)
+
+- **Qt 5 location:** `/usr/local/Cellar/qt@5/5.15.18` (Homebrew, NOT MacPorts)
+- **qmake path:** `/usr/local/opt/qt@5/bin/qmake` (Homebrew symlink)
+- **Qt includes:** `/usr/local/Cellar/qt@5/5.15.18/include/`
+- **MacPorts packages** (OpenSSL, zlib etc.) still at `/opt/local/`
+
 ## Instructions for Claude
 - **Update this file** whenever a layer is completed, a key decision is made, or something unexpected is discovered
 - **Update this file** when the implementation plan is written (add its path)
