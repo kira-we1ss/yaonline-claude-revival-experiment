@@ -21,5 +21,6 @@ void MacDock::stopBounce()
 
 void MacDock::overlay(const QString& text)
 {
-	[[NSApp dockTile] setBadgeLabel:(__bridge_transfer NSString *)QtCFString::toCFStringRef(text)];
+	NSString *str = (NSString *)CFBridgingRelease(QtCFString::toCFStringRef(text));
+	[[NSApp dockTile] setBadgeLabel:str];
 }
