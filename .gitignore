@@ -12,6 +12,7 @@
 *.dylib
 *.user
 *.xcodeproj
+CLAUDE.md
 
 # Mac OS X metadata
 ._*
