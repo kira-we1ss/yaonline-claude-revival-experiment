@@ -1,0 +1,12 @@
+diff -urN qt-mac-opensource-src-4.4.2.orig/src/gui/widgets/qtabbar.h qt-mac-opensource-src-4.4.2/src/gui/widgets/qtabbar.h
+--- qt-mac-opensource-src-4.4.2.orig/src/gui/widgets/qtabbar.h	2008-09-11 19:33:39.000000000 +0400
++++ qt-mac-opensource-src-4.4.2/src/gui/widgets/qtabbar.h	2008-10-06 12:55:01.000000000 +0400
+@@ -122,7 +122,7 @@
+     void setTabData(int index, const QVariant &data);
+     QVariant tabData(int index) const;
+ 
+-    QRect tabRect(int index) const;
++    virtual QRect tabRect(int index) const;
+     int tabAt(const QPoint &pos) const;
+ 
+ 

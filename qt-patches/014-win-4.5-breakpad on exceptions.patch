@@ -1,0 +1,313 @@
+diff --git a/src/corelib/concurrent/qtconcurrentthreadengine.cpp b/src/corelib/concurrent/qtconcurrentthreadengine.cpp
+index 97dbb91..d751248 100644
+--- a/src/corelib/concurrent/qtconcurrentthreadengine.cpp
++++ b/src/corelib/concurrent/qtconcurrentthreadengine.cpp
+@@ -38,6 +38,23 @@
+ 
+ #ifndef QT_NO_CONCURRENT
+ 
++#if defined(Q_WS_WIN) && !defined(Q_CC_GNU)
++#include <windows.h>
++
++extern int qt_breakpad_handleException(void* exceptionInfo);
++
++#define BREAKPAD_TRY \
++	__try {
++#define BREAKPAD_EXCEPT \
++	} \
++	__except(qt_breakpad_handleException(GetExceptionInformation())) { \
++		throw; \
++	}
++#else
++#define BREAKPAD_TRY /* noop */
++#define BREAKPAD_EXCEPT /* noop */
++#endif
++
+ QT_BEGIN_NAMESPACE
+ 
+ namespace QtConcurrent {
+@@ -65,15 +82,20 @@ void ThreadEngineBase::startBlocking()
+     startThreads();
+ 
+     bool throttled = false;
++#if 0
+ #ifndef QT_NO_EXCEPTIONS
+     try {
+ #endif
++#endif // if 0
++BREAKPAD_TRY
+         while (threadFunction() == ThrottleThread) {
+             if (threadThrottleExit()) {
+                 throttled = true;
+                 break;
+             }
+         }
++BREAKPAD_EXCEPT
++#if 0
+ #ifndef QT_NO_EXCEPTIONS
+     } catch (QtConcurrent::Exception &e) {
+         handleException(e);
+@@ -81,6 +103,7 @@ void ThreadEngineBase::startBlocking()
+         handleException(QtConcurrent::UnhandledException());
+     }
+ #endif
++#endif // if 0
+ 
+     if (throttled == false) {
+         semaphore.release();
+diff --git a/src/corelib/concurrent/qthreadpool.cpp b/src/corelib/concurrent/qthreadpool.cpp
+index 4d49a0c..e0ac97a 100644
+--- a/src/corelib/concurrent/qthreadpool.cpp
++++ b/src/corelib/concurrent/qthreadpool.cpp
+@@ -39,6 +39,23 @@
+ 
+ #ifndef QT_NO_THREAD
+ 
++#if defined(Q_WS_WIN) && !defined(Q_CC_GNU)
++#include <windows.h>
++
++extern int qt_breakpad_handleException(void* exceptionInfo);
++
++#define BREAKPAD_TRY \
++	__try {
++#define BREAKPAD_EXCEPT \
++	} \
++	__except(qt_breakpad_handleException(GetExceptionInformation())) { \
++		throw; \
++	}
++#else
++#define BREAKPAD_TRY /* noop */
++#define BREAKPAD_EXCEPT /* noop */
++#endif
++
+ QT_BEGIN_NAMESPACE
+ 
+ inline bool operator<(int priority, const QPair<QRunnable *, int> &p)
+@@ -95,10 +112,15 @@ void QThreadPoolThread::run()
+ 
+                 // run the task
+                 locker.unlock();
++#if 0
+ #ifndef QT_NO_EXCEPTIONS
+                 try {
+ #endif
++#endif // if 0
++BREAKPAD_TRY
+                     r->run();
++BREAKPAD_EXCEPT
++#if 0
+ #ifndef QT_NO_EXCEPTIONS
+                 } catch (...) {
+                     qWarning("Qt Concurrent has caught an exception thrown from a worker thread.\n"
+@@ -108,6 +130,7 @@ void QThreadPoolThread::run()
+                     throw;
+                 }
+ #endif
++#endif // if 0
+                 locker.relock();
+ 
+                 if (autoDelete && !--r->ref)
+diff --git a/src/corelib/kernel/qcoreapplication.cpp b/src/corelib/kernel/qcoreapplication.cpp
+index 6d3d79e..5da9b6a 100644
+--- a/src/corelib/kernel/qcoreapplication.cpp
++++ b/src/corelib/kernel/qcoreapplication.cpp
+@@ -78,6 +78,23 @@
+ #  include <locale.h>
+ #endif
+ 
++#if defined(Q_WS_WIN) && !defined(Q_CC_GNU)
++#include <windows.h>
++
++extern int qt_breakpad_handleException(void* exceptionInfo);
++
++#define BREAKPAD_TRY \
++	__try {
++#define BREAKPAD_EXCEPT \
++	} \
++	__except(qt_breakpad_handleException(GetExceptionInformation())) { \
++		throw; \
++	}
++#else
++#define BREAKPAD_TRY /* noop */
++#define BREAKPAD_EXCEPT /* noop */
++#endif
++
+ QT_BEGIN_NAMESPACE
+ 
+ #if defined(Q_WS_WIN) || defined(Q_WS_MAC)
+@@ -587,15 +604,23 @@ bool QCoreApplication::notifyInternal(QObject *receiver, QEvent *event)
+ #endif
+ 
+ #if defined(QT_NO_EXCEPTIONS)
++BREAKPAD_TRY
+     bool returnValue = notify(receiver, event);
++BREAKPAD_EXCEPT
+ #else
+     bool returnValue;
++#if 0
+     try {
++#endif // if 0
++BREAKPAD_TRY
+         returnValue = notify(receiver, event);
++BREAKPAD_EXCEPT
++#if 0
+     } catch(...) {
+         --threadData->loopLevel;
+         throw;
+     }
++#endif // if 0
+ #endif
+ 
+ #ifdef QT_JAMBI_BUILD
+diff --git a/src/corelib/kernel/qeventloop.cpp b/src/corelib/kernel/qeventloop.cpp
+index 8071a51..5b3b344 100644
+--- a/src/corelib/kernel/qeventloop.cpp
++++ b/src/corelib/kernel/qeventloop.cpp
+@@ -43,6 +43,23 @@
+ #include "qobject_p.h"
+ #include <private/qthread_p.h>
+ 
++#if defined(Q_WS_WIN) && !defined(Q_CC_GNU)
++#include <windows.h>
++
++extern int qt_breakpad_handleException(void* exceptionInfo);
++
++#define BREAKPAD_TRY \
++	__try {
++#define BREAKPAD_EXCEPT \
++	} \
++	__except(qt_breakpad_handleException(GetExceptionInformation())) { \
++		throw; \
++	}
++#else
++#define BREAKPAD_TRY /* noop */
++#define BREAKPAD_EXCEPT /* noop */
++#endif
++
+ QT_BEGIN_NAMESPACE
+ 
+ class QEventLoopPrivate : public QObjectPrivate
+@@ -187,12 +204,19 @@ int QEventLoop::exec(ProcessEventsFlags flags)
+         QCoreApplication::removePostedEvents(qApp, QEvent::Quit);
+ 
+ #if defined(QT_NO_EXCEPTIONS)
++BREAKPAD_TRY
+     while (!d->exit)
+         processEvents(flags | WaitForMoreEvents | EventLoopExec);
++BREAKPAD_EXCEPT
+ #else
++#if 0
+     try {
++#endif // if 0
++BREAKPAD_TRY
+         while (!d->exit)
+             processEvents(flags | WaitForMoreEvents | EventLoopExec);
++BREAKPAD_EXCEPT
++#if 0
+     } catch (...) {
+         qWarning("Qt has caught an exception thrown from an event handler. Throwing\n"
+                  "exceptions from an event handler is not supported in Qt. You must\n"
+@@ -207,6 +231,7 @@ int QEventLoop::exec(ProcessEventsFlags flags)
+ 
+         throw;
+     }
++#endif // if 0
+ #endif
+ 
+     // copied above
+diff --git a/src/corelib/kernel/qobject.cpp b/src/corelib/kernel/qobject.cpp
+index ae645b8..b15552f 100644
+--- a/src/corelib/kernel/qobject.cpp
++++ b/src/corelib/kernel/qobject.cpp
+@@ -59,6 +59,42 @@
+ #include <ctype.h>
+ #include <limits.h>
+ 
++#if defined(Q_WS_WIN) && !defined(Q_CC_GNU)
++typedef int (__stdcall *BREAKPAD_HandleException)(void*);
++
++static BREAKPAD_HandleException qt_breakpad_handleExceptionCallback = 0;
++
++void qt_breakpad_setHandleExceptionCallback(BREAKPAD_HandleException callback)
++{
++	qt_breakpad_handleExceptionCallback = callback;
++}
++
++int qt_breakpad_handleException(void* exceptionInfo)
++{
++	if (qt_breakpad_handleExceptionCallback) {
++		return qt_breakpad_handleExceptionCallback(exceptionInfo);
++		return EXCEPTION_EXECUTE_HANDLER;
++	}
++
++	return EXCEPTION_CONTINUE_SEARCH;
++}
++#endif
++
++#if defined(Q_WS_WIN) && !defined(Q_CC_GNU)
++extern int qt_breakpad_handleException(void* exceptionInfo);
++
++#define BREAKPAD_TRY \
++	__try {
++#define BREAKPAD_EXCEPT \
++	} \
++	__except(qt_breakpad_handleException(GetExceptionInformation())) { \
++		throw; \
++	}
++#else
++#define BREAKPAD_TRY /* noop */
++#define BREAKPAD_EXCEPT /* noop */
++#endif
++
+ QT_BEGIN_NAMESPACE
+ 
+ static int DIRECT_CONNECTION_ONLY = 0;
+@@ -1098,14 +1133,22 @@ bool QObject::event(QEvent *e)
+             QObjectPrivate::Sender * const previousSender =
+                 QObjectPrivate::setCurrentSender(this, &currentSender);
+ #if defined(QT_NO_EXCEPTIONS)
++BREAKPAD_TRY
+             mce->placeMetaCall(this);
++BREAKPAD_EXCEPT
+ #else
++#if 0
+             try {
++#endif // if 0
++BREAKPAD_TRY
+                 mce->placeMetaCall(this);
++BREAKPAD_EXCEPT
++#if 0
+             } catch (...) {
+                 QObjectPrivate::resetCurrentSender(this, &currentSender, previousSender);
+                 throw;
+             }
++#endif // if 0
+ #endif
+             QObjectPrivate::resetCurrentSender(this, &currentSender, previousSender);
+             break;
+@@ -3049,10 +3092,17 @@ void QMetaObject::activate(QObject *sender, int from_signal_index, int to_signal
+             }
+ 
+ #if defined(QT_NO_EXCEPTIONS)
++BREAKPAD_TRY
+             receiver->qt_metacall(QMetaObject::InvokeMetaMethod, method, argv ? argv : empty_argv);
++BREAKPAD_EXCEPT
+ #else
++#if 0
+             try {
++#endif // if 0
++BREAKPAD_TRY
+                 receiver->qt_metacall(QMetaObject::InvokeMetaMethod, method, argv ? argv : empty_argv);
++BREAKPAD_EXCEPT
++#if 0
+             } catch (...) {
+                 locker.relock();
+ 
+@@ -3064,6 +3114,7 @@ void QMetaObject::activate(QObject *sender, int from_signal_index, int to_signal
+                     delete connectionLists;
+                 throw;
+             }
++#endif // if 0
+ #endif
+ 
+             locker.relock();

@@ -1,0 +1,14 @@
+diff -urN qt-win-commercial-src-4.5.1.orig/src/gui/kernel/qwidget_win.cpp qt-win-commercial-src-4.5.1/src/gui/kernel/qwidget_win.cpp
+--- qt-win-commercial-src-4.5.1.orig/src/gui/kernel/qwidget_win.cpp	2009-04-22 02:01:56.000000000 +0400
++++ qt-win-commercial-src-4.5.1/src/gui/kernel/qwidget_win.cpp	2009-04-29 19:15:38.000000000 +0400
+@@ -363,6 +363,10 @@
+             } else {
+                  exsty |= WS_EX_TOOLWINDOW;
+             }
++
++            if (q->property("is-appwindow").toBool()) {
++                 exsty |= WS_EX_APPWINDOW;
++            }
+         }
+     }
+ 

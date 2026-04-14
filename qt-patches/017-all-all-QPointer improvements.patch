@@ -1,0 +1,129 @@
+diff -urN qt-win-commercial-src-4.5.1.orig/src/corelib/kernel/qpointer.h qt-win-commercial-src-4.5.1/src/corelib/kernel/qpointer.h
+--- qt-win-commercial-src-4.5.1.orig/src/corelib/kernel/qpointer.h	2009-04-22 03:57:41.000000000 +0400
++++ qt-win-commercial-src-4.5.1/src/corelib/kernel/qpointer.h	2009-05-22 17:41:17.000000000 +0400
+@@ -50,6 +50,18 @@
+ 
+ QT_MODULE(Core)
+ 
++#ifndef QT_NO_EXCEPTIONS
++#include <stdexcept>
++ 
++class QPointerIsNull : public std::runtime_error {
++public:
++    QPointerIsNull()
++        : std::runtime_error("QPointerIsNull")
++    {
++    }
++};
++#endif
++
+ template <class T>
+ class QPointer
+ {
+@@ -71,9 +83,19 @@
+         { return !o; }
+ 
+     inline T* operator->() const
+-        { return static_cast<T*>(const_cast<QObject*>(o)); }
++        {
++#ifndef QT_NO_EXCEPTIONS
++            if (isNull()) throw QPointerIsNull();
++#endif
++            return static_cast<T*>(const_cast<QObject*>(o));
++        }
+     inline T& operator*() const
+-        { return *static_cast<T*>(const_cast<QObject*>(o)); }
++        {
++#ifndef QT_NO_EXCEPTIONS
++            if (isNull()) throw QPointerIsNull();
++#endif
++            return *static_cast<T*>(const_cast<QObject*>(o));
++        }
+     inline operator T*() const
+         { return static_cast<T*>(const_cast<QObject*>(o)); }
+     inline T* data() const
+@@ -85,70 +107,70 @@
+ 
+ template <class T>
+ inline bool operator==(const T *o, const QPointer<T> &p)
+-{ return o == p.operator->(); }
++{ return o == p.data(); }
+ 
+ template<class T>
+ inline bool operator==(const QPointer<T> &p, const T *o)
+-{ return p.operator->() == o; }
++{ return p.data() == o; }
+ 
+ #else
+ 
+ template<class T>
+ inline bool operator==(const void *o, const QPointer<T> &p)
+-{ return o == p.operator->(); }
++{ return o == p.data(); }
+ 
+ template<class T>
+ inline bool operator==(const QPointer<T> &p, const void *o)
+-{ return p.operator->() == o; }
++{ return p.data() == o; }
+ 
+ #endif
+ 
+ template <class T>
+ inline bool operator==(T *o, const QPointer<T> &p)
+-{ return o == p.operator->(); }
++{ return o == p.data(); }
+ 
+ template<class T>
+ inline bool operator==(const QPointer<T> &p, T *o)
+-{ return p.operator->() == o; }
++{ return p.data() == o; }
+ 
+ template<class T>
+ inline bool operator==(const QPointer<T> &p1, const QPointer<T> &p2)
+-{ return p1.operator->() == p2.operator->(); }
++{ return p1.data() == p2.data(); }
+ 
+ 
+ #if (!defined(Q_CC_SUN) || (__SUNPRO_CC >= 0x580)) // ambiguity between const T * and T *
+ 
+ template <class T>
+ inline bool operator!=(const T *o, const QPointer<T> &p)
+-{ return o != p.operator->(); }
++{ return o != p.data(); }
+ 
+ template<class T>
+ inline bool operator!= (const QPointer<T> &p, const T *o)
+-{ return p.operator->() != o; }
++{ return p.data() != o; }
+ 
+ #else
+ 
+ template<class T>
+ inline bool operator!= (const void *o, const QPointer<T> &p)
+-{ return o != p.operator->(); }
++{ return o != p.data(); }
+ 
+ template<class T>
+ inline bool operator!= (const QPointer<T> &p, const void *o)
+-{ return p.operator->() != o; }
++{ return p.data() != o; }
+ 
+ #endif
+ 
+ template <class T>
+ inline bool operator!=(T *o, const QPointer<T> &p)
+-{ return o != p.operator->(); }
++{ return o != p.data(); }
+ 
+ template<class T>
+ inline bool operator!= (const QPointer<T> &p, T *o)
+-{ return p.operator->() != o; }
++{ return p.data() != o; }
+ 
+ template<class T>
+ inline bool operator!= (const QPointer<T> &p1, const QPointer<T> &p2)
+-{ return p1.operator->() != p2.operator->() ; }
++{ return p1.data() != p2.data() ; }
+ 
+ // Make MSVC < 1400 (2005) handle "if (NULL == p)" syntax
+ #if defined(Q_CC_MSVC) && (_MSC_VER < 1400)

@@ -1,0 +1,46 @@
+diff -urN qt-win-commercial-src-4.4.3.orig/src/gui/widgets/qscrollbar.cpp qt-win-commercial-src-4.4.3_mt4_static/src/gui/widgets/qscrollbar.cpp
+--- qt-win-commercial-src-4.4.3.orig/src/gui/widgets/qscrollbar.cpp	2008-09-27 11:00:58.000000000 +0400
++++ qt-win-commercial-src-4.4.3_mt4_static/src/gui/widgets/qscrollbar.cpp	2008-12-04 19:26:48.000000000 +0300
+@@ -318,6 +318,15 @@
+     option->upsideDown = d->invertedAppearance;
+     if (d->orientation == Qt::Horizontal)
+         option->state |= QStyle::State_Horizontal;
++
++    option->subControls = QStyle::SC_All;
++    if (d->pressedControl) {
++        option->activeSubControls = (QStyle::SubControl)d->pressedControl;
++        if (!d->pointerOutsidePressedControl)
++            option->state |= QStyle::State_Sunken;
++    } else {
++        option->activeSubControls = (QStyle::SubControl)d->hoverControl;
++    }
+ }
+ 
+ 
+@@ -529,14 +538,6 @@
+     QPainter p(this);
+     QStyleOptionSlider opt;
+     initStyleOption(&opt);
+-    opt.subControls = QStyle::SC_All;
+-    if (d->pressedControl) {
+-        opt.activeSubControls = (QStyle::SubControl)d->pressedControl;
+-        if (!d->pointerOutsidePressedControl)
+-            opt.state |= QStyle::State_Sunken;
+-    } else {
+-        opt.activeSubControls = (QStyle::SubControl)d->hoverControl;
+-    }
+     style()->drawComplexControl(QStyle::CC_ScrollBar, &opt, &p, this);
+ }
+ 
+diff -urN qt-win-commercial-src-4.4.3.orig/src/gui/widgets/qscrollbar.h qt-win-commercial-src-4.4.3_mt4_static/src/gui/widgets/qscrollbar.h
+--- qt-win-commercial-src-4.4.3.orig/src/gui/widgets/qscrollbar.h	2008-09-27 11:00:58.000000000 +0400
++++ qt-win-commercial-src-4.4.3_mt4_static/src/gui/widgets/qscrollbar.h	2008-12-04 19:26:20.000000000 +0300
+@@ -73,7 +73,7 @@
+ #ifndef QT_NO_CONTEXTMENU
+     void contextMenuEvent(QContextMenuEvent *);
+ #endif
+-    void initStyleOption(QStyleOptionSlider *option) const;
++    virtual void initStyleOption(QStyleOptionSlider *option) const;
+ 
+ #ifdef QT3_SUPPORT
+ public:

@@ -1,0 +1,29 @@
+diff -urN qt-win-commercial-src-4.4.3.orig/src/activeqt/control/qaxserver.cpp qt-win-commercial-src-4.4.3_mt4_static/src/activeqt/control/qaxserver.cpp
+--- qt-win-commercial-src-4.4.3.orig/src/activeqt/control/qaxserver.cpp	2008-09-27 11:00:56.000000000 +0400
++++ qt-win-commercial-src-4.4.3_mt4_static/src/activeqt/control/qaxserver.cpp	2008-10-20 16:19:52.000000000 +0400
+@@ -34,6 +34,7 @@
+ 
+ #include <qt_windows.h>
+ #include <olectl.h>
++#include <shlobj.h>
+ 
+ QT_BEGIN_NAMESPACE
+ 
+@@ -220,10 +221,14 @@
+ 
+     // check whether the user has permission to write to HKLM\Software\Classes
+     // if not, use HKCU\Software\Classes
+-    QString keyPath(QLatin1String("HKEY_LOCAL_MACHINE\\Software\\Classes"));
+-    QSettings test(keyPath, QSettings::NativeFormat);
+-    if (!test.isWritable())
++    // QString keyPath(QLatin1String("HKEY_LOCAL_MACHINE\\Software\\Classes"));
++    // QSettings test(keyPath, QSettings::NativeFormat);
++    // if (!test.isWritable())
++    //     keyPath = QLatin1String("HKEY_CURRENT_USER\\Software\\Classes");
++    QString keyPath(QLatin1String("HKEY_CLASSES_ROOT"));
++    if (!IsUserAnAdmin()) {
+         keyPath = QLatin1String("HKEY_CURRENT_USER\\Software\\Classes");
++    }
+ 
+     QSettings settings(keyPath, QSettings::NativeFormat);
+     

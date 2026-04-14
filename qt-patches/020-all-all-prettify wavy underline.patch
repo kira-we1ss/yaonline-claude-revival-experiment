@@ -1,0 +1,60 @@
+diff --git a/src/gui/painting/qpainter.cpp b/src/gui/painting/qpainter.cpp
+index 263e53e..01af043 100644
+--- a/src/gui/painting/qpainter.cpp
++++ b/src/gui/painting/qpainter.cpp
+@@ -6007,6 +6007,31 @@ static QPainterPath generateWavyPath(qreal minWidth, qreal maxRadius, QPaintDevi
+     return path;
+ }
+ 
++static QPixmap createTransparentPixmap(int width, int height)
++{
++	QPixmap pix(width, height);
++	QBitmap mask(width, height);
++	pix.fill();
++	mask.clear();
++	pix.setMask(mask);
++	return pix;
++}
++
++static QPixmap generateWavyPattern(QPainter* painter)
++{
++	static QPixmap pattern;
++	if (pattern.isNull()) {
++		pattern = createTransparentPixmap(4, 2);
++		QPainter p2(&pattern);
++		p2.setPen(painter->pen());
++		p2.fillRect(pattern.rect(), Qt::transparent);
++		p2.drawLine(0, 0, 0, 0);
++		p2.drawLine(1, 1, 2, 1);
++		p2.drawLine(3, 0, 4, 0);
++	}
++	return pattern;
++}
++
+ static void drawTextItemDecoration(QPainter *painter, const QPointF &pos, const QTextItemInt &ti)
+ {
+     QTextCharFormat::UnderlineStyle underlineStyle = ti.underlineStyle;
+@@ -6035,16 +6060,19 @@ static void drawTextItemDecoration(QPainter *painter, const QPointF &pos, const
+ 
+     if (underlineStyle == QTextCharFormat::WaveUnderline) {
+         painter->save();
+-        painter->setRenderHint(QPainter::Antialiasing);
++        // painter->setRenderHint(QPainter::Antialiasing);
+         painter->translate(pos.x(), underlinePos);
+ 
+         QColor uc = ti.charFormat.underlineColor();
+         if (uc.isValid())
+             painter->setPen(uc);
+ 
+-        painter->drawPath(generateWavyPath(ti.width.toReal(),
+-                                           fe->underlinePosition().toReal(),
+-                                           painter->device()));
++        QPixmap pattern = generateWavyPattern(painter);
++        QRect underlineRect(0, 0, ti.width.toInt(), pattern.height());
++        painter->drawTiledPixmap(underlineRect, pattern);
++        // painter->drawPath(generateWavyPath(ti.width.toReal(),
++        //                                    fe->underlinePosition().toReal(),
++        //                                    painter->device()));
+         painter->restore();
+     } else if (underlineStyle != QTextCharFormat::NoUnderline) {
+         QLineF underLine(line.x1(), underlinePos, line.x2(), underlinePos);

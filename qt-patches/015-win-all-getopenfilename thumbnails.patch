@@ -1,0 +1,104 @@
+diff --git a/src/gui/dialogs/qfiledialog_win.cpp b/src/gui/dialogs/qfiledialog_win.cpp
+index d0b1ae6..a98a0d5 100644
+--- a/src/gui/dialogs/qfiledialog_win.cpp
++++ b/src/gui/dialogs/qfiledialog_win.cpp
+@@ -201,6 +201,55 @@ static QByteArray aTitle;
+ static QByteArray aFilter;
+ // Use ANSI strings and API
+ 
++UINT_PTR CALLBACK ya_ofn_hook_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
++{
++	Q_UNUSED(wParam);
++	Q_UNUSED(lParam);
++
++	static const WPARAM SHVIEW_ICON = 0x7029;
++	static const WPARAM SHVIEW_LIST = 0x702B;
++	static const WPARAM SHVIEW_REPORT = 0x702C;
++	static const WPARAM SHVIEW_THUMBNAIL = 0x702D;
++	static const WPARAM SHVIEW_TILE = 0x702E;
++
++	static const WPARAM VISTA_TABLE = 0x704B;
++	static const WPARAM VISTA_TILE = 0x704C;
++	static const WPARAM VISTA_HUGE_ICONS = 0x704D;
++	static const WPARAM VISTA_MEDIUM_ICONS = 0x704E;
++	static const WPARAM VISTA_BIG_ICONS = 0x704F;
++	static const WPARAM VISTA_SMALL_ICONS = 0x7050;
++	static const WPARAM VISTA_LIST = 0x7051;
++
++	static bool bLvSetupDone = false;
++	switch (uMsg) {
++	case WM_INITDIALOG:
++		bLvSetupDone = false;
++		break;
++	case WM_NOTIFY:
++		if (!bLvSetupDone) {
++			HWND hWndParent = GetParent(hwnd);
++			HWND hwndLv;
++			QT_WA({
++				hwndLv = FindWindowExW(hWndParent, 0, L"SHELLDLL_DefView", 0);
++			} , {
++				hwndLv = FindWindowExA(hWndParent, 0, "SHELLDLL_DefView", 0);
++			});
++			if (hwndLv) {
++				if (QSysInfo::WindowsVersion >= QSysInfo::WV_VISTA)
++					SendMessage(hwndLv, WM_COMMAND, VISTA_MEDIUM_ICONS, 0);
++				else
++					SendMessage(hwndLv, WM_COMMAND, SHVIEW_THUMBNAIL, 0);
++				bLvSetupDone = true;
++			}
++		}
++		break;
++	default:
++		;
++	}
++
++	return 0;
++}
++
+ // If you change this, then make sure you change qt_win_make_OFN (below) too
+ static OPENFILENAMEA *qt_win_make_OFNA(QWidget *parent,
+ 				       const QString &initialSelection,
+@@ -251,7 +300,7 @@ static OPENFILENAMEA *qt_win_make_OFNA(QWidget *parent,
+     ofn->nMaxFile = maxLen;
+     ofn->lpstrInitialDir = aInitDir.data();
+     ofn->lpstrTitle = aTitle.data();
+-    ofn->Flags = (OFN_NOCHANGEDIR | OFN_HIDEREADONLY | OFN_EXPLORER);
++    ofn->Flags = (OFN_NOCHANGEDIR | OFN_HIDEREADONLY | OFN_EXPLORER | OFN_ENABLEHOOK);
+ 
+     if (mode == QFileDialog::ExistingFile ||
+          mode == QFileDialog::ExistingFiles)
+@@ -261,6 +310,10 @@ static OPENFILENAMEA *qt_win_make_OFNA(QWidget *parent,
+     if (!(options & QFileDialog::DontConfirmOverwrite))
+         ofn->Flags |= OFN_OVERWRITEPROMPT;
+ 
++	if (options & 0x8000) {
++		ofn->lpfnHook = ya_ofn_hook_proc;
++	}
++
+     return ofn;
+ }
+ 
+@@ -327,7 +380,7 @@ static OPENFILENAME* qt_win_make_OFN(QWidget *parent,
+     ofn->nMaxFile = maxLen;
+     ofn->lpstrInitialDir = (TCHAR *)tInitDir.utf16();
+     ofn->lpstrTitle = (TCHAR *)tTitle.utf16();
+-    ofn->Flags = (OFN_NOCHANGEDIR | OFN_HIDEREADONLY | OFN_EXPLORER);
++    ofn->Flags = (OFN_NOCHANGEDIR | OFN_HIDEREADONLY | OFN_EXPLORER | OFN_ENABLEHOOK);
+     if (mode == QFileDialog::ExistingFile ||
+          mode == QFileDialog::ExistingFiles)
+         ofn->Flags |= (OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST);
+@@ -336,10 +389,13 @@ static OPENFILENAME* qt_win_make_OFN(QWidget *parent,
+     if (!(options & QFileDialog::DontConfirmOverwrite))
+         ofn->Flags |= OFN_OVERWRITEPROMPT;
+ 
++	if (options & 0x8000) {
++		ofn->lpfnHook = ya_ofn_hook_proc;
++	}
++
+     return ofn;
+ }
+ 
+-
+ static void qt_win_clean_up_OFN(OPENFILENAME **ofn)
+ {
+     delete [] (*ofn)->lpstrFile;

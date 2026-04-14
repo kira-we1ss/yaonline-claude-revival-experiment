@@ -1,0 +1,12 @@
+diff -urN qt-win-commercial-src-4.5.1.orig/src/activeqt/control/qaxservermain.cpp qt-win-commercial-src-4.5.1/src/activeqt/control/qaxservermain.cpp
+--- qt-win-commercial-src-4.5.1.orig/src/activeqt/control/qaxservermain.cpp	2009-04-22 02:01:56.000000000 +0400
++++ qt-win-commercial-src-4.5.1/src/activeqt/control/qaxservermain.cpp	2009-06-25 15:40:34.000000000 +0400
+@@ -269,7 +269,7 @@
+         nRet = ::main(argc, argv.data());
+         QAxFactory::stopServer();
+         qAxCleanup();
+-        CoUninitialize();
++//        CoUninitialize();
+         
+     }
+     
