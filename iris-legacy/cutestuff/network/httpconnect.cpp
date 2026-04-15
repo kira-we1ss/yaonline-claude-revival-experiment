@@ -44,7 +44,7 @@ static QString extractLine(QByteArray *buf, bool *found)
 	}
 	else {
 		// Found newline
-		QString s = QString::fromAscii(buf->left(index));
+		QString s = QString::fromLatin1(buf->left(index));
 		buf->remove(0, index + 2);
 
 		if (found)
@@ -55,13 +55,13 @@ static QString extractLine(QByteArray *buf, bool *found)
 
 static bool extractMainHeader(const QString &line, QString *proto, int *code, QString *msg)
 {
-	int n = line.find(' ');
+	int n = line.indexOf(' ');
 	if(n == -1)
 		return false;
 	if(proto)
 		*proto = line.mid(0, n);
 	++n;
-	int n2 = line.find(' ', n);
+	int n2 = line.indexOf(' ', n);
 	if(n2 == -1)
 		return false;
 	if(code)
@@ -204,10 +204,8 @@ void HttpConnect::sock_connected()
 	s += "\r\n";
 
 	QByteArray cs = s.toUtf8();
-	QByteArray block(cs.length());
-	memcpy(block.data(), cs.data(), block.size());
-	d->toWrite = block.size();
-	d->sock.write(block);
+	d->toWrite = cs.size();
+	d->sock.write(cs);
 }
 
 void HttpConnect::sock_connectionClosed()
@@ -253,7 +251,7 @@ void HttpConnect::sock_readyRead()
 			// done with grabbing the header?
 			if(!d->inHeader) {
 				QString str = d->headerLines.first();
-				d->headerLines.remove(d->headerLines.begin());
+				d->headerLines.removeFirst();
 
 				QString proto;
 				int code;

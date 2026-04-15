@@ -39,7 +39,7 @@
 #include <libidn/idna.h>
 
 #ifdef NO_NDNS
-#include <q3dns.h>
+#include <QDnsLookup>
 #else
 #include "ndns.h"
 #endif
@@ -200,7 +200,7 @@ public:
 	int mode;
 	ByteStream *bs;
 #ifdef NO_NDNS
-	Q3Dns *qdns;
+	QDnsLookup *qdns;
 #else
 	NDns dns;
 #endif
@@ -214,7 +214,7 @@ public:
 
 	QString host;
 	int port;
-	QList<Q3Dns::Server> servers;
+	QList<SrvServer> servers;
 	int errorCode;
 
 	bool multi, using_srv;
@@ -411,13 +411,10 @@ void AdvancedConnector::do_resolve()
 {
 #ifdef NO_NDNS
 	printf("resolving (aaaa=%d)\n", d->aaaa);
-	d->qdns = new Q3Dns;
-	connect(d->qdns, SIGNAL(resultsReady()), SLOT(dns_done()));
-	if(d->aaaa)
-		d->qdns->setRecordType(Q3Dns::Aaaa); // IPv6
-	else
-		d->qdns->setRecordType(Q3Dns::A); // IPv4
-	d->qdns->setLabel(d->host);
+	QDnsLookup::Type qtype = d->aaaa ? QDnsLookup::AAAA : QDnsLookup::A;
+	d->qdns = new QDnsLookup(qtype, d->host, this);
+	connect(d->qdns, SIGNAL(finished()), SLOT(dns_done()));
+	d->qdns->lookup();
 #else
 	d->dns.resolve(d->host);
 #endif
@@ -439,7 +436,9 @@ void AdvancedConnector::dns_done()
 	//SafeDeleteLock s(&d->sd);
 
         // grab the address list and destroy the qdns object
-	QList<QHostAddress> list = d->qdns->addresses();
+	QList<QHostAddress> list;
+	for(const QDnsHostAddressRecord &rec : d->qdns->hostAddressRecords())
+		list.append(rec.value());
 	d->qdns->disconnect(this);
 	d->qdns->deleteLater();
 	//d->sd.deleteLater(d->qdns);
@@ -562,7 +561,7 @@ void AdvancedConnector::tryNextSrv()
 #endif
 	d->host = d->servers.first().name;
 	d->port = d->servers.first().port;
-	d->servers.remove(d->servers.begin());
+	d->servers.removeFirst();
 	do_resolve();
 }
 

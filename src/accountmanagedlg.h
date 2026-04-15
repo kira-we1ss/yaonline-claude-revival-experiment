@@ -32,7 +32,7 @@ namespace XMPP
 
 class PsiCon;
 class PsiAccount;
-class Q3ListViewItem;
+class QTreeWidgetItem;
 
 class AccountManageDlg : public QDialog, public Ui::AccountManage
 {
@@ -42,10 +42,11 @@ public:
 	~AccountManageDlg();
 
 private slots:
-	void qlv_selectionChanged(Q3ListViewItem *);
+	void qlv_selectionChanged();
+	void qlv_itemChanged(QTreeWidgetItem *, int);
 	void add();
 	void modify();
-	void modify(Q3ListViewItem *);
+	void modify(QTreeWidgetItem *);
 	void remove();
 	void accountAdded(PsiAccount *);
 	void accountUpdated(PsiAccount *);

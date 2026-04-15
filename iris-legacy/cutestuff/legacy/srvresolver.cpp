@@ -21,11 +21,10 @@
 #include "srvresolver.h"
 
 #include <QByteArray>
-#include <qtimer.h>
-#include <q3dns.h>
-//Added by qt3to4:
-#include <QList>
-#include <QtAlgorithms>
+#include <QTimer>
+#include <QDnsLookup>
+#include <QHostAddress>
+#include <algorithm>
 #include "safedelete.h"
 #include "psilogger.h"
 
@@ -35,7 +34,7 @@
 
 // CS_NAMESPACE_BEGIN
 
-bool serverLessThan(const Q3Dns::Server &s1, const Q3Dns::Server &s2)
+static bool serverLessThan(const SrvServer &s1, const SrvServer &s2)
 {
 	int a = s1.priority;
 	int b = s2.priority;
@@ -44,9 +43,9 @@ bool serverLessThan(const Q3Dns::Server &s1, const Q3Dns::Server &s2)
 	return a < b || (a == b && j < k);
 }
 
-static void sortSRVList(QList<Q3Dns::Server> &list)
+static void sortSRVList(QList<SrvServer> &list)
 {
-	qStableSort(list.begin(), list.end(), serverLessThan);
+	std::stable_sort(list.begin(), list.end(), serverLessThan);
 }
 
 class SrvResolver::Private
@@ -54,7 +53,7 @@ class SrvResolver::Private
 public:
 	Private() {}
 
-	Q3Dns *qdns;
+	QDnsLookup *qdns;
 #ifndef NO_NDNS
 	NDns ndns;
 #endif
@@ -65,7 +64,7 @@ public:
 
 	bool srvonly;
 	QString srv;
-	QList<Q3Dns::Server> servers;
+	QList<SrvServer> servers;
 	bool aaaa;
 
 	QTimer t;
@@ -99,11 +98,11 @@ void SrvResolver::resolve(const QString &server, const QString &type, const QStr
 	d->failed = false;
 	d->srvonly = srvOnly;
 	d->srv = QString("_") + type + "._" + proto + '.' + server;
-	d->t.start(15000, true);
-	d->qdns = new Q3Dns;
-	connect(d->qdns, SIGNAL(resultsReady()), SLOT(qdns_done()));
-	d->qdns->setRecordType(Q3Dns::Srv);
-	d->qdns->setLabel(d->srv);
+	d->t.setSingleShot(true);
+	d->t.start(15000);
+	d->qdns = new QDnsLookup(QDnsLookup::SRV, d->srv, this);
+	connect(d->qdns, SIGNAL(finished()), SLOT(qdns_done()));
+	d->qdns->lookup();
 }
 
 void SrvResolver::resolve(const QString &server, const QString &type, const QString &proto)
@@ -156,7 +155,7 @@ bool SrvResolver::isBusy() const
 		return false;
 }
 
-QList<Q3Dns::Server> SrvResolver::servers() const
+QList<SrvServer> SrvResolver::servers() const
 {
 	return d->servers;
 }
@@ -182,33 +181,36 @@ void SrvResolver::tryNext()
 	PsiLogger::instance()->log(QString("SrvResolver(%1)::tryNext() d->ndns.resolve(%2)").arg(d->srv).arg(d->servers.first().name));
 	d->ndns.resolve(d->servers.first().name);
 #else
-	d->qdns = new Q3Dns;
-	connect(d->qdns, SIGNAL(resultsReady()), SLOT(ndns_done()));
-	if(d->aaaa)
-		d->qdns->setRecordType(Q3Dns::Aaaa); // IPv6
-	else
-		d->qdns->setRecordType(Q3Dns::A); // IPv4
-	d->qdns->setLabel(d->servers.first().name);
+	QDnsLookup::Type qtype = d->aaaa ? QDnsLookup::AAAA : QDnsLookup::A;
+	d->qdns = new QDnsLookup(qtype, d->servers.first().name, this);
+	connect(d->qdns, SIGNAL(finished()), SLOT(ndns_done()));
+	d->qdns->lookup();
 #endif
 }
 
 void SrvResolver::qdns_done()
 {
-	PsiLogger::instance()->log(QString("SrvResolver(%1)::qdns_done() d->qdns = %2; d->qdns->isWorking() = %3; d->qdns->servers().count() = %4").arg(d->srv).arg((long)d->qdns).arg(d->qdns ? d->qdns->isWorking() : 0).arg(d->qdns ? d->qdns->servers().count() : 0));
 	if(!d->qdns)
 		return;
 
-	// apparently we sometimes get this signal even though the results aren't ready
-	if(d->qdns->isWorking())
-		return;
+	if(d->qdns->error() != QDnsLookup::NoError) {
+		PsiLogger::instance()->log(QString("SrvResolver(%1)::qdns_done() error=%2").arg(d->srv).arg(d->qdns->errorString()));
+	}
+
 	d->t.stop();
 
 	SafeDeleteLock s(&d->sd);
 
 	// grab the server list and destroy the qdns object
-	QList<Q3Dns::Server> list;
-	if(d->qdns->recordType() == Q3Dns::Srv)
-		list = d->qdns->servers();
+	QList<SrvServer> list;
+	for(const QDnsServiceRecord &rec : d->qdns->serviceRecords()) {
+		SrvServer srv;
+		srv.name     = rec.target();
+		srv.port     = rec.port();
+		srv.priority = rec.priority();
+		srv.weight   = rec.weight();
+		list.append(srv);
+	}
 	d->qdns->disconnect(this);
 	d->sd.deleteLater(d->qdns);
 	d->qdns = 0;
@@ -224,7 +226,6 @@ void SrvResolver::qdns_done()
 	if(d->srvonly)
 		resultsReady();
 	else {
-		// kick it off
 		d->aaaa = true;
 		tryNext();
 	}
@@ -237,7 +238,7 @@ void SrvResolver::ndns_done()
 
 	QHostAddress r = d->ndns.result();
 	int port = d->servers.first().port;
-	d->servers.remove(d->servers.begin());
+	d->servers.removeFirst();
 
 	PsiLogger::instance()->log(QString("SrvResolver(%1)::ndns_done() r.isNull = %2, r = %3, port = %4").arg(d->srv).arg(r.isNull()).arg(r.toString()).arg(port));
 
@@ -247,37 +248,30 @@ void SrvResolver::ndns_done()
 		resultsReady();
 	}
 	else {
-		// failed?  bail if last one
 		if(d->servers.isEmpty()) {
 			stop();
 			resultsReady();
 			return;
 		}
-
-		// otherwise try the next
 		tryNext();
 	}
 #else
 	if(!d->qdns)
 		return;
 
-	// apparently we sometimes get this signal even though the results aren't ready
-	if(d->qdns->isWorking())
-		return;
-
 	SafeDeleteLock s(&d->sd);
 
 	// grab the address list and destroy the qdns object
 	QList<QHostAddress> list;
-	if(d->qdns->recordType() == Q3Dns::A || d->qdns->recordType() == Q3Dns::Aaaa)
-		list = d->qdns->addresses();
+	for(const QDnsHostAddressRecord &rec : d->qdns->hostAddressRecords())
+		list.append(rec.value());
 	d->qdns->disconnect(this);
 	d->sd.deleteLater(d->qdns);
 	d->qdns = 0;
 
 	if(!list.isEmpty()) {
 		int port = d->servers.first().port;
-		d->servers.remove(d->servers.begin());
+		d->servers.removeFirst();
 		d->aaaa = true;
 
 		d->resultAddress = list.first();
@@ -286,17 +280,14 @@ void SrvResolver::ndns_done()
 	}
 	else {
 		if(!d->aaaa)
-			d->servers.remove(d->servers.begin());
+			d->servers.removeFirst();
 		d->aaaa = !d->aaaa;
 
-		// failed?  bail if last one
 		if(d->servers.isEmpty()) {
 			stop();
 			resultsReady();
 			return;
 		}
-
-		// otherwise try the next
 		tryNext();
 	}
 #endif

@@ -81,7 +81,6 @@
 #include "deliveryconfirmationmanager.h"
 #include "rosteritemexchangetask.h"
 #include "chatdlg.h"
-#include "contactview.h"
 #include "mood.h"
 #include "tune.h"
 #ifdef USE_PEP

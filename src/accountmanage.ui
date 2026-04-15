@@ -28,38 +28,20 @@
             <number>0</number>
           </property>
           <item>
-            <widget class="Q3ListView" name="lv_accs" >
+            <widget class="QTreeWidget" name="lv_accs" >
               <column>
                 <property name="text" >
                   <string>Name</string>
-                </property>
-                <property name="clickable" >
-                  <bool>true</bool>
-                </property>
-                <property name="resizable" >
-                  <bool>true</bool>
                 </property>
               </column>
               <column>
                 <property name="text" >
                   <string>Server</string>
                 </property>
-                <property name="clickable" >
-                  <bool>true</bool>
-                </property>
-                <property name="resizable" >
-                  <bool>true</bool>
-                </property>
               </column>
               <column>
                 <property name="text" >
                   <string>Status</string>
-                </property>
-                <property name="clickable" >
-                  <bool>true</bool>
-                </property>
-                <property name="resizable" >
-                  <bool>true</bool>
                 </property>
               </column>
             </widget>

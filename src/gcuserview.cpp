@@ -21,9 +21,14 @@
 #include "gcuserview.h"
 
 #include <QPainter>
-#include <Q3Header>
-#include <Q3TextDrag>
+#include <QMimeData>
 #include <QMenu>
+#include <QAction>
+#include <QHelpEvent>
+#include <QHeaderView>
+#include <QStyledItemDelegate>
+#include <QApplication>
+#include <QFontMetrics>
 
 #include "capsmanager.h"
 #include "psitooltip.h"
@@ -40,25 +45,68 @@ static bool caseInsensitiveLessThan(const QString &s1, const QString &s2)
 }
 
 //----------------------------------------------------------------------------
+// GCGroupDelegate — custom rendering for group header items
+//----------------------------------------------------------------------------
+
+class GCGroupDelegate : public QStyledItemDelegate
+{
+public:
+	explicit GCGroupDelegate(QObject *parent = nullptr) : QStyledItemDelegate(parent) {}
+
+	void paint(QPainter *painter, const QStyleOptionViewItem &option,
+	           const QModelIndex &index) const override
+	{
+		// Only custom-paint top-level (group) items
+		if (index.parent().isValid()) {
+			QStyledItemDelegate::paint(painter, option, index);
+			return;
+		}
+
+		QStyleOptionViewItem opt = option;
+		initStyleOption(&opt, index);
+
+		painter->save();
+
+		QFont f = opt.font;
+		f.setPointSize(option.font.pointSize() - 1);
+		painter->setFont(f);
+
+		QPalette pal = opt.palette;
+		painter->setPen(pal.color(QPalette::Text));
+
+		QString text = index.data(Qt::DisplayRole).toString();
+		QFontMetrics fm(f);
+		int textWidth = fm.horizontalAdvance(text) + 8;
+
+		painter->drawText(opt.rect.adjusted(4, 0, 0, 0), Qt::AlignVCenter, text);
+
+		// Draw decorative line after text
+		if (textWidth < opt.rect.width() - 8) {
+			int h = opt.rect.center().y();
+			painter->setPen(QPen(pal.color(QPalette::Mid)));
+			painter->drawLine(textWidth, h, opt.rect.width() - 8, h);
+			painter->setPen(QPen(pal.color(QPalette::Dark)));
+			painter->drawLine(textWidth, h + 1, opt.rect.width() - 8, h + 1);
+		}
+
+		painter->restore();
+	}
+};
+
+//----------------------------------------------------------------------------
 // GCUserViewItem
 //----------------------------------------------------------------------------
 
 GCUserViewItem::GCUserViewItem(GCUserViewGroupItem *par)
 	: QObject()
-	, Q3ListViewItem(par)
+	, QTreeWidgetItem(par)
 {
-	setDragEnabled(true);
+	setFlags(flags() | Qt::ItemIsDragEnabled);
 }
 
-void GCUserViewItem::paintFocus(QPainter *, const QColorGroup &, const QRect &)
+bool GCUserViewItem::operator<(const QTreeWidgetItem &other) const
 {
-	// re-implimented to do nothing.  selection is enough of a focus
-}
-
-void GCUserViewItem::paintBranches(QPainter *p, const QColorGroup &cg, int w, int, int h)
-{
-	// paint a square of nothing
-	p->fillRect(0, 0, w, h, cg.base());
+	return text(0).toLower() < other.text(0).toLower();
 }
 
 //----------------------------------------------------------------------------
@@ -66,60 +114,19 @@ void GCUserViewItem::paintBranches(QPainter *p, const QColorGroup &cg, int w, in
 //----------------------------------------------------------------------------
 
 GCUserViewGroupItem::GCUserViewGroupItem(GCUserView *par, const QString& t, int k)
-:Q3ListViewItem(par,t), key_(k)
+	: QTreeWidgetItem(par)
+	, key_(k)
 {
-	setDragEnabled(false);
+	setText(0, t);
+	setFlags(flags() & ~Qt::ItemIsDragEnabled & ~Qt::ItemIsSelectable);
 }
 
-void GCUserViewGroupItem::paintCell(QPainter *p, const QColorGroup & cg, int column, int width, int alignment)
+bool GCUserViewGroupItem::operator<(const QTreeWidgetItem &other) const
 {
-	QColorGroup xcg = cg;
-	QFont f = p->font();
-	f.setPointSize(option.smallFontSize);
-	p->setFont(f);
-	xcg.setColor(QColorGroup::Text, option.color[cGroupFore]);
-	if (!option.clNewHeadings) {
-		#if QT_VERSION < 0x040301
-			xcg.setColor(QColorGroup::Background, option.color[cGroupBack]);
-		#else
-			xcg.setColor(QColorGroup::Base, option.color[cGroupBack]);
-		#endif
-	}
-	Q3ListViewItem::paintCell(p, xcg, column, width, alignment);
-	if (option.clNewHeadings && !isSelected()) {
-		QFontMetrics fm(p->font());
-		int x = fm.width(text(column)) + 8;
-		if(x < width - 8) {
-			int h = (height() / 2) - 1;
-			p->setPen(QPen(option.color[cGroupBack]));
-			p->drawLine(x, h, width - 8, h);
-			h++;
-			p->setPen(QPen(option.color[cGroupFore]));
-			p->drawLine(x, h, width - 8, h);
-		}
-	}
-}
-
-void GCUserViewGroupItem::paintFocus(QPainter *, const QColorGroup &, const QRect &)
-{
-	// re-implimented to do nothing.  selection is enough of a focus
-}
-
-void GCUserViewGroupItem::paintBranches(QPainter *p, const QColorGroup &cg, int w, int, int h)
-{
-	// paint a square of nothing
-	p->fillRect(0, 0, w, h, cg.base());
-}
-
-int GCUserViewGroupItem::compare(Q3ListViewItem *i, int col, bool ascending) const
-{
-	Q_UNUSED(ascending);	// Qt docs say: "your code can safely ignore it"
-
-	if (col == 0)
-		// groups are never compared to users, so static_cast is safe
-		return this->key_ - static_cast<GCUserViewGroupItem*>(i)->key_;
-	else
-		return Q3ListViewItem::compare(i, col, ascending);
+	const GCUserViewGroupItem *g = dynamic_cast<const GCUserViewGroupItem*>(&other);
+	if (g)
+		return key_ < g->key_;
+	return QTreeWidgetItem::operator<(other);
 }
 
 //----------------------------------------------------------------------------
@@ -127,25 +134,32 @@ int GCUserViewGroupItem::compare(Q3ListViewItem *i, int col, bool ascending) con
 //----------------------------------------------------------------------------
 
 GCUserView::GCUserView(QWidget* parent)
-	: Q3ListView(parent)
+	: QTreeWidget(parent)
 	, gcDlg_(0)
 {
-	setResizeMode(Q3ListView::AllColumns);
-	setTreeStepSize(0);
-	setShowToolTips(false);
-	header()->hide();
-	addColumn("");
-	setSortColumn(0);
-	Q3ListViewItem* i;
-	i = new GCUserViewGroupItem(this, tr("Visitors"), 3);
-	i->setOpen(true);
-	i = new GCUserViewGroupItem(this, tr("Participants"), 2);
-	i->setOpen(true);
-	i = new GCUserViewGroupItem(this, tr("Moderators"), 1);
-	i->setOpen(true);
+	setHeaderHidden(true);
+	setRootIsDecorated(false);
+	setIndentation(12);
+	setSelectionMode(QAbstractItemView::SingleSelection);
+	setDragEnabled(true);
+	setDragDropMode(QAbstractItemView::DragOnly);
+	setContextMenuPolicy(Qt::CustomContextMenu);
+	setItemDelegate(new GCGroupDelegate(this));
+	setSortingEnabled(true);
+	sortItems(0, Qt::AscendingOrder);
 
-	connect(this, SIGNAL(doubleClicked(Q3ListViewItem *)), SLOT(qlv_doubleClicked(Q3ListViewItem *)));
-	connect(this, SIGNAL(contextMenuRequested(Q3ListViewItem *, const QPoint &, int)), SLOT(qlv_contextMenuRequested(Q3ListViewItem *, const QPoint &, int)));
+	QTreeWidgetItem *i;
+	i = new GCUserViewGroupItem(this, tr("Visitors"), 3);
+	i->setExpanded(true);
+	i = new GCUserViewGroupItem(this, tr("Participants"), 2);
+	i->setExpanded(true);
+	i = new GCUserViewGroupItem(this, tr("Moderators"), 1);
+	i->setExpanded(true);
+
+	connect(this, SIGNAL(itemDoubleClicked(QTreeWidgetItem *, int)),
+	        SLOT(qlv_doubleClicked(QTreeWidgetItem *)));
+	connect(this, SIGNAL(customContextMenuRequested(const QPoint &)),
+	        SLOT(qlv_contextMenuRequested(const QPoint &)));
 }
 
 GCUserView::~GCUserView()
@@ -157,63 +171,77 @@ void GCUserView::setMainDlg(PsiGroupchatDlg* mainDlg)
 	gcDlg_ = mainDlg;
 }
 
-Q3DragObject* GCUserView::dragObject()
+QMimeData *GCUserView::mimeData(const QList<QTreeWidgetItem *> items) const
 {
-	Q3ListViewItem* it = currentItem();
-	if (it) {
-		// WARNING: We are assuming that group items can never be dragged
-		GCUserViewItem* u = (GCUserViewItem*) it;
-		if (!u->s.mucItem().jid().isEmpty())
-			return new Q3TextDrag(u->s.mucItem().jid().bare(),this);
+	if (!items.isEmpty()) {
+		QTreeWidgetItem *it = items.first();
+		if (it && it->parent()) {
+			GCUserViewItem *u = (GCUserViewItem*) it;
+			if (!u->s.mucItem().jid().isEmpty()) {
+				QMimeData *md = new QMimeData;
+				md->setText(u->s.mucItem().jid().bare());
+				return md;
+			}
+		}
 	}
-	return NULL;
+	return QTreeWidget::mimeData(items);
 }
 
 void GCUserView::clear()
 {
-	for (Q3ListViewItem *j = firstChild(); j; j = j->nextSibling())
-		while (GCUserViewItem* i = (GCUserViewItem*) j->firstChild()) {
-			delete i;
-		}
+	for (int j = 0; j < topLevelItemCount(); ++j) {
+		QTreeWidgetItem *group = topLevelItem(j);
+		while (group->childCount() > 0)
+			delete group->takeChild(0);
+	}
 }
 
 void GCUserView::updateAll()
 {
-	for (Q3ListViewItem *j = firstChild(); j; j = j->nextSibling())
-		for(GCUserViewItem *i = (GCUserViewItem *)j->firstChild(); i; i = (GCUserViewItem *)i->nextSibling())
-			i->setPixmap(0, PsiIconset::instance()->status(i->s).impix());
+	for (int j = 0; j < topLevelItemCount(); ++j) {
+		QTreeWidgetItem *group = topLevelItem(j);
+		for (int k = 0; k < group->childCount(); ++k) {
+			GCUserViewItem *i = (GCUserViewItem *)group->child(k);
+			i->setIcon(0, PsiIconset::instance()->status(i->s).icon());
+		}
+	}
 }
 
 QStringList GCUserView::nickList() const
 {
 	QStringList list;
-
-	for (Q3ListViewItem *j = firstChild(); j; j = j->nextSibling())
-		for(Q3ListViewItem *lvi = j->firstChild(); lvi; lvi = lvi->nextSibling())
-			list << lvi->text(0);
-
+	for (int j = 0; j < topLevelItemCount(); ++j) {
+		QTreeWidgetItem *group = topLevelItem(j);
+		for (int k = 0; k < group->childCount(); ++k)
+			list << group->child(k)->text(0);
+	}
 	qSort(list.begin(), list.end(), caseInsensitiveLessThan);
 	return list;
 }
 
 bool GCUserView::hasJid(const Jid& jid)
 {
-	for (Q3ListViewItem *j = firstChild(); j; j = j->nextSibling())
-		for(GCUserViewItem *lvi = (GCUserViewItem*) j->firstChild(); lvi; lvi = (GCUserViewItem*) lvi->nextSibling()) {
-			if(!lvi->s.mucItem().jid().isEmpty() && lvi->s.mucItem().jid().compare(jid,false))
+	for (int j = 0; j < topLevelItemCount(); ++j) {
+		QTreeWidgetItem *group = topLevelItem(j);
+		for (int k = 0; k < group->childCount(); ++k) {
+			GCUserViewItem *lvi = (GCUserViewItem *)group->child(k);
+			if (!lvi->s.mucItem().jid().isEmpty() && lvi->s.mucItem().jid().compare(jid, false))
 				return true;
 		}
+	}
 	return false;
 }
 
-Q3ListViewItem *GCUserView::findEntry(const QString &nick)
+QTreeWidgetItem *GCUserView::findEntry(const QString &nick)
 {
-	for (Q3ListViewItem *j = firstChild(); j; j = j->nextSibling())
-		for(Q3ListViewItem *lvi = j->firstChild(); lvi; lvi = lvi->nextSibling()) {
-			if(lvi->text(0) == nick)
-				return lvi;
+	for (int j = 0; j < topLevelItemCount(); ++j) {
+		QTreeWidgetItem *group = topLevelItem(j);
+		for (int k = 0; k < group->childCount(); ++k) {
+			if (group->child(k)->text(0) == nick)
+				return group->child(k);
 		}
-	return 0;
+	}
+	return nullptr;
 }
 
 void GCUserView::updateEntry(const QString &nick, const Status &s)
@@ -221,16 +249,16 @@ void GCUserView::updateEntry(const QString &nick, const Status &s)
 	GCUserViewItem *lvi = (GCUserViewItem *)findEntry(nick);
 	if (lvi && lvi->s.mucItem().role() != s.mucItem().role()) {
 		delete lvi;
-		lvi = NULL;
+		lvi = nullptr;
 	}
 
-	if(!lvi) {
+	if (!lvi) {
 		lvi = new GCUserViewItem(findGroup(s.mucItem().role()));
 		lvi->setText(0, nick);
 	}
 
 	lvi->s = s;
-	lvi->setPixmap(0, PsiIconset::instance()->status(lvi->s).impix());
+	lvi->setIcon(0, PsiIconset::instance()->status(lvi->s).icon());
 }
 
 GCUserViewGroupItem* GCUserView::findGroup(MUCItem::Role a) const
@@ -241,36 +269,33 @@ GCUserViewGroupItem* GCUserView::findGroup(MUCItem::Role a) const
 	else if (a == MUCItem::Participant)
 		r = Participant;
 
-	int i = 0;
-	for (Q3ListViewItem *j = firstChild(); j; j = j->nextSibling()) {
-		if (i == (int) r)
-			return (GCUserViewGroupItem*) j;
-		i++;
+	for (int j = 0; j < topLevelItemCount(); ++j) {
+		GCUserViewGroupItem *g = (GCUserViewGroupItem *)topLevelItem(j);
+		if (g->key() == (int)r + 1)
+			return g;
 	}
-
-	return NULL;
+	return nullptr;
 }
 
 void GCUserView::removeEntry(const QString &nick)
 {
-	Q3ListViewItem *lvi = findEntry(nick);
-	if(lvi)
+	QTreeWidgetItem *lvi = findEntry(nick);
+	if (lvi)
 		delete lvi;
 }
 
 bool GCUserView::maybeTip(const QPoint &pos)
 {
-	Q3ListViewItem *qlvi = itemAt(pos);
-	if(!qlvi || !qlvi->parent())
+	QTreeWidgetItem *qlvi = itemAt(pos);
+	if (!qlvi || !qlvi->parent())
 		return false;
 
 	GCUserViewItem *lvi = (GCUserViewItem *) qlvi;
-	QRect r(itemRect(lvi));
+	QRect r(visualItemRect(lvi));
 
 	const QString &nick = lvi->text(0);
 	const Status &s = lvi->s;
 	UserListItem u;
-	// SICK SICK SICK SICK
 	PsiGroupchatDlg* dlg = gcDlg_;
 	if (!dlg) {
 		qDebug("Calling maybetip on an entity without an owning dialog");
@@ -279,16 +304,14 @@ bool GCUserView::maybeTip(const QPoint &pos)
 	u.setJid(dlg->jid().withResource(nick));
 	u.setName(nick);
 
-	// Find out capabilities info
 	Jid caps_jid(s.mucItem().jid().isEmpty() ? dlg->jid().withResource(nick) : s.mucItem().jid());
 	QString client_name = dlg->account()->capsManager()->clientName(caps_jid);
 	QString client_version = (client_name.isEmpty() ? QString() : dlg->account()->capsManager()->clientVersion(caps_jid));
 
-	// make a resource so the contact appears online
 	UserResource ur;
 	ur.setName(nick);
 	ur.setStatus(s);
-	ur.setClient(client_name,client_version,"");
+	ur.setClient(client_name, client_version, "");
 	u.userResourceList().append(ur);
 
 	PsiToolTip::showText(mapToGlobal(pos), u.makeTip(), this);
@@ -302,82 +325,86 @@ bool GCUserView::event(QEvent* e)
 		e->setAccepted(maybeTip(pos));
 		return true;
 	}
-	return Q3ListView::event(e);
+	return QTreeWidget::event(e);
 }
 
-void GCUserView::qlv_doubleClicked(Q3ListViewItem *i)
+void GCUserView::qlv_doubleClicked(QTreeWidgetItem *i)
 {
-	if(!i || !i->parent())
+	if (!i || !i->parent())
 		return;
 
 	GCUserViewItem *lvi = (GCUserViewItem *)i;
-	if(option.defaultAction == 0)
-		action(lvi->text(0), lvi->s, 0);
+	if (option.defaultAction == 0)
+		emit action(lvi->text(0), lvi->s, 0);
 	else
-		action(lvi->text(0), lvi->s, 1);
+		emit action(lvi->text(0), lvi->s, 1);
 }
 
-void GCUserView::qlv_contextMenuRequested(Q3ListViewItem *i, const QPoint &pos, int)
+void GCUserView::qlv_contextMenuRequested(const QPoint &pos)
 {
-	if(!i || !i->parent() || !gcDlg_)
+	QTreeWidgetItem *i = itemAt(pos);
+	if (!i || !i->parent() || !gcDlg_)
 		return;
 
 	QPointer<GCUserViewItem> lvi = (GCUserViewItem *)i;
 	bool self = gcDlg_->nick() == i->text(0);
 	GCUserViewItem* c = (GCUserViewItem*) findEntry(gcDlg_->nick());
 	if (!c) {
-		qWarning(QString("groupchatdlg.cpp: Self ('%1') not found in contactlist").arg(gcDlg_->nick()));
+		qWarning(QString("groupchatdlg.cpp: Self ('%1') not found in contactlist").arg(gcDlg_->nick()).toLatin1());
 		return;
 	}
-	QMenu *pm = new QMenu;
+
+	QMenu *pm = new QMenu(this);
 	if (PsiOptions::instance()->getOption("options.ui.message.enabled").toBool()) {
-		pm->insertItem(IconsetFactory::icon("psi/sendMessage").icon(), tr("Send &message"), 0);
+		pm->addAction(IconsetFactory::icon("psi/sendMessage").icon(), tr("Send &message"))->setData(0);
 	}
-	pm->insertItem(IconsetFactory::icon("psi/start-chat").icon(), tr("Open &chat window"), 1);
-	pm->insertSeparator();
-	pm->insertItem(tr("&Kick"),10);
-	pm->setItemEnabled(10, MUCManager::canKick(c->s.mucItem(),lvi->s.mucItem()));
-	pm->insertItem(tr("&Ban"),11);
-	pm->setItemEnabled(11, MUCManager::canBan(c->s.mucItem(),lvi->s.mucItem()));
+	pm->addAction(IconsetFactory::icon("psi/start-chat").icon(), tr("Open &chat window"))->setData(1);
+	pm->addSeparator();
 
-	QMenu* rm = new QMenu(pm);
-	rm->insertItem(tr("Visitor"),12);
-	rm->setItemChecked(12, lvi->s.mucItem().role() == MUCItem::Visitor);
-	rm->setItemEnabled(12, (!self || lvi->s.mucItem().role() == MUCItem::Visitor) && MUCManager::canSetRole(c->s.mucItem(),lvi->s.mucItem(),MUCItem::Visitor));
-	rm->insertItem(tr("Participant"),13);
-	rm->setItemChecked(13, lvi->s.mucItem().role() == MUCItem::Participant);
-	rm->setItemEnabled(13, (!self || lvi->s.mucItem().role() == MUCItem::Participant) && MUCManager::canSetRole(c->s.mucItem(),lvi->s.mucItem(),MUCItem::Participant));
-	rm->insertItem(tr("Moderator"),14);
-	rm->setItemChecked(14, lvi->s.mucItem().role() == MUCItem::Moderator);
-	rm->setItemEnabled(14, (!self || lvi->s.mucItem().role() == MUCItem::Moderator) && MUCManager::canSetRole(c->s.mucItem(),lvi->s.mucItem(),MUCItem::Moderator));
-	pm->insertItem(tr("Change role"),rm);
+	QAction *kickAct = pm->addAction(tr("&Kick"));
+	kickAct->setData(10);
+	kickAct->setEnabled(MUCManager::canKick(c->s.mucItem(), lvi->s.mucItem()));
 
-	/*QMenu* am = new QMenu(pm);
-	am->insertItem(tr("Unaffiliated"),15);
-	am->setItemChecked(15, lvi->s.mucItem().affiliation() == MUCItem::NoAffiliation);
-	am->setItemEnabled(15, (!self || lvi->s.mucItem().affiliation() == MUCItem::NoAffiliation) && MUCManager::canSetAffiliation(c->s.mucItem(),lvi->s.mucItem(),MUCItem::NoAffiliation));
-	am->insertItem(tr("Member"),16);
-	am->setItemChecked(16, lvi->s.mucItem().affiliation() == MUCItem::Member);
-	am->setItemEnabled(16,  (!self || lvi->s.mucItem().affiliation() == MUCItem::Member) && MUCManager::canSetAffiliation(c->s.mucItem(),lvi->s.mucItem(),MUCItem::Member));
-	am->insertItem(tr("Administrator"),17);
-	am->setItemChecked(17, lvi->s.mucItem().affiliation() == MUCItem::Admin);
-	am->setItemEnabled(17,  (!self || lvi->s.mucItem().affiliation() == MUCItem::Admin) && MUCManager::canSetAffiliation(c->s.mucItem(),lvi->s.mucItem(),MUCItem::Admin));
-	am->insertItem(tr("Owner"),18);
-	am->setItemChecked(18, lvi->s.mucItem().affiliation() == MUCItem::Owner);
-	am->setItemEnabled(18,  (!self || lvi->s.mucItem().affiliation() == MUCItem::Owner) && MUCManager::canSetAffiliation(c->s.mucItem(),lvi->s.mucItem(),MUCItem::Owner));
-	pm->insertItem(tr("Change affiliation"),am);*/
-	pm->insertSeparator();
-	//pm->insertItem(tr("Send &file"), 4);
-	//pm->insertSeparator();
+	QAction *banAct = pm->addAction(tr("&Ban"));
+	banAct->setData(11);
+	banAct->setEnabled(MUCManager::canBan(c->s.mucItem(), lvi->s.mucItem()));
+
+	QMenu *rm = new QMenu(tr("Change role"), pm);
+	QAction *visitorAct = rm->addAction(tr("Visitor"));
+	visitorAct->setData(12);
+	visitorAct->setCheckable(true);
+	visitorAct->setChecked(lvi->s.mucItem().role() == MUCItem::Visitor);
+	visitorAct->setEnabled((!self || lvi->s.mucItem().role() == MUCItem::Visitor) && MUCManager::canSetRole(c->s.mucItem(), lvi->s.mucItem(), MUCItem::Visitor));
+
+	QAction *participantAct = rm->addAction(tr("Participant"));
+	participantAct->setData(13);
+	participantAct->setCheckable(true);
+	participantAct->setChecked(lvi->s.mucItem().role() == MUCItem::Participant);
+	participantAct->setEnabled((!self || lvi->s.mucItem().role() == MUCItem::Participant) && MUCManager::canSetRole(c->s.mucItem(), lvi->s.mucItem(), MUCItem::Participant));
+
+	QAction *moderatorAct = rm->addAction(tr("Moderator"));
+	moderatorAct->setData(14);
+	moderatorAct->setCheckable(true);
+	moderatorAct->setChecked(lvi->s.mucItem().role() == MUCItem::Moderator);
+	moderatorAct->setEnabled((!self || lvi->s.mucItem().role() == MUCItem::Moderator) && MUCManager::canSetRole(c->s.mucItem(), lvi->s.mucItem(), MUCItem::Moderator));
+
+	pm->addMenu(rm);
+	pm->addSeparator();
+
 #ifndef YAPSI
-	pm->insertItem(tr("Check &Status"), 2);
-	pm->insertItem(IconsetFactory::icon("psi/vCard").icon(), tr("User &Info"), 3);
+	pm->addAction(tr("Check &Status"))->setData(2);
+	pm->addAction(IconsetFactory::icon("psi/vCard").icon(), tr("User &Info"))->setData(3);
 #endif
-	int x = pm->exec(pos);
-	bool enabled = pm->isItemEnabled(x) || rm->isItemEnabled(x);
+
+	QAction *chosen = pm->exec(mapToGlobal(pos));
 	delete pm;
 
-	if(x == -1 || !enabled || lvi.isNull())
+	if (!chosen || lvi.isNull())
 		return;
-	action(lvi->text(0), lvi->s, x);
+
+	int x = chosen->data().toInt();
+	if (!chosen->isEnabled())
+		return;
+
+	emit action(lvi->text(0), lvi->s, x);
 }

@@ -57,7 +57,7 @@ make -j$(sysctl -n hw.ncpu)
 open src/yachat.app
 ```
 
-> ⚠️ **Проект находится в активной разработке.** Сборка на данный момент не гарантируется — Layer 3 (удаление Qt3Support) ещё не завершён.
+> ⚠️ **Проект находится в активной разработке.** Сборка на данный момент не гарантируется — Layer 3 (удаление Qt3Support) почти завершён: остались `contactview`, `gcuserview`, `accountmanagedlg`.
 
 ---
 
@@ -99,10 +99,10 @@ open src/yachat.app
 | Задача | Статус | Описание |
 |---|---|---|
 | Массовая замена (Задача 7) | ✅ | 422 строки `#include <qfoo.h>` → `<QFoo>`, `Q3PtrList`/`Q3PopupMenu`/`Q3TextEdit` заменены, 63 итератора `Q3PtrListIterator` → range-for |
-| `Q3MainWindow` (Задача 8) | 🔲 | `mainwin.h/cpp`, `mainwin_p.cpp` |
-| `Q3ListView` в HistoryDlg (Задача 9) | 🔲 | `historydlg.h/cpp` → `QTreeWidget` + делегат |
-| `Q3ListView` в EventDlg (Задача 10) | 🔲 | `eventdlg.h/cpp` → `QTreeWidget` |
-| Остальные Q3* (Задача 11) | 🔲 | `Q3ListView`×54, `Q3Socket`×20, `Q3Dns`×12, `Q3ToolBar`×9, ... |
+| `Q3MainWindow` (Задача 8) | ✅ | `mainwin.h/cpp` → `QMainWindow`, `mainwin_p.cpp` Q3ToolBar-зависимости убраны |
+| `Q3ListView` в HistoryDlg (Задача 9) | ✅ | `historydlg.h/cpp` → `QTreeWidget` + `QStyledItemDelegate` |
+| `Q3ListView` в EventDlg (Задача 10) | ✅ | `eventdlg.h/cpp` → `QTreeWidget` + `QTreeWidgetItem` |
+| Остальные Q3* (Задача 11) | 🔄 | `searchdlg`, `discodlg`, `pgpkeydlg`, `proxy`, `iconset`, `tabdlg` завершены; `contactview`, `gcuserview`, `accountmanagedlg` — в процессе |
 | Контрольная сборка (Задача 12) | 🔲 | Первая полная сборка под Qt 5.15 |
 
 ### Слой 4 — QCA 2.3.x + безопасность 🔲 *не начат*
@@ -146,4 +146,4 @@ open src/yachat.app
 
 ---
 
-*Последнее обновление: 2026-04-15*
+*Последнее обновление: 2026-04-15 (задачи 8–10 завершены, задача 11 в процессе)*

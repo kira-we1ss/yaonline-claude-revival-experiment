@@ -21,10 +21,19 @@
 #ifndef CS_SRVRESOLVER_H
 #define CS_SRVRESOLVER_H
 
+#include <QObject>
 #include <QList>
-#include <q3dns.h>
+#include <QString>
+#include <QHostAddress>
 
 // CS_NAMESPACE_BEGIN
+
+struct SrvServer {
+	QString name;
+	quint16 port;
+	quint16 priority;
+	quint16 weight;
+};
 
 class SrvResolver : public QObject
 {
@@ -39,7 +48,7 @@ public:
 	void stop();
 	bool isBusy() const;
 
-	QList<Q3Dns::Server> servers() const;
+	QList<SrvServer> servers() const;
 
 	bool failed() const;
 	QHostAddress resultAddress() const;

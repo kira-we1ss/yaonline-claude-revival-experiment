@@ -21,7 +21,8 @@
 #ifndef GCUSERVIEW_H
 #define GCUSERVIEW_H
 
-#include <Q3ListView>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
 
 #include "xmpp_status.h"
 
@@ -35,29 +36,30 @@ namespace XMPP {
 	class Jid;
 }
 
-class GCUserViewItem : public QObject, public Q3ListViewItem
+class GCUserViewItem : public QObject, public QTreeWidgetItem
 {
 public:
 	GCUserViewItem(GCUserViewGroupItem *);
-	void paintFocus(QPainter *, const QColorGroup &, const QRect &);
-	void paintBranches(QPainter *p, const QColorGroup &cg, int w, int, int h);
 
 	Status s;
+
+	bool operator<(const QTreeWidgetItem &other) const override;
 };
 
-class GCUserViewGroupItem : public Q3ListViewItem
+class GCUserViewGroupItem : public QTreeWidgetItem
 {
 public:
 	GCUserViewGroupItem(GCUserView *, const QString&, int);
-	void paintFocus(QPainter *, const QColorGroup &, const QRect &);
-	void paintBranches(QPainter *p, const QColorGroup &cg, int w, int, int h);
-	void paintCell(QPainter *p, const QColorGroup & cg, int column, int width, int alignment);
-	int compare(Q3ListViewItem *i, int col, bool ascending ) const;
+
+	int key() const { return key_; }
+
+	bool operator<(const QTreeWidgetItem &other) const override;
+
 private:
 	int key_;
 };
 
-class GCUserView : public Q3ListView
+class GCUserView : public QTreeWidget
 {
 	Q_OBJECT
 public:
@@ -65,11 +67,10 @@ public:
 	~GCUserView();
 
 	void setMainDlg(PsiGroupchatDlg* mainDlg);
-	Q3DragObject* dragObject();
 	void clear();
 	void updateAll();
 	bool hasJid(const Jid&);
-	Q3ListViewItem *findEntry(const QString &);
+	QTreeWidgetItem *findEntry(const QString &);
 	void updateEntry(const QString &, const Status &);
 	void removeEntry(const QString &);
 	QStringList nickList() const;
@@ -79,14 +80,15 @@ protected:
 
 	GCUserViewGroupItem* findGroup(XMPP::MUCItem::Role a) const;
 	bool maybeTip(const QPoint &);
-	bool event(QEvent* e);
+	bool event(QEvent* e) override;
+	QMimeData *mimeData(const QList<QTreeWidgetItem *> items) const override;
 
 signals:
 	void action(const QString &, const Status &, int);
 
 private slots:
-	void qlv_doubleClicked(Q3ListViewItem *);
-	void qlv_contextMenuRequested(Q3ListViewItem *, const QPoint &, int);
+	void qlv_doubleClicked(QTreeWidgetItem *);
+	void qlv_contextMenuRequested(const QPoint &);
 
 private:
 	PsiGroupchatDlg* gcDlg_;

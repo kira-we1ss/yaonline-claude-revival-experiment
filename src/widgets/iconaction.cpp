@@ -186,7 +186,7 @@ bool IconAction::addTo(QWidget *w)
 {
 	QStringList supportedContainers;
 	supportedContainers << "QWidget";
-	if ( w->inherits("QToolBar") || w->inherits("Q3ToolBar") ||
+	if ( w->inherits("QToolBar") ||
 	     supportedContainers.contains(w->metaObject()->className()) ) {
 		QString bname = objectName() + "_action_button";
 		IconToolButton *btn = new IconToolButton ( w );

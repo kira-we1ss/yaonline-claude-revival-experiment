@@ -24,8 +24,8 @@
 #include <QPushButton>
 #include <QLineEdit>
 #include <QLabel>
-#include <q3listview.h>
-#include <q3buttongroup.h>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
 #include "psicon.h"
 #include "psiaccount.h"
 #include "common.h"
@@ -230,13 +230,14 @@ void AccountRemoveDlg::client_disconnected()
 //----------------------------------------------------------------------------
 // AccountManageDlg
 //----------------------------------------------------------------------------
-class AccountManageItem : public Q3CheckListItem
+class AccountManageItem : public QTreeWidgetItem
 {
 public:
-	AccountManageItem(Q3ListView *par, PsiAccount *_pa)
-	:Q3CheckListItem(par,"",CheckBox)
+	AccountManageItem(QTreeWidget *par, PsiAccount *_pa)
+	: QTreeWidgetItem(par)
 	{
 		pa = _pa;
+		setFlags(flags() | Qt::ItemIsUserCheckable);
 		updateInfo();
 	}
 
@@ -244,23 +245,10 @@ public:
 	{
 		const UserAccount &acc = pa->userAccount();
 		setText(0, pa->name());
-		//setPixmap(0, IconsetFactory::icon("psi/account"));
 		Jid j = acc.jid;
 		setText(1, acc.opt_host && acc.host.length() ? acc.host : j.host());
 		setText(2, pa->isActive() ? AccountManageDlg::tr("Active") : AccountManageDlg::tr("Not active"));
-		setOn(pa->enabled());
-	}
-
-	void stateChange( bool s)
-	{
-		if (pa->enabled()!=s)
-			pa->setEnabled(s);
-		updateInfo();
-	}
-
-	int rtti() const
-	{
-		return 8109;
+		setCheckState(0, pa->enabled() ? Qt::Checked : Qt::Unchecked);
 	}
 
 	PsiAccount *pa;
@@ -282,22 +270,23 @@ AccountManageDlg::AccountManageDlg(PsiCon *_psi)
 	connect(pb_remove, SIGNAL(clicked()), SLOT(remove()));
 	connect(pb_close, SIGNAL(clicked()), SLOT(close()));
 
-	connect(lv_accs, SIGNAL(doubleClicked(Q3ListViewItem *)), SLOT(modify(Q3ListViewItem *)));
-	connect(lv_accs, SIGNAL(selectionChanged(Q3ListViewItem *)), SLOT(qlv_selectionChanged(Q3ListViewItem *)));
+	connect(lv_accs, SIGNAL(itemDoubleClicked(QTreeWidgetItem *, int)), SLOT(modify(QTreeWidgetItem *)));
+	connect(lv_accs, SIGNAL(itemSelectionChanged()), SLOT(qlv_selectionChanged()));
+	connect(lv_accs, SIGNAL(itemChanged(QTreeWidgetItem *, int)), SLOT(qlv_itemChanged(QTreeWidgetItem *, int)));
 	connect(psi, SIGNAL(accountAdded(PsiAccount *)), SLOT(accountAdded(PsiAccount *)));
 	connect(psi, SIGNAL(accountUpdated(PsiAccount *)), SLOT(accountUpdated(PsiAccount *)));
 	connect(psi, SIGNAL(accountRemoved(PsiAccount *)), SLOT(accountRemoved(PsiAccount *)));
 
 	lv_accs->setAllColumnsShowFocus(true);
-	lv_accs->setResizeMode(Q3ListView::LastColumn);
+	lv_accs->header()->setStretchLastSection(true);
 
 	foreach(PsiAccount* pa, psi->contactList()->accounts())
 		new AccountManageItem(lv_accs, pa);
 
-	if(lv_accs->childCount() > 0)
-		lv_accs->setSelected(lv_accs->firstChild(), true);
+	if(lv_accs->topLevelItemCount() > 0)
+		lv_accs->setCurrentItem(lv_accs->topLevelItem(0));
 	else
-		qlv_selectionChanged(0);
+		qlv_selectionChanged();
 }
 
 AccountManageDlg::~AccountManageDlg()
@@ -305,13 +294,24 @@ AccountManageDlg::~AccountManageDlg()
 	psi->dialogUnregister(this);
 }
 
-void AccountManageDlg::qlv_selectionChanged(Q3ListViewItem *lvi)
+void AccountManageDlg::qlv_selectionChanged()
 {
-	AccountManageItem *i = (AccountManageItem *)lvi;
-	bool ok = i ? true: false;
+	AccountManageItem *i = (AccountManageItem *)lv_accs->currentItem();
+	bool ok = i ? true : false;
 
 	pb_modify->setEnabled(ok);
 	pb_remove->setEnabled(ok);
+}
+
+void AccountManageDlg::qlv_itemChanged(QTreeWidgetItem *lvi, int column)
+{
+	if (column != 0) return;
+	AccountManageItem *i = (AccountManageItem *)lvi;
+	if (!i) return;
+	bool s = (i->checkState(0) == Qt::Checked);
+	if (i->pa->enabled() != s)
+		i->pa->setEnabled(s);
+	i->updateInfo();
 }
 
 void AccountManageDlg::add()
@@ -325,7 +325,7 @@ void AccountManageDlg::modify()
 	modify(lv_accs->currentItem());
 }
 
-void AccountManageDlg::modify(Q3ListViewItem *lvi)
+void AccountManageDlg::modify(QTreeWidgetItem *lvi)
 {
 	AccountManageItem *i = (AccountManageItem *)lvi;
 	if(!i)
@@ -362,32 +362,25 @@ void AccountManageDlg::accountAdded(PsiAccount *pa)
 
 void AccountManageDlg::accountUpdated(PsiAccount *pa)
 {
-	AccountManageItem *i;
-	Q3ListViewItemIterator it(lv_accs);
-	for(; (i = (AccountManageItem *)it.current()) ; ++it) {
-		if(i->pa == pa)
-			break;
+	for (int n = 0; n < lv_accs->topLevelItemCount(); ++n) {
+		AccountManageItem *i = (AccountManageItem *)lv_accs->topLevelItem(n);
+		if (i->pa == pa) {
+			i->updateInfo();
+			return;
+		}
 	}
-	if(!i)
-		return;
-
-	i->updateInfo();
 }
 
 void AccountManageDlg::accountRemoved(PsiAccount *pa)
 {
-	AccountManageItem *i;
-	Q3ListViewItemIterator it(lv_accs);
-	for(; (i = (AccountManageItem *)it.current()) ; ++it) {
-		if(i->pa == pa)
-			break;
+	for (int n = 0; n < lv_accs->topLevelItemCount(); ++n) {
+		AccountManageItem *i = (AccountManageItem *)lv_accs->topLevelItem(n);
+		if (i->pa == pa) {
+			delete i;
+			qlv_selectionChanged();
+			return;
+		}
 	}
-	if(!i)
-		return;
-
-	delete i;
-
-	qlv_selectionChanged(lv_accs->currentItem());
 }
 
 #include "accountmanagedlg.moc"

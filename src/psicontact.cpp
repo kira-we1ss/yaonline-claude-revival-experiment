@@ -24,7 +24,6 @@
 
 #include "avatars.h"
 #include "common.h"
-#include "contactview.h"
 #include "iconset.h"
 #include "jidutil.h"
 #include "profiles.h"

@@ -49,8 +49,7 @@
 
 #include "parser.h"
 
-#include <qtextcodec.h>
-#include <q3ptrlist.h>
+#include <QTextCodec>
 #include <string.h>
 
 using namespace XMPP;
@@ -366,7 +365,7 @@ namespace XMPP
 
 		~ParserHandler()
 		{
-			eventList.setAutoDelete(true);
+			qDeleteAll(eventList);
 			eventList.clear();
 		}
 
@@ -518,7 +517,7 @@ namespace XMPP
 				needMore = false;
 
 				// there should have been a pending event
-				Parser::Event *e = eventList.getFirst();
+				Parser::Event *e = eventList.isEmpty() ? nullptr : eventList.first();
 				if(e) {
 					e->setActualString(e->actualString() + '>');
 					in->resetLastData();
@@ -533,8 +532,8 @@ namespace XMPP
 			if(eventList.isEmpty())
 				return 0;
 
-			Parser::Event *e = eventList.getFirst();
-			eventList.removeRef(e);
+			Parser::Event *e = eventList.first();
+			eventList.removeFirst();
 			in->pause(false);
 			return e;
 		}
@@ -544,7 +543,7 @@ namespace XMPP
 		int depth;
 		QStringList nsnames, nsvalues;
 		QDomElement elem, current;
-		Q3PtrList<Parser::Event> eventList;
+		QList<Parser::Event*> eventList;
 		bool needMore;
 	};
 };

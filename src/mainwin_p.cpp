@@ -23,13 +23,12 @@
 
 #include <QApplication>
 #include <QStyle>
-#include <q3toolbar.h>
+#include <QToolBar>
 #include <QTimer>
 #include <QSignalMapper>
 #include <QObject>
 #include <QPixmapCache>
 #include <QPixmap>
-#include <Q3Button>
 #include <QFrame>
 #include <QLabel>
 #include <QMenu>
@@ -210,7 +209,7 @@ class PopupAction::Private : public QObject
 {
 public:
 	QSizePolicy size;
-	QList<PopupActionButton> buttons;
+	QList<PopupActionButton*> buttons;
 	PsiIcon *icon;
 	bool showText;
 
@@ -288,9 +287,9 @@ void PopupAction::setText (const QString &text)
 
 bool PopupAction::addTo (QWidget *w)
 {
-	if ( w->inherits("QToolBar") || w->inherits("Q3ToolBar") ) {
+	if ( w->inherits("QToolBar") ) {
 		QByteArray bname((const char*) (QString(name()) + QString("_action_button")));
-		PopupActionButton *btn = new PopupActionButton ( (Q3ToolBar*)w, bname );
+		PopupActionButton *btn = new PopupActionButton ( w, bname );
 		d->buttons.append ( btn );
 		btn->setMenu ( menu() );
 		btn->setLabel ( text() );
@@ -309,7 +308,7 @@ bool PopupAction::addTo (QWidget *w)
 void PopupAction::objectDestroyed ()
 {
 	const QObject *obj = sender();
-	d->buttons.removeRef( (PopupActionButton *) obj );
+	d->buttons.removeOne( (PopupActionButton *) obj );
 }
 
 void PopupAction::setEnabled (bool e)
@@ -389,10 +388,14 @@ public:
 	QMenu *subMenu(QWidget *p)
 	{
 		QMenu *pm = new QMenu (p);
-		uint i = 0;
+		int i = 0;
 		foreach(PsiAccount* acc, psi->contactList()->enabledAccounts()) {
-			pm->insertItem( acc->name(), parent(), SLOT(itemActivated(int)), 0, id*1000 + i );
-			pm->setItemParameter ( id*1000 + i, i );
+			int idx = i;
+			QAction *act = pm->addAction(acc->name());
+			MAction *mact = static_cast<MAction*>(parent());
+			QObject::connect(act, &QAction::triggered, [mact, idx]() {
+				mact->itemActivated(idx);
+			});
 			i++;
 		}
 		return pm;
@@ -436,20 +439,16 @@ void MAction::init(PsiIcon i, int id, PsiCon *psi)
 
 bool MAction::addTo(QWidget *w)
 {
-	if ( w->inherits("QPopupMenu") || w->inherits("QMenu") )
+	if ( w->inherits("QMenu") )
 	{
 		QMenu *menu = (QMenu*)w;
-        QIcon iconset;
-#ifndef Q_WS_MAC
-		iconset = iconSet();
-#endif
 		if ( d->psi->contactList()->enabledAccounts().count() < 2 ) {
-			menu->insertItem ( iconset, menuText(), this, SLOT(itemActivated(int)), 0, d->id*1000 + 0 );
-			menu->setItemEnabled (d->id*1000 + 0, isEnabled());
-			menu->setItemParameter ( d->id*1000 + 0, 0 );
+			QAction *act = menu->addAction(icon(), menuText());
+			act->setEnabled(isEnabled());
+			connect(act, &QAction::triggered, [this]() { itemActivated(0); });
 		}
 		else
-			menu->insertItem(iconset, menuText(), d->subMenu(w));
+			menu->addMenu(d->subMenu(w))->setText(menuText());
 	}
 	else
 		return IconAction::addTo(w);
@@ -523,7 +522,7 @@ SpacerAction::~SpacerAction()
 
 bool SpacerAction::addTo(QWidget *w)
 {
-	if ( w->inherits("QToolBar") || w->inherits("Q3ToolBar") ) {
+	if ( w->inherits("QToolBar") ) {
 		new StretchWidget(w);
 		return true;
 	}
@@ -573,7 +572,7 @@ class EventNotifierAction::Private
 public:
 	Private() { }
 
-	QList<MLabel> labels;
+	QList<MLabel*> labels;
 	bool hide;
 };
 
@@ -600,7 +599,7 @@ bool EventNotifierAction::addTo(QWidget *w)
 		connect(label, SIGNAL(doubleClicked()), SIGNAL(activated()));
 		connect(label, SIGNAL(clicked(int)), SIGNAL(clicked(int)));
 
-		if (!w->inherits("QToolBar") && !w->inherits("Q3ToolBar")) {
+		if (!w->inherits("QToolBar")) {
 			QLayout* layout = w->layout();
 			if (layout)
 				layout->addWidget(label);
@@ -627,7 +626,7 @@ void EventNotifierAction::setText(const QString &t)
 void EventNotifierAction::objectDestroyed()
 {
 	MLabel *label = (MLabel *)sender();
-	d->labels.removeRef(label);
+	d->labels.removeOne(label);
 }
 
 void EventNotifierAction::hide()
@@ -635,18 +634,16 @@ void EventNotifierAction::hide()
 	d->hide = true;
 
 	for (MLabel *label : d->labels) {
-		Q3ToolBar *toolBar = dynamic_cast<Q3ToolBar*>(label->parent());
+		QToolBar *toolBar = qobject_cast<QToolBar*>(label->parent());
 		label->hide();
 		if (toolBar) {
-			QObjectList l = toolBar->queryList( "QWidget" );
+			QList<QWidget*> children = toolBar->findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly);
 			int found = 0;
-
-			for ( QObjectList::ConstIterator it = l.begin(); it != l.end(); ++it) {
-				if ( QString((*it)->name()).left(3) != "qt_" ) // misc internal Qt objects
+			for (QWidget *w : children) {
+				if (!w->objectName().startsWith(QLatin1String("qt_")))
 					found++;
 			}
-
-			if ( found == 1 ) // only MLabel is on ToolBar
+			if (found == 1)
 				toolBar->hide();
 		}
 	}
@@ -658,7 +655,7 @@ void EventNotifierAction::show()
 
 	for (MLabel *label : d->labels) {
 		label->show();
-		Q3ToolBar *toolBar = dynamic_cast<Q3ToolBar*>(label->parent());
+		QToolBar *toolBar = qobject_cast<QToolBar*>(label->parent());
 		if (toolBar)
 			toolBar->show();
 	}

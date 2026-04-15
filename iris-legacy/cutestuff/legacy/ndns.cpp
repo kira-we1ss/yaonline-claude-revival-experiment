@@ -51,11 +51,7 @@
 #include "ndns.h"
 
 #include <QCoreApplication>
-#include <q3socketdevice.h>
-#include <q3ptrlist.h>
-#include <qeventloop.h>
-//Added by qt3to4:
-#include <QCustomEvent>
+#include <QEventLoop>
 #include <QEvent>
 #include <QByteArray>
 #include <QPointer>
@@ -119,8 +115,7 @@ class NDnsManager::Private
 public:
 	Item *find(const NDns *n)
 	{
-		Q3PtrListIterator<Item> it(list);
-		for(Item *i; (i = it.current()); ++it) {
+		for(Item *i : list) {
 			if(i->ndns == n)
 				return i;
 		}
@@ -129,15 +124,14 @@ public:
 
 	Item *find(const NDnsWorker *w)
 	{
-		Q3PtrListIterator<Item> it(list);
-		for(Item *i; (i = it.current()); ++it) {
+		for(Item *i : list) {
 			if(i->worker == w)
 				return i;
 		}
 		return 0;
 	}
 
-	Q3PtrList<Item> list;
+	QList<Item*> list;
 };
 
 NDnsManager::NDnsManager()
@@ -153,19 +147,19 @@ NDnsManager::NDnsManager()
 #ifdef Q_OS_WIN32
 	if(!winsock_init) {
 		winsock_init = true;
-		Q3SocketDevice *sd = new Q3SocketDevice;
-		delete sd;
+		// winsock initialized via Qt's own socket init
 	}
 #endif
 
 	d = new Private;
-	d->list.setAutoDelete(true);
 
 	connect(QCoreApplication::instance(), SIGNAL(aboutToQuit()), SLOT(app_aboutToQuit()));
 }
 
 NDnsManager::~NDnsManager()
 {
+	qDeleteAll(d->list);
+	d->list.clear();
 	delete d;
 
 #ifndef HAVE_GETHOSTBYNAME_R
@@ -206,7 +200,8 @@ void NDnsManager::stop(NDns *self)
 #endif
 #endif
 
-	d->list.removeRef(i);
+	d->list.removeOne(i);
+	delete i;
 }
 
 bool NDnsManager::isBusy(const NDns *self) const
@@ -227,7 +222,8 @@ void NDnsManager::workerFinished()
 	if(i) {
 		QHostAddress addr = i->worker->addr;
 		QPointer<NDns> ndns = i->ndns;
-		d->list.removeRef(i);
+		d->list.removeOne(i);
+		delete i;
 
 		// nuke manager if no longer needed (code that follows MUST BE SAFE!)
 		tryDestroy();
@@ -348,7 +344,7 @@ NDnsWorker::NDnsWorker(QObject *_par, const QByteArray &_host)
 : QThread(_par)
 {
 	success = cancelled = false;
-	host = _host.copy(); // do we need this to avoid sharing across threads?
+	host = _host; // do we need this to avoid sharing across threads?
 }
 
 NDnsWorker::~NDnsWorker()

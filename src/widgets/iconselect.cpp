@@ -297,7 +297,8 @@ void IconSelect::setIconset(const Iconset &iconset)
 	}
 
 	// now, fill grid with elements
-	grid = new QGridLayout(this, size, size);
+	grid = new QGridLayout(this);
+	grid->setSizeConstraint(QLayout::SetFixedSize);
 
 	count = 0;
 
@@ -349,8 +350,10 @@ IconSelectPopup::IconSelectPopup(QWidget *parent)
 : QMenu(parent)
 {
 	QGridLayout *grid = new QGridLayout(this);
-	grid->setMargin(style()->pixelMetric(QStyle::PM_MenuPanelWidth, 0, this));
-	grid->setAutoAdd(true);
+	grid->setContentsMargins(style()->pixelMetric(QStyle::PM_MenuPanelWidth, 0, this),
+	                         style()->pixelMetric(QStyle::PM_MenuPanelWidth, 0, this),
+	                         style()->pixelMetric(QStyle::PM_MenuPanelWidth, 0, this),
+	                         style()->pixelMetric(QStyle::PM_MenuPanelWidth, 0, this));
 	
 	d = new Private(this);
 }
