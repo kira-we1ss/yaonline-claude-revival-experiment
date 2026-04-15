@@ -298,20 +298,7 @@ private:
 // RichListViewItem: A RichText listview item
 //------------------------------------------------------------------------------
 
-#include <Q3StyleSheet>
-
-class RichListViewStyleSheet : public Q3StyleSheet
-{
-public:
-	static RichListViewStyleSheet* instance();
-	virtual void scaleFont(QFont& font, int logicalSize) const;
-
-private:
-	RichListViewStyleSheet(QObject* parent=0, const char * name=0);
-	static RichListViewStyleSheet* instance_;
-};
-
-class Q3SimpleRichText;
+class QTextDocument;
 class RichListViewItem : public Q3ListViewItem
 {
 public:
@@ -329,7 +316,7 @@ private:
 	int v_widthUsed;
 	bool v_selected, v_active;
 	bool v_rich;
-	Q3SimpleRichText* v_rt;
+	QTextDocument* v_rt;
 };
 
 // ContactViewItem: an entry in the ContactView (profile, group, or contact)
@@ -357,6 +344,9 @@ public:
 	bool isAlerting() const;
 	bool isAnimatingNick() const;
 	int parentGroupType() const; // use with contacts: returns grouptype of parent group
+	ContactViewItem *parentItem() const;
+	ContactViewItem *firstChildItem() const;
+	ContactViewItem *nextSiblingItem() const;
 
 	void setContact(UserListItem *);
 	void setProfileName(const QString &);

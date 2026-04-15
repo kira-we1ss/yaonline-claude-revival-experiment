@@ -288,7 +288,7 @@ ContactViewItem *ContactProfile::checkGroup(int type)
 	else
 		item = (ContactViewItem *)d->cv->firstChild();
 
-	for(; item; item = (ContactViewItem *)item->nextSibling()) {
+	for(; item; item = item->nextSiblingItem()) {
 		if(item->type() == ContactViewItem::Group && item->groupType() == type)
 			return item;
 	}
@@ -314,7 +314,7 @@ ContactViewItem *ContactProfile::checkGroup(const QString &name)
 	else
 		item = (ContactViewItem *)d->cv->firstChild();
 
-	for(; item; item = (ContactViewItem *)item->nextSibling()) {
+	for(; item; item = item->nextSiblingItem()) {
 		if(item->type() == ContactViewItem::Group && item->groupType() == ContactViewItem::gUser && item->groupName() == name)
 				return item;
 	}
@@ -448,7 +448,7 @@ ContactViewItem *ContactProfile::ensureContactItem(Entry *e, ContactViewItem *gr
 
 	for (int _ci = 0; _ci < e->cvi.size(); ++_ci) {
 		ContactViewItem *i = e->cvi[_ci];
-		ContactViewItem *g = (ContactViewItem *)static_cast<Q3ListViewItem *>(i)->parent();
+		ContactViewItem *g = i->parentItem();
 		if(g == group_item)
 			return i;
 	}
@@ -465,7 +465,7 @@ void ContactProfile::removeContactItem(Entry *e, ContactViewItem *i)
 {
 	d->cv->recalculateSize();
 
-	ContactViewItem *group_item = (ContactViewItem *)static_cast<Q3ListViewItem *>(i)->parent();
+	ContactViewItem *group_item = i->parentItem();
 	//printf("ContactProfile: removing [%s] from group [%s]\n", e->u.jid().full().toLatin1().constData(), group_item->groupName().toLatin1().constData());
 	e->cvi.removeAll(i);
 	delete i;
@@ -537,7 +537,7 @@ void ContactProfile::removeUnneededContactItems(Entry *e)
 	for (int _ci = e->cvi.size() - 1; _ci >= 0; --_ci) {
 		ContactViewItem *i = e->cvi[_ci];
 		bool del = false;
-		ContactViewItem *g = (ContactViewItem *)static_cast<Q3ListViewItem *>(i)->parent();
+		ContactViewItem *g = i->parentItem();
 
 		if(g->groupType() == ContactViewItem::gNotInList && u.inList())
 			del = true;
@@ -694,7 +694,7 @@ QList<XMPP::Jid> ContactProfile::contactListFromCVGroup(ContactViewItem *group) 
 {
 	QList<XMPP::Jid> list;
 
-	for(ContactViewItem *item = (ContactViewItem *)group->firstChild(); item ; item = (ContactViewItem *)item->nextSibling()) {
+	for(ContactViewItem *item = group->firstChildItem(); item ; item = item->nextSiblingItem()) {
 		if(item->type() != ContactViewItem::Contact)
 			continue;
 
@@ -709,7 +709,7 @@ int ContactProfile::contactSizeFromCVGroup(ContactViewItem *group) const
 {
 	int total = 0;
 
-	for(ContactViewItem *item = (ContactViewItem *)group->firstChild(); item ; item = (ContactViewItem *)item->nextSibling()) {
+	for(ContactViewItem *item = group->firstChildItem(); item ; item = item->nextSiblingItem()) {
 		if(item->type() != ContactViewItem::Contact)
 			continue;
 
@@ -724,7 +724,7 @@ int ContactProfile::contactsOnlineFromCVGroup(ContactViewItem *group) const
 {
 	int total = 0;
 
-	for(ContactViewItem *item = (ContactViewItem *)group->firstChild(); item ; item = (ContactViewItem *)item->nextSibling()) {
+	for(ContactViewItem *item = group->firstChildItem(); item ; item = item->nextSiblingItem()) {
 		if(item->type() == ContactViewItem::Contact && item->u()->isAvailable())
 			++total;
 	}
@@ -1109,7 +1109,7 @@ void ContactProfile::doContextMenu(ContactViewItem *i, const QPoint &pos)
 		bool isPrivate = e ? e->u.isPrivate(): false;
 		bool isAgent = e ? e->u.isTransport() : false;
 		bool avail = e ? e->u.isAvailable() : false;
-		QString groupNameCache = ((ContactViewItem *)static_cast<Q3ListViewItem *>(i)->parent())->groupName();
+		QString groupNameCache = i->parentItem()->groupName();
 
 		QMenu pm;
 
@@ -1766,7 +1766,7 @@ void ContactProfile::dragDrop(const QString &text, ContactViewItem *i)
 	if(i->type() == ContactViewItem::Group)
 		gr = i;
 	else
-		gr = (ContactViewItem *)static_cast<Q3ListViewItem *>(i)->parent();
+		gr = i->parentItem();
 
 	Jid j(text);
 	if(!j.isValid())
@@ -2071,11 +2071,11 @@ bool ContactView::filterGroup(ContactViewItem *group, bool refineSearch)
 	//iterate over children
 	Q3ListViewItemIterator it(group);
 	bool groupContainsAFinding = false;
-	ContactViewItem *item = static_cast<ContactViewItem*>(group->firstChild());
+	ContactViewItem *item = group->firstChildItem();
 	while(item) {
 		if (filterContact(item,refineSearch))
 			groupContainsAFinding = true;
-        item = static_cast<ContactViewItem*>(item->nextSibling());
+        item = item->nextSiblingItem();
 	}
 	if (groupContainsAFinding == false) {
 		group->setVisible(false);		
@@ -2646,34 +2646,11 @@ void ContactView::recalculateSize()
 // RichListViewItem: A RichText listview item
 //------------------------------------------------------------------------------
 
-#include <q3simplerichtext.h>
+#include <QAbstractTextDocumentLayout>
 #include <QPainter>
+#include <QTextDocument>
 
 static const int icon_vpadding = 2;
-
-RichListViewStyleSheet::RichListViewStyleSheet(QObject* parent, const char * name) : Q3StyleSheet(parent, name)
-{
-}
-
-
-RichListViewStyleSheet* RichListViewStyleSheet::instance()
-{
-	if (!instance_)
-		instance_ = new RichListViewStyleSheet();
-	return instance_;
-}
-
-void RichListViewStyleSheet::scaleFont(QFont& font, int logicalSize) const
-{
-	int size = font.pointSize() + (logicalSize - 3)*2;
-	if (size > 0)
-		font.setPointSize(size);
-	else
-		font.setPointSize(1);
-}
-
-RichListViewStyleSheet* RichListViewStyleSheet::instance_ = 0;
-
 
 RichListViewItem::RichListViewItem( Q3ListView * parent ) : Q3ListViewItem(parent)
 {
@@ -2725,13 +2702,15 @@ void RichListViewItem::setup()
 		
 		if(v_rt)
 			delete v_rt;
-		v_rt = new Q3SimpleRichText(txt, lv->font(), QString::null, RichListViewStyleSheet::instance());
-		
-		v_rt->setWidth(lv->columnWidth(0) - left - depth() * lv->treeStepSize());
+		v_rt = new QTextDocument;
+		v_rt->setDefaultFont(lv->font());
+		v_rt->setDocumentMargin(0);
+		v_rt->setHtml(txt);
+		v_rt->setTextWidth(lv->columnWidth(0) - left - depth() * lv->treeStepSize());
 
-		v_widthUsed = v_rt->widthUsed() + left;
+		v_widthUsed = int(v_rt->idealWidth()) + left;
 
-		h = QMAX( h, v_rt->height() );
+		h = QMAX( h, int(v_rt->size().height()) );
 
 		if ( h % 2 > 0 )
 			h++;
@@ -2784,13 +2763,17 @@ void RichListViewItem::paintCell(QPainter *p, const QColorGroup &cg, int column,
 	//	pxrect.moveTop((height() - pxh)/2);
 
 	// start drawing
-	QRect rtrect(r, (height() - v_rt->height())/2, v_widthUsed, v_rt->height());
-	v_rt->draw(p, rtrect.left(), rtrect.top(), rtrect, cg, paper);
+	QRect rtrect(r, (height() - int(v_rt->size().height()))/2, v_widthUsed, int(v_rt->size().height()));
+	p->fillRect(0, 0, width, height(), *paper);
+	p->translate(rtrect.left(), rtrect.top());
+	QAbstractTextDocumentLayout::PaintContext ctx;
+	ctx.clip = QRectF(0, 0, rtrect.width(), rtrect.height());
+	v_rt->documentLayout()->draw(p, ctx);
+	p->translate(-rtrect.left(), -rtrect.top());
 	
 	QRegion clip(0, 0, width, height());
 	clip -= rtrect;
 	p->setClipRegion(clip);
-	p->fillRect( 0, 0, width, height(), *paper );
 
 	if(px)
 		p->drawPixmap(pxrect, *px);
@@ -3029,8 +3012,23 @@ bool ContactViewItem::isAnimatingNick() const
 
 int ContactViewItem::parentGroupType() const
 {
-	ContactViewItem *item = (ContactViewItem *)Q3ListViewItem::parent();
+	ContactViewItem *item = parentItem();
 	return item->groupType();
+}
+
+ContactViewItem *ContactViewItem::parentItem() const
+{
+	return static_cast<ContactViewItem *>(Q3ListViewItem::parent());
+}
+
+ContactViewItem *ContactViewItem::firstChildItem() const
+{
+	return static_cast<ContactViewItem *>(Q3ListViewItem::firstChild());
+}
+
+ContactViewItem *ContactViewItem::nextSiblingItem() const
+{
+	return static_cast<ContactViewItem *>(Q3ListViewItem::nextSibling());
 }
 
 void ContactViewItem::drawGroupIcon()
@@ -3482,7 +3480,7 @@ void ContactViewItem::setAnimateNick()
 
 void ContactViewItem::updatePosition()
 {
-	ContactViewItem *par = (ContactViewItem *)Q3ListViewItem::parent();
+	ContactViewItem *par = parentItem();
 	if(!par)
 		return;
 
@@ -3564,7 +3562,7 @@ bool ContactViewItem::acceptDrop(const QMimeSource *m) const
 	else if ( type_ == Contact ) {
 		if ( d->u && d->u->isSelf() )
 			return false;
-		ContactViewItem *par = (ContactViewItem *)Q3ListViewItem::parent();
+		ContactViewItem *par = parentItem();
 		if(par->groupType() != gGeneral && par->groupType() != gUser)
 			return false;
 	}
