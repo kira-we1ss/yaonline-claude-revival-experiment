@@ -27,7 +27,6 @@
 
 #include <QFileInfo>
 #include <Q3Dict>
-#include <Q3PtrList>
 #include <QCoreApplication>
 
 using namespace XMPP;

@@ -25,7 +25,6 @@
 #include <QAction>
 //Added by qt3to4:
 #include <QContextMenuEvent>
-#include <Q3PtrList>
 #include "psicon.h"
 #include "iconset.h"
 #include "psicon.h"

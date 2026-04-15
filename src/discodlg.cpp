@@ -22,7 +22,6 @@
 
 #include <q3listview.h>
 #include <QMenu>
-#include <Q3PtrList>
 
 #include <QComboBox>
 #include <QCheckBox>
