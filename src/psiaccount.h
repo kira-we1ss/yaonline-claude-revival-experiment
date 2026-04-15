@@ -103,7 +103,7 @@ public:
 	~PsiAccount();
 
 	bool enabled() const;
-	void setEnabled(bool e = TRUE);
+	void setEnabled(bool e = true);
 
 	bool isAvailable() const;
 	bool isActive() const;

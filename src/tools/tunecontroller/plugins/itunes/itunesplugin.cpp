@@ -33,13 +33,12 @@ class ITunesPlugin : public QObject, public TuneControllerPlugin
 {
 	Q_OBJECT
 	Q_INTERFACES(TuneControllerPlugin)
+	Q_PLUGIN_METADATA(IID "be.el-tramo.TuneController/0.0-20060129")
 
 public:
 	virtual QString name();
 	virtual TuneController* createController();
 };
-
-Q_EXPORT_PLUGIN2(itunesplugin, ITunesPlugin);
 
 QString ITunesPlugin::name()
 {

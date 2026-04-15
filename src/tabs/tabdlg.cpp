@@ -58,6 +58,9 @@
 static const QString lastGeometryOptionPath = "options.ya.chat-window.last-geometry";
 static const QString psiTabDragMimeType = "application/psi-tab-drag";
 
+Q_DECLARE_METATYPE(TabDlg*);
+Q_DECLARE_METATYPE(TabbableWidget*);
+
 //----------------------------------------------------------------------------
 // TabDlg
 //----------------------------------------------------------------------------
@@ -95,13 +98,14 @@ TabDlg::TabDlg(TabManager* tabManager)
 	connect(tabWidget_, SIGNAL(closeTab(int)), SLOT(closeTab(int)));
 	connect(tabWidget_, SIGNAL(currentChanged(QWidget*)), SLOT(tabSelected(QWidget*)));
 
-	QVBoxLayout *vert1 = new QVBoxLayout( this, 1);
+	QVBoxLayout *vert1 = new QVBoxLayout(this);
+	vert1->setContentsMargins(1, 1, 1, 1);
 #ifdef YAPSI
-	vert1->setMargin(0);
+	vert1->setContentsMargins(0, 0, 0, 0);
 #endif
 	vert1->addWidget(tabWidget_);
 
-	setAcceptDrops(TRUE);
+	setAcceptDrops(true);
 
 	X11WM_CLASS("tabs");
 	setOpacityOptionPath("options.ui.chat.opacity");
@@ -121,13 +125,13 @@ TabDlg::TabDlg(TabManager* tabManager)
 
 	act_close_ = new QAction(this);
 	addAction(act_close_);
-	connect(act_close_,SIGNAL(activated()), SLOT(closeCurrentTab()));
+	connect(act_close_,SIGNAL(triggered()), SLOT(closeCurrentTab()));
 	act_prev_ = new QAction(this);
 	addAction(act_prev_);
-	connect(act_prev_,SIGNAL(activated()), SLOT(previousTab()));
+	connect(act_prev_,SIGNAL(triggered()), SLOT(previousTab()));
 	act_next_ = new QAction(this);
 	addAction(act_next_);
-	connect(act_next_,SIGNAL(activated()), SLOT(nextTab()));
+	connect(act_next_,SIGNAL(triggered()), SLOT(nextTab()));
 
 	setShortcuts();
 
@@ -140,8 +144,6 @@ TabDlg::~TabDlg()
 }
 
 // FIXME: This is a bad idea to store pointers in QMimeData
-Q_DECLARE_METATYPE(TabDlg*);
-Q_DECLARE_METATYPE(TabbableWidget*);
 
 void TabDlg::setShortcuts()
 {
@@ -214,7 +216,7 @@ void TabDlg::tab_aboutToShowMenu(QMenu *menu)
 
 void TabDlg::menu_sendTabTo(QAction *act)
 {
-	queuedSendTabTo(static_cast<TabbableWidget*>(tabWidget_->currentPage()), act->data().value<TabDlg*>());
+	queuedSendTabTo(static_cast<TabbableWidget*>(tabWidget_->currentWidget()), act->data().value<TabDlg*>());
 }
 
 void TabDlg::sendTabTo(TabbableWidget* tab, TabDlg* otherTabs)
@@ -284,7 +286,7 @@ bool TabDlg::managesTab(const TabbableWidget* tab) const
 
 bool TabDlg::tabOnTop(const TabbableWidget* tab) const
 {
-	return tabWidget_->currentPage() == tab;
+	return tabWidget_->currentWidget() == tab;
 }
 
 void TabDlg::insertTab(int index, TabbableWidget *tab)
@@ -310,7 +312,7 @@ void TabDlg::addTab(TabbableWidget* tab)
 
 void TabDlg::detachCurrentTab()
 {
-	detachTab(static_cast<TabbableWidget*>(tabWidget_->currentPage()));
+	detachTab(static_cast<TabbableWidget*>(tabWidget_->currentWidget()));
 }
 
 uint TabDlg::tabCount() const
@@ -343,7 +345,7 @@ void TabDlg::removeTabWithNoChecks(TabbableWidget *tab)
 	disconnect(tab, SIGNAL(updateFlashState()), this, SLOT(updateFlashState()));
 
 	tabs_.removeAll(tab);
-	tabWidget_->removePage(tab);
+	tabWidget_->removeTab(tabWidget_->indexOf(tab));
 	checkHasChats();
 	openedChatsUpdate();
 }
@@ -366,7 +368,7 @@ void TabDlg::closeTab(TabbableWidget* chat, bool doclose)
 	chat->hide();
 	LOG_TRACE;
 	removeTabWithNoChecks(chat);
-	chat->reparent(0,QPoint());
+	chat->setParent(nullptr);
 	if (tabWidget_->count() > 0) {
 		updateCaption();
 	}
@@ -383,7 +385,7 @@ void TabDlg::selectTab(TabbableWidget* chat)
 {
 	bool updatesEnabled = this->updatesEnabled();
 	setUpdatesEnabled(false);
-	tabWidget_->showPage(chat);
+	tabWidget_->setCurrentWidget(chat);
 	chat->aboutToShow();
 	setUpdatesEnabled(updatesEnabled);
 }
@@ -395,23 +397,19 @@ void TabDlg::checkHasChats()
 	deleteLater();
 }
 
-void TabDlg::windowActivationChange(bool isActivated)
+void TabDlg::changeEvent(QEvent* e)
 {
-	QWidget::windowActivationChange(isActivated);
-
-	// NOTE: we have to use the isActivated parameter, as the isActiveWindow()
-	// function is semi-reliable on Windows on some machines. And this is critical
-	// for yapsi that we call TabbableWidget::activated() for the current tab
-	// when we've got QEvent::WindowActivate
-	if (isActiveWindow() || isActivated) {
-		// if we're bringing it to the front, get rid of the '*' if necessary
-		activated();
+	TabBaseClass::changeEvent(e);
+	if (e->type() == QEvent::ActivationChange) {
+		if (isActiveWindow()) {
+			activated();
+		}
 	}
 }
 
 void TabDlg::activated()
 {
-	TabbableWidget* currentTab = dynamic_cast<TabbableWidget*>(tabWidget_->currentPage());
+	TabbableWidget* currentTab = dynamic_cast<TabbableWidget*>(tabWidget_->currentWidget());
 	if (currentTab && !closing_) {
 		currentTab->activated();
 	}
@@ -441,10 +439,10 @@ QString TabDlg::desiredCaption() const
 		}
 	}
 #endif
-	if (tabWidget_->currentPage()) {
-		cap += static_cast<TabbableWidget*>(tabWidget_->currentPage())->getDisplayName();
+	if (tabWidget_->currentWidget()) {
+		cap += static_cast<TabbableWidget*>(tabWidget_->currentWidget())->getDisplayName();
 #ifndef YAPSI
-		if (static_cast<TabbableWidget*>(tabWidget_->currentPage())->state() == TabbableWidget::StateComposing)
+		if (static_cast<TabbableWidget*>(tabWidget_->currentWidget())->state() == TabbableWidget::StateComposing)
 			cap += tr(" is composing");
 #endif
 	}
@@ -498,7 +496,7 @@ void TabDlg::closeEvent(QCloseEvent* closeEvent)
 
 TabbableWidget *TabDlg::getTab(int i) const
 {
-	return static_cast<TabbableWidget*>(tabWidget_->page(i));
+	return static_cast<TabbableWidget*>(tabWidget_->widget(i));
 }
 
 TabbableWidget* TabDlg::getTabPointer(PsiAccount* account, QString fullJid)
@@ -580,7 +578,7 @@ void TabDlg::updateTab(TabbableWidget* chat)
 		tabWidget_->setTabTextColor(chat, Qt::red);
 	}
 	else {
-		tabWidget_->setTabTextColor(chat, colorGroup().foreground());
+		tabWidget_->setTabTextColor(chat, palette().windowText().color());
 	}
 #endif
 	updateCaption();
@@ -588,24 +586,24 @@ void TabDlg::updateTab(TabbableWidget* chat)
 
 void TabDlg::nextTab()
 {
-	int page = tabWidget_->currentPageIndex()+1;
+	int page = tabWidget_->currentIndex()+1;
 	if ( page >= tabWidget_->count() )
 		page = 0;
-	tabWidget_->setCurrentPage( page );
+	tabWidget_->setCurrentIndex( page );
 }
 
 void TabDlg::previousTab()
 {
-	int page = tabWidget_->currentPageIndex()-1;
+	int page = tabWidget_->currentIndex()-1;
 	if ( page < 0 )
 		page = tabWidget_->count() - 1;
-	tabWidget_->setCurrentPage( page );
+	tabWidget_->setCurrentIndex( page );
 }
 
 void TabDlg::closeCurrentTab()
 {
 	LOG_TRACE;
-	closeTab(static_cast<TabbableWidget*>(tabWidget_->currentPage()));
+	closeTab(static_cast<TabbableWidget*>(tabWidget_->currentWidget()));
 }
 
 void TabDlg::closeTab(int index)

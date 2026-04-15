@@ -308,14 +308,14 @@ public slots:
 		if(at == -1)
 			return QString();
 		Item &i = items[at];
-		if(qVariantCanConvert<KeyBundle>(v))
-			return i.owner->writeEntry(i.storeContextId, qVariantValue<KeyBundle>(v));
-		else if(qVariantCanConvert<Certificate>(v))
-			return i.owner->writeEntry(i.storeContextId, qVariantValue<Certificate>(v));
-		else if(qVariantCanConvert<CRL>(v))
-			return i.owner->writeEntry(i.storeContextId, qVariantValue<CRL>(v));
-		else if(qVariantCanConvert<PGPKey>(v))
-			return i.owner->writeEntry(i.storeContextId, qVariantValue<PGPKey>(v));
+		if(v.canConvert<KeyBundle>())
+			return i.owner->writeEntry(i.storeContextId, v.value<KeyBundle>());
+		else if(v.canConvert<Certificate>())
+			return i.owner->writeEntry(i.storeContextId, v.value<Certificate>());
+		else if(v.canConvert<CRL>())
+			return i.owner->writeEntry(i.storeContextId, v.value<CRL>());
+		else if(v.canConvert<PGPKey>())
+			return i.owner->writeEntry(i.storeContextId, v.value<PGPKey>());
 		else
 			return QString();
 	}
@@ -783,7 +783,7 @@ bool KeyStoreEntry::ensureAvailable()
 {
 	QString storeId = this->storeId();
 	QString entryId = id();
-	KeyStoreEntryContext *c = (KeyStoreEntryContext *)qVariantValue<void*>(trackercall("entry", QVariantList() << storeId << entryId));
+	KeyStoreEntryContext *c = (KeyStoreEntryContext *)trackercall("entry", QVariantList() << storeId << entryId).value<void*>();
 	if(c)
 		change(c);
 	return isAvailable();
@@ -977,7 +977,7 @@ protected:
 	virtual void run()
 	{
 		if(type == EntryList)
-			entryList = qVariantValue< QList<KeyStoreEntry> >(trackercall("entryList", QVariantList() << trackerId));
+			entryList = trackercall("entryList", QVariantList() << trackerId).value< QList<KeyStoreEntry> >();
 		else if(type == WriteEntry)
 		{
 			QVariant arg;
@@ -1205,7 +1205,7 @@ QList<KeyStoreEntry> KeyStore::entryList() const
 
 	if(d->trackerId == -1)
 		return QList<KeyStoreEntry>();
-	return qVariantValue< QList<KeyStoreEntry> >(trackercall("entryList", QVariantList() << d->trackerId));
+	return trackercall("entryList", QVariantList() << d->trackerId).value< QList<KeyStoreEntry> >();
 }
 
 bool KeyStore::holdsTrustedCertificates() const
@@ -1213,7 +1213,7 @@ bool KeyStore::holdsTrustedCertificates() const
 	QList<KeyStoreEntry::Type> list;
 	if(d->trackerId == -1)
 		return false;
-	list = qVariantValue< QList<KeyStoreEntry::Type> >(trackercall("entryTypes", QVariantList() << d->trackerId));
+	list = trackercall("entryTypes", QVariantList() << d->trackerId).value< QList<KeyStoreEntry::Type> >();
 	if(list.contains(KeyStoreEntry::TypeCertificate) || list.contains(KeyStoreEntry::TypeCRL))
 		return true;
 	return false;
@@ -1224,7 +1224,7 @@ bool KeyStore::holdsIdentities() const
 	QList<KeyStoreEntry::Type> list;
 	if(d->trackerId == -1)
 		return false;
-	list = qVariantValue< QList<KeyStoreEntry::Type> >(trackercall("entryTypes", QVariantList() << d->trackerId));
+	list = trackercall("entryTypes", QVariantList() << d->trackerId).value< QList<KeyStoreEntry::Type> >();
 	if(list.contains(KeyStoreEntry::TypeKeyBundle) || list.contains(KeyStoreEntry::TypePGPSecretKey))
 		return true;
 	return false;
@@ -1235,7 +1235,7 @@ bool KeyStore::holdsPGPPublicKeys() const
 	QList<KeyStoreEntry::Type> list;
 	if(d->trackerId == -1)
 		return false;
-	list = qVariantValue< QList<KeyStoreEntry::Type> >(trackercall("entryTypes", QVariantList() << d->trackerId));
+	list = trackercall("entryTypes", QVariantList() << d->trackerId).value< QList<KeyStoreEntry::Type> >();
 	if(list.contains(KeyStoreEntry::TypePGPPublicKey))
 		return true;
 	return false;

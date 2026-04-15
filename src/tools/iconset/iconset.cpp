@@ -31,6 +31,7 @@
 #include <QDomDocument>
 #include <QThread>
 #include <QCoreApplication>
+#include <QLocale>
 #include <QTextCodec>
 #include <QtAlgorithms>
 #include <QPointer>
@@ -163,7 +164,7 @@ const QPixmap & Impix::pixmap() const
 const QImage & Impix::image() const
 {
 	if (d->image.isNull() && d->pixmap)
-		d->image = d->pixmap->convertToImage();
+		d->image = d->pixmap->toImage();
 	return d->image;
 }
 
@@ -202,7 +203,7 @@ class IconSharedObject : public QObject
 public:
 	IconSharedObject()
 #ifdef ICONSET_SOUND
-	: QObject(qApp, "IconSharedObject")
+	: QObject(qApp)
 #endif
 	{ }
 
@@ -322,7 +323,7 @@ public:
 
 	Impix impix;
 	Anim *anim;
-	QIconSet *icon;
+	QIcon *icon;
 
 	int activatedCount;
 	friend class PsiIcon;
@@ -355,7 +356,7 @@ PsiIcon::~PsiIcon()
  * other will be changed as well. (that's because image data is shared)
  */
 PsiIcon::PsiIcon(const PsiIcon &from)
-: QObject(0, 0)
+: QObject(nullptr)
 {
 	moveToMainThread(this);
 
@@ -618,7 +619,7 @@ QString PsiIcon::defaultText() const
 
 	// first, try to get the text by priorities
 	QStringList lang;
-	lang << QString(QTextCodec::locale()).left(2); // most prioritent, is the local language
+	lang << QLocale::system().name().left(2); // most prioritent, is the local language
 	lang << "";                                    // and then the language without name goes (international?)
 	lang << "en";                                  // then real English
 
@@ -1065,18 +1066,18 @@ public:
 		QFileInfo fi(dir);
 		if ( fi.isDir() ) {
 			QFile file ( dir + "/" + fileName );
-			if (!file.open(IO_ReadOnly))
+			if (!file.open(QFile::ReadOnly))
 				return ba;
 
 			ba = file.readAll();
 		}
 #ifdef ICONSET_ZIP
-		else if ( fi.extension(false) == "jisp" || fi.extension(false) == "zip" ) {
+		else if ( fi.suffix().toLower() == "jisp" || fi.suffix().toLower() == "zip" ) {
 			UnZip z(dir);
 			if ( !z.open() )
 				return ba;
 
-			QString n = fi.baseName(true) + "/" + fileName;
+			QString n = fi.completeBaseName() + "/" + fileName;
 			if ( !z.readFile(n, &ba) ) {
 				n = "/" + fileName;
 				z.readFile(n, &ba);
@@ -1291,21 +1292,21 @@ public:
 							break;
 
 						QFileInfo ext(sound[*it]);
-						path += "/" + QCA::Hash("sha1").hashToString(QString(fi.absFilePath() + "/" + *sound[*it]).utf8()) + "." + ext.extension();
+						path += "/" + QCA::Hash("sha1").hashToString(QString(fi.absoluteFilePath() + "/" + sound[*it]).toUtf8()) + "." + ext.suffix();
 
 						QFile file ( path );
-						file.open ( IO_WriteOnly );
+						file.open ( QFile::WriteOnly );
 						QDataStream out ( &file );
 
 						QByteArray data = loadData(sound[*it], dir);
-						out.writeRawBytes (data, data.size());
+						out.writeRawData(data.constData(), data.size());
 
 						icon.setSound ( path );
 						break;
 #endif
 					}
 					else {
-						icon.setSound ( fi.absFilePath() + "/" + *sound[*it] );
+						icon.setSound ( fi.absoluteFilePath() + "/" + sound[*it] );
 						break;
 					}
 				}

@@ -1781,10 +1781,9 @@ class gnupgPlugin : public QObject, public QCAPlugin
 {
 	Q_OBJECT
 	Q_INTERFACES(QCAPlugin)
+	Q_PLUGIN_METADATA(IID "com.affinix.qca.Plugin/1.0")
 public:
 	virtual QCA::Provider *createProvider() { return new gnupgProvider; }
 };
 
 #include "qca-gnupg.moc"
-
-Q_EXPORT_PLUGIN2(qca_gnupg, gnupgPlugin)

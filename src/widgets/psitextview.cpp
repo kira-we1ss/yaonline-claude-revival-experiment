@@ -21,8 +21,10 @@
 #include "psitextview.h"
 
 #include <QMenu>
+#include <QMimeData>
 #include <QScrollBar>
 #include <QAbstractTextDocumentLayout>
+#include <QTextBlock>
 #include <QTextDocumentFragment>
 
 #include "urlobject.h"
@@ -40,7 +42,7 @@ class PsiTextView::Private : public QObject
 
 public:
 	Private(QObject *parent)
-	: QObject(parent, "PsiTextView::Private") 
+	: QObject(parent)
 	{
 		anchorOnMousePress = QString();
 		hadSelectionOnMousePress = false;
@@ -167,7 +169,7 @@ QString PsiTextView::getHtml() const
 	int position = ptv->verticalScrollBar()->value();
 	
 	bool unselectAll = false;
-	if (!hasSelectedText()) {
+	if (!ptv->textCursor().hasSelection()) {
 		ptv->selectAll();
 		unselectAll = true;
 	}

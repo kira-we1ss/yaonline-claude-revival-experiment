@@ -32,7 +32,7 @@ QByteArray methodReturnType(const QMetaObject *obj, const QByteArray &method, co
 	for(int n = 0; n < obj->methodCount(); ++n)
 	{
 		QMetaMethod m = obj->method(n);
-		QByteArray sig = m.signature();
+		QByteArray sig = m.methodSignature();
 		int offset = sig.indexOf('(');
 		if(offset == -1)
 			continue;

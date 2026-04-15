@@ -22,6 +22,7 @@
 #define SIMPLECLI_H
 
 #include <QMap>
+#include <QObject>
 #include <QStringList>
 
 class SimpleCli : public QObject

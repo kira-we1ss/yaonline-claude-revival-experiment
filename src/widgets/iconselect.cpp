@@ -29,7 +29,6 @@
 #include <QAbstractButton>
 #include <QLabel>
 #include <QTextCodec>
-#include <QMenuItem>
 #include <QEvent>
 #include <QMouseEvent>
 
@@ -283,10 +282,10 @@ void IconSelect::setIconset(const Iconset &iconset)
 	h /= count;
 
 	const int margin = 2;
-	int tileSize = (int)QMAX(w, h) + 2*margin;
+	int tileSize = (int)qMax(w, h) + 2*margin;
 
 	QRect r = QApplication::desktop()->availableGeometry( menu );
-	int maxSize = QMIN(r.width(), r.height())*3/4;
+	int maxSize = qMin(r.width(), r.height())*3/4;
 
 	int size = (int)ceil( sqrt( count ) );
 

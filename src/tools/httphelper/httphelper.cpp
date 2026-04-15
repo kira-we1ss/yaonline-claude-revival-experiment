@@ -20,7 +20,6 @@
 
 #include "httphelper.h"
 
-#include <QHttp>
 #include <QUrl>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
@@ -117,15 +116,10 @@ struct ProcessedUrl {
 
 static ProcessedUrl processUrl(const QString& urlString)
 {
-	QByteArray ascii = urlString.toAscii();
-	QUrl url;
-	if (ascii == urlString)
-		url = QUrl::fromEncoded(ascii);
-	else
-		url = QUrl(urlString, QUrl::TolerantMode);
+	QUrl url(urlString, QUrl::TolerantMode);
 	// Q_ASSERT(url.hasQuery());
 
-	QString query = url.encodedQuery();
+	QString query = url.query();
 	query.replace("?", "&"); // FIXME: Bug in Qt 4.4.2?
 
 	QString fullUri = url.path();
@@ -149,25 +143,6 @@ static QString userAgent()
 #endif
 }
 
-// adapted from afisha-cinema/httphelpers.cpp
-int httpGet(QHttp* http, const QString& urlString)
-{
-	ProcessedUrl url = processUrl(urlString);
-
-	QHttpRequestHeader header("GET", url.fullUri);
-	header.setValue("User-Agent", userAgent());
-	header.setValue("Host", QString("%1:%2").arg(url.url.host(), url.url.port()));
-	header.setValue("Accept-Language", "en-us");
-	header.setValue("Accept", "*/*");
-
-	QByteArray content;
-	header.setContentLength(content.length());
-
-	Q_ASSERT(url.url.scheme() == "https");
-	http->setHost(url.url.host(), QHttp::ConnectionModeHttps,
-	              443);
-	return http->request(header, content);
-}
 
 QNetworkRequest getRequest(const QString& urlString, QNetworkReply* referer)
 {
@@ -286,7 +261,7 @@ QString urlEncode(const QString& str)
 
 QString urlDecode(const QString& str)
 {
-	return QString::fromUtf8(QUrl::fromPercentEncoding(str.toUtf8()));
+	return QUrl::fromPercentEncoding(str.toUtf8());
 }
 
 void debugReply(QNetworkReply* reply)

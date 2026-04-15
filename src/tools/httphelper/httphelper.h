@@ -24,7 +24,6 @@
 #include <QObject>
 #include <QPointer>
 
-class QHttp;
 class QString;
 class QNetworkAccessManager;
 class QNetworkRequest;
@@ -86,7 +85,6 @@ private:
 };
 
 namespace HttpHelper {
-	int httpGet(QHttp* http, const QString& urlString);
 	QNetworkRequest getRequest(const QString& url, QNetworkReply* referer = 0);
 	QNetworkRequest postFileRequest(const QString& urlString, const QString& fieldName, const QString& fileName, FileUploadDevice* postData);
 	QNetworkRequest postFileRequest(const QString& urlString, const QString& fieldName, const QString& fileName, const QByteArray& fileData, QByteArray* postData);

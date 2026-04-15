@@ -31,4 +31,3 @@ TuneController* PsiFilePlugin::createController()
 	return new PsiFileController();
 }
 
-Q_EXPORT_PLUGIN2(psifileplugin, PsiFilePlugin);

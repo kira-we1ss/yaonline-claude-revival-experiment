@@ -257,8 +257,12 @@ public:
 		frame->setFrameShape( QFrame::StyledPanel );
 		frame->setFrameShadow( QFrame::Raised );
 
-		QHBoxLayout *frameLayout = new QHBoxLayout( frame, 0, 0 );
-		QVBoxLayout *layout = new QVBoxLayout( 0, 0, 0 );
+		QHBoxLayout *frameLayout = new QHBoxLayout(frame);
+		frameLayout->setContentsMargins(0, 0, 0, 0);
+		frameLayout->setSpacing(0);
+		QVBoxLayout *layout = new QVBoxLayout();
+		layout->setContentsMargins(0, 0, 0, 0);
+		layout->setSpacing(0);
 		frameLayout->addLayout( layout );
 
 		text = new IconLabel( frame );

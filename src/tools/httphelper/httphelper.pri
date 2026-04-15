@@ -2,9 +2,9 @@ INCLUDEPATH += $$PWD
 DEPENDPATH += $$PWD
 
 SOURCES += \
-	httphelper.cpp \
-	fileuploaddevice.cpp
+	$$PWD/httphelper.cpp \
+	$$PWD/fileuploaddevice.cpp
 
 HEADERS += \
-	httphelper.h \
-	fileuploaddevice.h
+	$$PWD/httphelper.h \
+	$$PWD/fileuploaddevice.h

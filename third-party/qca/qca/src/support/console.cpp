@@ -278,7 +278,7 @@ public:
 
 	SecureArray readSecure(int bytes = -1)
 	{
-		return qVariantValue<SecureArray>(mycall(worker, "readSecure", QVariantList() << bytes));
+		return mycall(worker, "readSecure", QVariantList() << bytes).value<SecureArray>();
 	}
 
 	void writeSecure(const SecureArray &a)

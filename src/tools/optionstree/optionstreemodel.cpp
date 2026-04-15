@@ -52,7 +52,8 @@ void OptionsTreeModel::setFlat(bool b)
 {
 	if (flat_ != b) {
 		flat_ = b;
-		reset();
+		beginResetModel();
+		endResetModel();
 	}
 }
 

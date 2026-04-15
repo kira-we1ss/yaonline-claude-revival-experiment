@@ -58,7 +58,7 @@ public:
 
 	static bool haveFixer(QObject *obj)
 	{
-		return (qFindChild<TimerFixer *>(obj) ? true: false);
+		return (obj->findChild<TimerFixer *>(QString(), Qt::FindDirectChildrenOnly) ? true: false);
 	}
 
 	TimerFixer(QObject *_target, TimerFixer *_fp = 0) : QObject(_target)
@@ -180,7 +180,7 @@ private slots:
 			int timeLeft = qMax(info.interval - info.time.elapsed(), 0);
 			info.fixInterval = true;
 			ed->unregisterTimer(info.id);
-			ed->registerTimer(info.id, timeLeft, target);
+			info.id = ed->registerTimer(timeLeft, Qt::CoarseTimer, target);
 
 #ifdef TIMERFIXER_DEBUG
 			printf("TimerFixer[%p] adjusting [%d] to %d\n", this, info.id, timeLeft);
@@ -239,7 +239,7 @@ private:
 #endif
 			info.fixInterval = false;
 			ed->unregisterTimer(info.id);
-			ed->registerTimer(info.id, info.interval, target);
+			info.id = ed->registerTimer(info.interval, Qt::CoarseTimer, target);
 		}
 
 		info.time.start();
@@ -258,7 +258,7 @@ private:
 			int id = timers[n].id;
 			for(int i = 0; i < edtimers.count(); ++i)
 			{
-				if(edtimers[i].first == id)
+				if(edtimers[i].timerId == id)
 				{
 					found = true;
 					break;
@@ -278,7 +278,7 @@ private:
 		// added?
 		for(int n = 0; n < edtimers.count(); ++n)
 		{
-			int id = edtimers[n].first;
+			int id = edtimers[n].timerId;
 			bool found = false;
 			for(int i = 0; i < timers.count(); ++i)
 			{
@@ -293,7 +293,7 @@ private:
 			{
 				TimerInfo info;
 				info.id = id;
-				info.interval = edtimers[n].second;
+				info.interval = edtimers[n].interval;
 				info.time.start();
 				timers += info;
 #ifdef TIMERFIXER_DEBUG

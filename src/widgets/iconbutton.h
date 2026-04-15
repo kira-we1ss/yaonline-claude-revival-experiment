@@ -24,8 +24,8 @@
 #include <QPushButton>
 #include <QWidget>
 #include <QString>
+#include <QIcon>
 #include <QPixmap>
-#include <QIconSet>
 
 
 class PsiIcon;
@@ -35,9 +35,6 @@ class IconButton : public QPushButton
 	Q_OBJECT
 	Q_PROPERTY( QString psiIconName READ psiIconName WRITE setPsiIcon )
 	Q_PROPERTY( bool textVisible READ textVisible WRITE setTextVisible )
-
-	Q_OVERRIDE( QPixmap pixmap DESIGNABLE false SCRIPTABLE false )
-	Q_OVERRIDE( QIcon icon DESIGNABLE false SCRIPTABLE false )
 
 public:
 	IconButton(QWidget *parent = 0);

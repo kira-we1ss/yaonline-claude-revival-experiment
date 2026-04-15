@@ -28,10 +28,9 @@
 #define GROWLNOTIFIER_H
 
 #include <QObject>
-
-class QPixmap;
-class QString;
-class QStringList;
+#include <QPixmap>
+#include <QString>
+#include <QStringList>
 
 class GrowlNotifier : public QObject
 {

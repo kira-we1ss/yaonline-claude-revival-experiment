@@ -277,8 +277,8 @@ public:
 
 		QMap<PsiIcon*, QRect>::Iterator it2;
 		for (it2 = iconRects.begin(); it2 != iconRects.end(); it2++) {
-			QRect r = it2.data();
-			it2.data() = QRect( r.x(), (h - r.height())/2, r.width(), r.height() );
+			QRect r = it2.value();
+			it2.value() = QRect( r.x(), (h - r.height())/2, r.width(), r.height() );
 		}
 #else
 		Q_UNUSED( _iconset );
@@ -324,7 +324,7 @@ public:
 		QMap<PsiIcon*, QRect>::ConstIterator it;
 		for (it = iconRects.begin(); it != iconRects.end(); it++) {
 			PsiIcon *icon = it.key();
-			QRect r = it.data();
+			QRect r = it.value();
 			painter->drawPixmap(QPoint(10 + r.left(), fm.lineSpacing() + 2 + r.top()), icon->pixmap());
 		}
 #else
@@ -597,7 +597,7 @@ public:
 public slots:
 	void iconUpdated()
 	{
-		button->setUpdatesEnabled(FALSE);
+		button->setUpdatesEnabled(false);
 #ifndef WIDGET_PLUGIN
 		button->setIcon(icon ? icon->pixmap() : QPixmap());
 #else
@@ -608,7 +608,7 @@ public slots:
 		}
 		button->setIcon(pix);
 #endif
-		button->setUpdatesEnabled(TRUE);
+		button->setUpdatesEnabled(true);
 		button->update();
 	}
 };
@@ -763,7 +763,7 @@ public:
 private slots:
 	void iconUpdated()
 	{
-		button->setUpdatesEnabled(FALSE);
+		button->setUpdatesEnabled(false);
 #ifndef WIDGET_PLUGIN
 		QPixmap pix = icon ? icon->pixmap() : QPixmap();
 		if (pix.isNull())
@@ -774,7 +774,7 @@ private slots:
 #else
 		button->setIcon(QPixmap());
 #endif
-		button->setUpdatesEnabled(TRUE);
+		button->setUpdatesEnabled(true);
 		button->update();
 	}
 };
