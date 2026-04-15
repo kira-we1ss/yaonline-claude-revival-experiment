@@ -27,7 +27,7 @@
 
 #include <QIcon>
 #include <QRegExp>
-#include <Q3MimeSourceFactory>
+// Q3MimeSourceFactory removed — createMimeSourceFactory() is dead code
 #include <QDomDocument>
 #include <QThread>
 #include <QCoreApplication>
@@ -56,7 +56,15 @@
 #endif
 
 #include <QApplication>
-#include <Q3Shared> // TODO FIXME: port all Q3Shared classes to QSharedData
+// Qt3Support-free replacement for Q3Shared
+class Q3Shared {
+public:
+    Q3Shared() : count(0) {}
+    Q3Shared(const Q3Shared &) : count(0) {}
+    inline void ref() { ++count; }
+    inline bool deref() { return !--count; }
+    int count;
+};
 
 static void moveToMainThread(QObject *obj)
 {
@@ -1638,19 +1646,7 @@ void Iconset::setInfo(const QHash<QString, QString> &i)
 	d->info = i;
 }
 
-/**
- * Created Q3MimeSourceFactory with names of icons and their images.
- */
-Q3MimeSourceFactory *Iconset::createMimeSourceFactory() const
-{
-	Q3MimeSourceFactory *m = new Q3MimeSourceFactory;
-
-	PsiIcon *icon;
-	foreach (icon, d->list)
-		m->setImage(icon->name(), icon->image());
-
-	return m;
-}
+// createMimeSourceFactory removed — Q3MimeSourceFactory no longer available in Qt5
 
 /**
  * Adds Iconset to IconsetFactory.

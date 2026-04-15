@@ -26,7 +26,6 @@
 #include "psicon.h"
 #include <QMenuBar>
 #include <QCursor>
-#include <q3dragobject.h>
 #include <QVBoxLayout>
 #include <QDragMoveEvent>
 #include <QResizeEvent>

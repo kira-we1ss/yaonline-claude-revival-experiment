@@ -22,7 +22,7 @@
 #define PROXYDLG_H
 
 #include <QList>
-#include <q3groupbox.h>
+#include <QGroupBox>
 
 #ifndef YAPSI
 #include "ui_proxy.h"
@@ -67,7 +67,7 @@ public:
 	bool fromXml(const QDomElement &);
 };
 
-class ProxyEdit : public Q3GroupBox
+class ProxyEdit : public QGroupBox
 {
 	Q_OBJECT
 public:

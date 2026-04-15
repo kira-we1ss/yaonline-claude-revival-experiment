@@ -20,7 +20,8 @@
 
 #include "discodlg.h"
 
-#include <q3listview.h>
+#include <QTreeWidget>
+#include <QHeaderView>
 #include <QMenu>
 
 #include <QComboBox>
@@ -36,6 +37,7 @@
 #include <QActionGroup>
 #include <QEvent>
 #include <QList>
+#include <QHash>
 #include <QContextMenuEvent>
 
 #include "xmpp_tasks.h"
@@ -148,7 +150,7 @@ public:
 	: QObject(parent) {}
 
 signals:
-	void itemUpdated(Q3ListViewItem *);
+	void itemUpdated(QTreeWidgetItem *);
 
 private:
 	friend class DiscoListItem;
@@ -173,19 +175,18 @@ struct DiscoData {
 // DiscoListItem
 //----------------------------------------------------------------------------
 
-class DiscoListItem : public QObject, public Q3ListViewItem
+class DiscoListItem : public QObject, public QTreeWidgetItem
 {
 	Q_OBJECT
 public:
-	DiscoListItem(DiscoItem it, DiscoData *d, Q3ListView *parent);
-	DiscoListItem(DiscoItem it, DiscoData *d, Q3ListViewItem *parent);
+	DiscoListItem(DiscoItem it, DiscoData *d, QTreeWidget *parent);
+	DiscoListItem(DiscoItem it, DiscoData *d, QTreeWidgetItem *parent);
 	~DiscoListItem();
 
-	QString text(int columns) const;
-	void setOpen(bool open);
 	const DiscoItem &item() const;
 
 	void itemSelected();
+	void handleExpanded(); // called when tree item is expanded
 
 public slots: // the two are used internally by class, and also called by DiscoDlg::Private::refresh()
 	void updateInfo();
@@ -223,18 +224,26 @@ private:
 	bool autoItemsEnabled() const;
 	bool autoInfoEnabled() const;
 	DiscoDlg *dlg() const;
+
+	// Qt3 compat helpers
+	void setExpandable(bool e) {
+		setChildIndicatorPolicy(e ? QTreeWidgetItem::ShowIndicator : QTreeWidgetItem::DontShowIndicator);
+	}
+	bool isExpandable() const {
+		return childIndicatorPolicy() != QTreeWidgetItem::DontShowIndicator || childCount() > 0;
+	}
 };
 
-DiscoListItem::DiscoListItem(DiscoItem it, DiscoData *_d, Q3ListView *parent)
-: Q3ListViewItem (parent)
+DiscoListItem::DiscoListItem(DiscoItem it, DiscoData *_d, QTreeWidget *parent)
+: QTreeWidgetItem(parent)
 {
 	isRoot = true;
 
 	init(it, _d);
 }
 
-DiscoListItem::DiscoListItem(DiscoItem it, DiscoData *_d, Q3ListViewItem *parent)
-: Q3ListViewItem (parent)
+DiscoListItem::DiscoListItem(DiscoItem it, DiscoData *_d, QTreeWidgetItem *parent)
+: QTreeWidgetItem(parent)
 {
 	isRoot = false;
 
@@ -254,7 +263,7 @@ void DiscoListItem::init(DiscoItem _item, DiscoData *_d)
 	alreadyItems = alreadyInfo = false;
 
 	if ( !autoItemsEnabled() )
-		setExpandable (true);
+		setExpandable(true);
 
 	autoInfo = false;
 	if ( autoInfoEnabled() || isRoot ) {
@@ -272,7 +281,7 @@ void DiscoListItem::copyItem(const DiscoItem &it)
 		di.setNode ( it.node() );
 	if ( !(!di.name().isEmpty() && it.name().isEmpty()) )
 		di.setName ( it.name() );
-	
+
 	if ( di.name().isEmpty() && !di.jid().full().isEmpty() ) // use JID in the Name column
 		di.setName ( di.jid().full() );
 
@@ -309,6 +318,11 @@ void DiscoListItem::copyItem(const DiscoItem &it)
 		}
 	}
 
+	// Update text columns
+	setText(0, di.name().simplified());
+	setText(1, di.jid().full());
+	setText(2, di.node().simplified());
+
 	bool pixmapOk = false;
 	if ( !di.identities().isEmpty() ) {
 		DiscoItem::Identity id = di.identities().first();
@@ -317,30 +331,17 @@ void DiscoListItem::copyItem(const DiscoItem &it)
 			PsiIcon ic = category2icon(id.category, id.type);
 
 			if ( !ic.impix().isNull() ) {
-				setPixmap (0, ic.impix());
+				setIcon(0, QIcon(ic.impix()));
 				pixmapOk = true;
 			}
 		}
 	}
 
 	if ( !pixmapOk )
-		setPixmap(0, PsiIconset::instance()->status(di.jid(), STATUS_ONLINE).impix());
-
-	repaint();
+		setIcon(0, QIcon(PsiIconset::instance()->status(di.jid(), STATUS_ONLINE).impix()));
 
 	if ( isSelected() ) // update actions
 		emit d->d->itemUpdated( this );
-}
-
-QString DiscoListItem::text (int c) const
-{
-	if (c == 0)
-		return di.name().simplified();
-	else if (c == 1)
-		return di.jid().full();
-	else if (c == 2)
-		return di.node().simplified();
-	return "";
 }
 
 QString DiscoListItem::getErrorInfo() const
@@ -355,7 +356,7 @@ const DiscoItem &DiscoListItem::item() const
 
 DiscoDlg *DiscoListItem::dlg() const
 {
-	return (DiscoDlg *)listView()->parent();
+	return (DiscoDlg *)treeWidget()->parent();
 }
 
 bool DiscoListItem::autoItemsEnabled() const
@@ -368,16 +369,12 @@ bool DiscoListItem::autoInfoEnabled() const
 	return dlg()->ck_autoInfo->isChecked();
 }
 
-void DiscoListItem::setOpen (bool o)
+void DiscoListItem::handleExpanded()
 {
-	if ( o ) {
-		if ( !alreadyItems )
-			updateItems();
-		else
-			autoItemsChildren();
-	}
-
-	Q3ListViewItem::setOpen(o);
+	if ( !alreadyItems )
+		updateItems();
+	else
+		autoItemsChildren();
 }
 
 void DiscoListItem::itemSelected()
@@ -577,12 +574,10 @@ QString DiscoListItem::computeHash( QString jid, QString node )
 
 void DiscoListItem::updateItemsFinished(const DiscoList &list)
 {
-	Q3Dict<DiscoListItem> children;
-	DiscoListItem *child = (DiscoListItem *)firstChild();
-	while ( child ) {
+	QHash<QString, DiscoListItem*> children;
+	for (int ci = 0; ci < childCount(); ++ci) {
+		DiscoListItem *child = (DiscoListItem *)QTreeWidgetItem::child(ci);
 		children.insert( child->hash(), child );
-
-		child = (DiscoListItem *)child->nextSibling();
 	}
 
 	// add/update items
@@ -590,7 +585,7 @@ void DiscoListItem::updateItemsFinished(const DiscoList &list)
 		const DiscoItem a = *it;
 
 		QString key = computeHash(a.jid().full(), a.node());
-		DiscoListItem *child = children[ key ];
+		DiscoListItem *child = children.value(key);
 
 		if ( child ) {
 			child->copyItem ( a );
@@ -602,20 +597,19 @@ void DiscoListItem::updateItemsFinished(const DiscoList &list)
 	}
 
 	// remove all items that are not on new DiscoList
-	children.setAutoDelete( true );
+	qDeleteAll(children);
 	children.clear();
 
-	if ( autoItems && isOpen() )
+	if ( autoItems && isExpanded() )
 		autoItemsChildren();
 
 	// don't forget to remove '+' (or '-') sign in case, that the child list is empty
-	setExpandable ( !list.isEmpty() );
-
-	repaint();
+	if (list.isEmpty())
+		setChildIndicatorPolicy(QTreeWidgetItem::DontShowIndicator);
 
 	// root item is initially hidden
-	if ( isRoot && !isVisible() )
-		setVisible (true);
+	if ( isRoot && isHidden() )
+		setHidden(false);
 }
 
 void DiscoListItem::autoItemsChildren() const
@@ -623,11 +617,9 @@ void DiscoListItem::autoItemsChildren() const
 	if ( !autoItemsEnabled() )
 		return;
 
-	DiscoListItem *child = (DiscoListItem *)firstChild();
-	while ( child ) {
+	for (int ci = 0; ci < childCount(); ++ci) {
+		DiscoListItem *child = (DiscoListItem *)QTreeWidgetItem::child(ci);
 		child->updateItems(true);
-
-		child = (DiscoListItem *)child->nextSibling();
 	}
 }
 
@@ -668,20 +660,18 @@ void DiscoListItem::discoInfoFinished()
 					PsiIcon ic = category2icon(id.category, id.type, STATUS_ERROR);
 
 					if ( !ic.impix().isNull() ) {
-						setPixmap (0, ic.impix());
+						setIcon(0, QIcon(ic.impix()));
 						pixmapOk = true;
 					}
 				}
 			}
 			if ( !pixmapOk )
-				setPixmap(0, PsiIconset::instance()->status(di.jid(), STATUS_ERROR).impix());
-		} else {
-			repaint(); //for setExpandable() called earlier
+				setIcon(0, QIcon(PsiIconset::instance()->status(di.jid(), STATUS_ERROR).impix()));
 		}
 
 		errorInfo=QString("%1").arg(QString(error_str).replace('\n', "<br>"));
 
-		if ( !autoInfo && d->protocol != DiscoData::Auto ) {	
+		if ( !autoInfo && d->protocol != DiscoData::Auto ) {
 			QMessageBox::critical(dlg(), tr("Error"), tr("There was an error getting item's info for <b>%1</b>.<br>Reason: %2").arg(di.jid().full()).arg(QString(error_str).replace('\n', "<br>")));
 		}
 	}
@@ -694,15 +684,15 @@ void DiscoListItem::updateInfo(const DiscoItem &item)
 {
 	copyItem( item );
 
-	if ( isRoot && !isVisible() )
-		setVisible (true);
+	if ( isRoot && isHidden() )
+		setHidden(false);
 }
 
 //----------------------------------------------------------------------------
-// DiscoList
+// DiscoListView
 //----------------------------------------------------------------------------
 
-class DiscoListView : public Q3ListView
+class DiscoListView : public QTreeWidget
 {
 	Q_OBJECT
 public:
@@ -714,28 +704,36 @@ protected:
 	// reimplemented
 	bool eventFilter(QObject* o, QEvent* e);
 	void resizeEvent(QResizeEvent*);
+
+private slots:
+	void onItemExpanded(QTreeWidgetItem *item);
 };
 
 DiscoListView::DiscoListView(QWidget *parent)
-: Q3ListView(parent)
+: QTreeWidget(parent)
 {
-	addColumn( tr( "Name" ) );
-	addColumn( tr( "JID" ) );
-	addColumn( tr( "Node" ) );
-	for (int i = 0; i < 3; i++)
-		setColumnWidthMode(i, Q3ListView::Manual);
-	header()->setStretchEnabled(true, 0);
+	setHeaderLabels(QStringList() << tr("Name") << tr("JID") << tr("Node"));
+	header()->setSectionResizeMode(0, QHeaderView::Interactive);
+	header()->setSectionResizeMode(1, QHeaderView::Interactive);
+	header()->setSectionResizeMode(2, QHeaderView::Interactive);
+
+	connect(this, SIGNAL(itemExpanded(QTreeWidgetItem*)), SLOT(onItemExpanded(QTreeWidgetItem*)));
+}
+
+void DiscoListView::onItemExpanded(QTreeWidgetItem *item)
+{
+	DiscoListItem *di = static_cast<DiscoListItem*>(item);
+	di->handleExpanded();
 }
 
 void DiscoListView::resizeEvent(QResizeEvent* e)
 {
-	Q3ListView::resizeEvent(e);
+	QTreeWidget::resizeEvent(e);
 
-	setColumnWidth(2, header()->fontMetrics().width(columnText(2)) * 2);
-	float remainingWidth = visibleWidth() - columnWidth(2);
+	int col2Width = header()->fontMetrics().horizontalAdvance(headerItem()->text(2)) * 2;
+	setColumnWidth(2, col2Width);
+	int remainingWidth = viewport()->width() - col2Width;
 	setColumnWidth(1, int(remainingWidth * 0.3));
-
-	header()->adjustHeaderSize();
 }
 
 /**
@@ -816,7 +814,7 @@ bool DiscoListView::maybeTip(const QPoint &pos)
 	}
 
 	text += "</qt>";
-	QRect r( itemRect(i) );
+	QRect r( visualItemRect(i) );
 	PsiToolTip::showText(pos, text, this);
 	return true;
 }
@@ -829,7 +827,7 @@ bool DiscoListView::eventFilter(QObject* o, QEvent* e)
 		maybeTip(w->mapToGlobal(he->pos()));
 		return true;
 	}
-	return Q3ListView::eventFilter(o, e);
+	return QTreeWidget::eventFilter(o, e);
 }
 
 //----------------------------------------------------------------------------
@@ -849,10 +847,10 @@ private:
 		{
 			setText(text);
 			setIconText(text);
-	
+
 			setCheckable(true);
 			setToolTip(toolTip);
-			connect(this, SIGNAL(activated()), sm, SLOT(map()));
+			connect(this, SIGNAL(triggered()), sm, SLOT(map()));
 			sm->setMapping(this, parm);
 		}
 	};
@@ -860,9 +858,9 @@ private:
 	// helper class to store browser history
 	class History {
 	private:
-		Q3ListViewItem *item;
+		QTreeWidgetItem *item;
 	public:
-		History(Q3ListViewItem *it) {
+		History(QTreeWidgetItem *it) {
 			item = it;
 		}
 
@@ -871,8 +869,8 @@ private:
 				delete item;
 		}
 
-		Q3ListViewItem *takeItem() {
-			Q3ListViewItem *i = item;
+		QTreeWidgetItem *takeItem() {
+			QTreeWidgetItem *i = item;
 			item = 0;
 			return i;
 		}
@@ -891,7 +889,7 @@ public: // data
 	// custom actions, that will be added to toolbar and context menu
 	IconAction *actRegister, *actSearch, *actJoin, *actAHCommand, *actVCard, *actAdd;
 
-	typedef QList<History> HistoryList;
+	typedef QList<History*> HistoryList;
 	HistoryList backHistory, forwardHistory;
 
 	BusyWidget *busy;
@@ -910,7 +908,7 @@ public slots:
 	void actionBack();
 	void actionForward();
 	void updateBackForward();
-	void backForwardHelper(Q3ListViewItem *);
+	void backForwardHelper(QTreeWidgetItem *);
 
 	void updateComboBoxes(Jid j, QString node);
 
@@ -920,8 +918,8 @@ public slots:
 	void disableButtons();
 	void enableButtons(const DiscoItem &);
 
-	void itemSelected (Q3ListViewItem *);
-	void itemDoubleclicked (Q3ListViewItem *);
+	void itemSelected(QTreeWidgetItem *);
+	void itemDoubleclicked(QTreeWidgetItem *);
 	bool eventFilter (QObject *, QEvent *);
 
 	void setProtocol(int);
@@ -943,28 +941,25 @@ DiscoDlg::Private::Private(DiscoDlg *parent, PsiAccount *pa)
 	connect(data.tasks, SIGNAL(started()),  SLOT(itemUpdateStarted()));
 	connect(data.tasks, SIGNAL(finished()), SLOT(itemUpdateFinished()));
 	data.d = new DiscoConnector(this);
-	connect(data.d, SIGNAL(itemUpdated(Q3ListViewItem *)), SLOT(itemSelected (Q3ListViewItem *)));
+	connect(data.d, SIGNAL(itemUpdated(QTreeWidgetItem*)), SLOT(itemSelected(QTreeWidgetItem*)));
 	data.protocol = DiscoData::Auto;
-
-	backHistory.setAutoDelete(true);
-	forwardHistory.setAutoDelete(true);
 
 	// mess with widgets
 	busy = parent->busy;
 	connect(busy, SIGNAL(destroyed(QObject *)), SLOT(objectDestroyed(QObject *)));
 
-	Q3ListView *lv_discoOld = dlg->lv_disco;
+	QTreeWidget *lv_discoOld = dlg->lv_disco;
 	dlg->lv_disco = new DiscoListView(dlg);
 	replaceWidget(lv_discoOld, dlg->lv_disco);
 
-	dlg->lv_disco->installEventFilter (this);
-	connect(dlg->lv_disco, SIGNAL(selectionChanged (Q3ListViewItem *)), SLOT(itemSelected (Q3ListViewItem *)));;
-	connect(dlg->lv_disco, SIGNAL(doubleClicked (Q3ListViewItem *)),    SLOT(itemDoubleclicked (Q3ListViewItem *)));;
+	dlg->lv_disco->installEventFilter(this);
+	connect(dlg->lv_disco, SIGNAL(currentItemChanged(QTreeWidgetItem*, QTreeWidgetItem*)), SLOT(itemSelected(QTreeWidgetItem*)));
+	connect(dlg->lv_disco, SIGNAL(itemDoubleClicked(QTreeWidgetItem*, int)), SLOT(itemDoubleclicked(QTreeWidgetItem*)));
 
 	// protocol actions
 	QSignalMapper *pm = new QSignalMapper(this);
 	connect(pm, SIGNAL(mapped(int)), SLOT(setProtocol(int)));
-	QActionGroup *protocolActions = new QActionGroup (this);
+	QActionGroup *protocolActions = new QActionGroup(this);
 	protocolActions->setExclusive(true);
 
 	ProtocolAction *autoProtocol = NULL, *discoProtocol = NULL, *browseProtocol = NULL, *agentsProtocol = NULL;
@@ -978,36 +973,36 @@ DiscoDlg::Private::Private(DiscoDlg *parent, PsiAccount *pa)
 
 	// create actions
 	actBrowse = new IconAction (tr("Browse"), "psi/jabber", tr("&Browse"), 0, dlg);
-	connect (actBrowse, SIGNAL(activated()), SLOT(actionBrowse()));
+	connect (actBrowse, SIGNAL(triggered()), SLOT(actionBrowse()));
 	actRefresh = new IconAction (tr("Refresh Item"), "psi/reload", tr("&Refresh Item"), 0, dlg);
-	connect (actRefresh, SIGNAL(activated()), SLOT(actionRefresh()));
+	connect (actRefresh, SIGNAL(triggered()), SLOT(actionRefresh()));
 	actStop = new IconAction (tr("Stop"), "psi/stop", tr("Sto&p"), 0, dlg);
-	connect (actStop, SIGNAL(activated()), SLOT(actionStop()));
+	connect (actStop, SIGNAL(triggered()), SLOT(actionStop()));
 	actBack = new IconAction (tr("Back"), "psi/arrowLeft", tr("&Back"), 0, dlg);
-	connect (actBack, SIGNAL(activated()), SLOT(actionBack()));
+	connect (actBack, SIGNAL(triggered()), SLOT(actionBack()));
 	actForward = new IconAction (tr("Forward"), "psi/arrowRight", tr("&Forward"), 0, dlg);
-	connect (actForward, SIGNAL(activated()), SLOT(actionForward()));
+	connect (actForward, SIGNAL(triggered()), SLOT(actionForward()));
 
 	// custom actions
 	QSignalMapper *sm = new QSignalMapper(this);
 	connect(sm, SIGNAL(mapped(int)), SLOT(actionActivated(int)));
 	actRegister = new IconAction (tr("Register"), "psi/register", tr("&Register"), 0, dlg);
-	connect (actRegister, SIGNAL(activated()), sm, SLOT(map()));
+	connect (actRegister, SIGNAL(triggered()), sm, SLOT(map()));
 	sm->setMapping(actRegister, Features::FID_Register);
 	actSearch = new IconAction (tr("Search"), "psi/search", tr("&Search"), 0, dlg);
-	connect (actSearch, SIGNAL(activated()), sm, SLOT(map()));
+	connect (actSearch, SIGNAL(triggered()), sm, SLOT(map()));
 	sm->setMapping(actSearch, Features::FID_Search);
 	actJoin = new IconAction (tr("Join"), "psi/groupChat", tr("&Join"), 0, dlg);
-	connect (actJoin, SIGNAL(activated()), sm, SLOT(map()));
+	connect (actJoin, SIGNAL(triggered()), sm, SLOT(map()));
 	sm->setMapping(actJoin, Features::FID_Groupchat);
 	actAHCommand = new IconAction (tr("Execute command"), "psi/command", tr("&Execute command"), 0, dlg);
-	connect (actAHCommand, SIGNAL(activated()), sm, SLOT(map()));
+	connect (actAHCommand, SIGNAL(triggered()), sm, SLOT(map()));
 	sm->setMapping(actAHCommand, Features::FID_AHCommand);
 	actVCard = new IconAction (tr("vCard"), "psi/vCard", tr("&vCard"), 0, dlg);
-	connect (actVCard, SIGNAL(activated()), sm, SLOT(map()));
+	connect (actVCard, SIGNAL(triggered()), sm, SLOT(map()));
 	sm->setMapping(actVCard, Features::FID_VCard);
 	actAdd = new IconAction (tr("Add to roster"), "psi/addContact", tr("&Add to roster"), 0, dlg);
-	connect (actAdd, SIGNAL(activated()), sm, SLOT(map()));
+	connect (actAdd, SIGNAL(triggered()), sm, SLOT(map()));
 	sm->setMapping(actAdd, Features::FID_Add);
 
 	// create toolbar
@@ -1059,6 +1054,8 @@ DiscoDlg::Private::Private(DiscoDlg *parent, PsiAccount *pa)
 
 DiscoDlg::Private::~Private()
 {
+	qDeleteAll(backHistory);
+	qDeleteAll(forwardHistory);
 	delete data.tasks;
 }
 
@@ -1073,22 +1070,23 @@ void DiscoDlg::Private::doDisco(QString _host, QString _node)
 	QString host = _host;
 	if ( host.isEmpty() )
 		host = dlg->cb_address->currentText();
-	j = host.stripWhiteSpace();
+	j = host.trimmed();
 	if ( !j.isValid() )
 		return;
 
-	QString n = _node.stripWhiteSpace();
+	QString n = _node.trimmed();
 	if ( n.isEmpty() )
-		n = dlg->cb_node->currentText().stripWhiteSpace();
+		n = dlg->cb_node->currentText().trimmed();
 
 	// check, whether we need to update history
 	if ( (jid.full() != j.full()) || (node != n) ) {
-		Q3ListViewItem *item = dlg->lv_disco->firstChild(); // get the root item
+		QTreeWidgetItem *item = dlg->lv_disco->topLevelItem(0); // get the root item
 
 		if ( item ) {
-			dlg->lv_disco->takeItem( item );
+			dlg->lv_disco->takeTopLevelItem(0);
 
 			backHistory.append( new History(item) );
+			qDeleteAll(forwardHistory);
 			forwardHistory.clear();
 		}
 	}
@@ -1110,20 +1108,20 @@ void DiscoDlg::Private::doDisco(QString _host, QString _node)
 	di.setNode( node );
 
 	DiscoListItem *root = new DiscoListItem (di, &data, dlg->lv_disco);
-	root->setVisible (false); // don't confuse users with empty root
+	root->setHidden(true); // don't confuse users with empty root
 
-	root->setOpen(true); // begin browsing
+	root->setExpanded(true); // begin browsing
 }
 
 void DiscoDlg::Private::updateComboBoxes(Jid j, QString n)
 {
 	data.pa->psi()->recentBrowseAdd( j.full() );
 	dlg->cb_address->clear();
-	dlg->cb_address->insertStringList(data.pa->psi()->recentBrowseList());
+	dlg->cb_address->addItems(data.pa->psi()->recentBrowseList());
 
 	data.pa->psi()->recentNodeAdd( n );
 	dlg->cb_node->clear();
-	dlg->cb_node->insertStringList(data.pa->psi()->recentNodeList());
+	dlg->cb_node->addItems(data.pa->psi()->recentNodeList());
 }
 
 void DiscoDlg::Private::actionStop()
@@ -1133,7 +1131,7 @@ void DiscoDlg::Private::actionStop()
 
 void DiscoDlg::Private::actionRefresh()
 {
-	DiscoListItem *it = (DiscoListItem *)dlg->lv_disco->selectedItem();
+	DiscoListItem *it = (DiscoListItem *)dlg->lv_disco->currentItem();
 	if ( !it )
 		return;
 
@@ -1143,7 +1141,7 @@ void DiscoDlg::Private::actionRefresh()
 
 void DiscoDlg::Private::actionBrowse()
 {
-	DiscoListItem *it = (DiscoListItem *)dlg->lv_disco->selectedItem();
+	DiscoListItem *it = (DiscoListItem *)dlg->lv_disco->currentItem();
 	if ( !it )
 		return;
 
@@ -1153,16 +1151,17 @@ void DiscoDlg::Private::actionBrowse()
 void DiscoDlg::Private::actionBack()
 {
 	// add current selection to forward history
-	Q3ListViewItem *item = dlg->lv_disco->firstChild();
+	QTreeWidgetItem *item = dlg->lv_disco->topLevelItem(0);
 	if ( item ) {
-		dlg->lv_disco->takeItem( item );
+		dlg->lv_disco->takeTopLevelItem(0);
 
 		forwardHistory.append( new History(item) );
 	}
 
 	// now, take info from back history...
-	Q3ListViewItem *i = backHistory.last()->takeItem();
-	backHistory.removeLast();
+	History *h = backHistory.takeLast();
+	QTreeWidgetItem *i = h->takeItem();
+	delete h;
 
 	// and restore view
 	backForwardHelper(i);
@@ -1171,22 +1170,23 @@ void DiscoDlg::Private::actionBack()
 void DiscoDlg::Private::actionForward()
 {
 	// add current selection to back history
-	Q3ListViewItem *item = dlg->lv_disco->firstChild();
+	QTreeWidgetItem *item = dlg->lv_disco->topLevelItem(0);
 	if ( item ) {
-		dlg->lv_disco->takeItem( item );
+		dlg->lv_disco->takeTopLevelItem(0);
 
 		backHistory.append( new History(item) );
 	}
 
 	// now, take info from forward history...
-	Q3ListViewItem *i = forwardHistory.last()->takeItem();
-	forwardHistory.removeLast();
+	History *h = forwardHistory.takeLast();
+	QTreeWidgetItem *i = h->takeItem();
+	delete h;
 
 	// and restore view
 	backForwardHelper(i);
 }
 
-void DiscoDlg::Private::backForwardHelper(Q3ListViewItem *root)
+void DiscoDlg::Private::backForwardHelper(QTreeWidgetItem *root)
 {
 	DiscoListItem *i = (DiscoListItem *)root;
 
@@ -1199,18 +1199,10 @@ void DiscoDlg::Private::backForwardHelper(Q3ListViewItem *root)
 	disableButtons();
 	updateBackForward();
 
-	dlg->lv_disco->insertItem( root );
+	dlg->lv_disco->addTopLevelItem(root);
 
-	// fixes multiple selection bug
-	Q3ListViewItemIterator it( dlg->lv_disco );
-	while ( it.current() ) {
-		Q3ListViewItem *item = it.current();
-		++it;
-
-		if ( item->isSelected() )
-			for (int i = 0; i <= 1; i++) // it's boring to write same line twice :-)
-				dlg->lv_disco->setSelected(item, (bool)i);
-	}
+	// clear any residual selection
+	dlg->lv_disco->clearSelection();
 }
 
 void DiscoDlg::Private::updateBackForward()
@@ -1255,7 +1247,7 @@ void DiscoDlg::Private::enableButtons(const DiscoItem &it)
 	actAHCommand->setEnabled( f.canCommand() );
 }
 
-void DiscoDlg::Private::itemSelected (Q3ListViewItem *item)
+void DiscoDlg::Private::itemSelected(QTreeWidgetItem *item)
 {
 	DiscoListItem *it = (DiscoListItem *)item;
 	if ( !it ) {
@@ -1269,7 +1261,7 @@ void DiscoDlg::Private::itemSelected (Q3ListViewItem *item)
 	enableButtons ( di );
 }
 
-void DiscoDlg::Private::itemDoubleclicked (Q3ListViewItem *item)
+void DiscoDlg::Private::itemDoubleclicked(QTreeWidgetItem *item)
 {
 	DiscoListItem *it = (DiscoListItem *)item;
 	if ( !it )
@@ -1303,12 +1295,12 @@ void DiscoDlg::Private::itemDoubleclicked (Q3ListViewItem *item)
 	}
 
 	if ( id > 0 ) {
-		if ( !it->isOpen() ) {
+		if ( !it->isExpanded() ) {
 			if ( it->isExpandable() || it->childCount() )
-				it->setOpen( true );
+				it->setExpanded( true );
 		}
 		else {
-			it->setOpen( false );
+			it->setExpanded( false );
 		}
 		emit dlg->featureActivated( Features::feature(id), d.jid(), d.node() );
 	}
@@ -1320,7 +1312,7 @@ bool DiscoDlg::Private::eventFilter (QObject *object, QEvent *event)
 		if ( event->type() == QEvent::ContextMenu ) {
 			QContextMenuEvent *e = (QContextMenuEvent *)event;
 
-			DiscoListItem *it = (DiscoListItem *)dlg->lv_disco->selectedItem();
+			DiscoListItem *it = (DiscoListItem *)dlg->lv_disco->currentItem();
 			if ( !it )
 				return true;
 
@@ -1334,7 +1326,6 @@ bool DiscoDlg::Private::eventFilter (QObject *object, QEvent *event)
 					if ( f.id() > Features::FID_None )
 						idFeatures.append( Features::id(*it) );
 				}
-				//qHeapSort(idFeatures);
 			}
 
 			QList<long> ids;
@@ -1360,39 +1351,24 @@ bool DiscoDlg::Private::eventFilter (QObject *object, QEvent *event)
 			// prepare popup menu
 			QMenu p;
 
-			actBrowse->addTo (&p);
-			actRefresh->addTo (&p);
-			actStop->addTo (&p);
+			p.addAction(actBrowse);
+			p.addAction(actRefresh);
+			p.addAction(actStop);
 
 			// custom actions
-			p.insertSeparator();
-			actRegister->addTo(&p);
-			actSearch->addTo(&p);
-			actJoin->addTo(&p);
+			p.addSeparator();
+			p.addAction(actRegister);
+			p.addAction(actSearch);
+			p.addAction(actJoin);
 
-			p.insertSeparator();
-			actAdd->addTo(&p);
-			actVCard->addTo(&p);
-			actAHCommand->addTo(&p);
-
-			// popup with all available features
-			QMenu *fm = new QMenu(&p);
-			{
-				QList<long>::Iterator it = ids.begin();
-				for ( ; it != ids.end(); ++it)
-					fm->insertItem(Features::name(*it), *it + 10000); // TODO: add pixmap
-			}
-
-			//p.insertSeparator();
-			//int menuId = p.insertItem(tr("Activate &Feature"), fm);
-			//p.setItemEnabled(menuId, !ids.isEmpty());
+			p.addSeparator();
+			p.addAction(actAdd);
+			p.addAction(actVCard);
+			p.addAction(actAHCommand);
 
 			// display popup
 			e->accept();
-			int r = p.exec ( e->globalPos() );
-
-			if ( r > 10000 )
-				actionActivated(r-10000);
+			p.exec(e->globalPos());
 
 			return true;
 		}
@@ -1403,7 +1379,7 @@ bool DiscoDlg::Private::eventFilter (QObject *object, QEvent *event)
 
 void DiscoDlg::Private::actionActivated(int id)
 {
-	DiscoListItem *it = (DiscoListItem *)dlg->lv_disco->selectedItem();
+	DiscoListItem *it = (DiscoListItem *)dlg->lv_disco->currentItem();
 	if ( !it )
 		return;
 
@@ -1451,12 +1427,12 @@ DiscoDlg::DiscoDlg(PsiAccount *pa, const Jid &jid, const QString &node)
 	pb_close->setDefault(false);
 	pb_close->setAutoDefault(false);
 
-	cb_address->insertStringList(pa->psi()->recentBrowseList()); // FIXME
+	cb_address->addItems(pa->psi()->recentBrowseList()); // FIXME
 	cb_address->setFocus();
 	connect(cb_address, SIGNAL(activated(const QString &)), d, SLOT(doDisco()));
 	cb_address->setCurrentText(d->jid.full());
 
-	cb_node->insertStringList(pa->psi()->recentNodeList());
+	cb_node->addItems(pa->psi()->recentNodeList());
 	connect(cb_node, SIGNAL(activated(const QString &)), d, SLOT(doDisco()));
 	cb_node->setCurrentText(node);
 

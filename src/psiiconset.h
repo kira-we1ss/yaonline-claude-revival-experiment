@@ -23,7 +23,7 @@
 
 #include <QList>
 #include <QMap>
-#include <q3dict.h>
+#include <QHash>
 
 #include "iconset.h"
 
@@ -46,7 +46,7 @@ public:
 
 	bool optionsChanged(const Options *old); // returns 'true' if Psi needs to be restarted
 
-	Q3Dict<Iconset> roster;
+	QHash<QString, Iconset*> roster;
 	QList<Iconset> emoticons;
 	const Iconset &system() const;
 	void stripFirstAnimFrame(Iconset *);

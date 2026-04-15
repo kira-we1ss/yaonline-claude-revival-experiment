@@ -20,9 +20,11 @@
 
 #include <QDomElement>
 #include <QPointer>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
-#include <Q3Grid>
+#include <QGridLayout>
+#include <QTreeWidgetItem>
 
 #include "jidutil.h"
 #include "psiaccount.h"
@@ -103,7 +105,7 @@ class SearchDlg::Private
 {
 public:
 	Private(SearchDlg* _dlg)
-		: dlg(_dlg)
+		: dlg(_dlg), gr_form_row(0)
 	{}
 
 	struct NickAndJid {
@@ -115,37 +117,33 @@ public:
 	{
 		QList<NickAndJid> result;
 
-		int jid;
-		int nick;
+		int jidCol;
+		int nickCol;
 		if (!xdata) {
-			jid  = 4;
-			nick = 0;
+			jidCol  = 4;
+			nickCol = 0;
 		}
 		else {
-			jid  = 0;
-			nick = 0;
+			jidCol  = 0;
+			nickCol = 0;
 
 			int i = 0;
 			QList<XData::ReportField>::ConstIterator it = xdata_form.report().begin();
 			for (; it != xdata_form.report().end(); ++it, ++i) {
 				QString name = (*it).name;
 				if (name == "jid")
-					jid = i;
+					jidCol = i;
 
 				if (name == "nickname" || name == "nick" || name == "title")
-					nick = i;
+					nickCol = i;
 			}
 		}
 
-		Q3ListViewItem* i = dlg->lv_results->firstChild();
-		while (i) {
-			if (i->isSelected()) {
-				NickAndJid nickJid;
-				nickJid.jid  = XMPP::Jid(i->text(jid));
-				nickJid.nick = i->text(nick);
-				result << nickJid;
-			}
-			i = i->nextSibling();
+		foreach (QTreeWidgetItem *item, dlg->lv_results->selectedItems()) {
+			NickAndJid nickJid;
+			nickJid.jid  = XMPP::Jid(item->text(jidCol));
+			nickJid.nick = item->text(nickCol);
+			result << nickJid;
 		}
 
 		return result;
@@ -157,11 +155,13 @@ public:
 	Form form;
 	BusyWidget *busy;
 	QPointer<JT_XSearch> jt;
-	Q3Grid *gr_form;
+	QWidget *gr_form;
+	QGridLayout *gr_form_layout;
+	int gr_form_row;
 	int type;
 
-	QList<QLabel> lb_field;
-	QList<QLineEdit> le_field;
+	QList<QLabel*> lb_field;
+	QList<QLineEdit*> le_field;
 	XDataWidget *xdata;
 	XData xdata_form;
 };
@@ -183,8 +183,10 @@ SearchDlg::SearchDlg(const Jid &jid, PsiAccount *pa)
 
 	d->busy = busy;
 
-	d->gr_form = new Q3Grid(2, Qt::Horizontal, gb_search);
-	d->gr_form->setSpacing(4);
+	d->gr_form = new QWidget(gb_search);
+	d->gr_form_layout = new QGridLayout(d->gr_form);
+	d->gr_form_layout->setSpacing(4);
+	d->gr_form_layout->setContentsMargins(0, 0, 0, 0);
 	replaceWidget(lb_form, d->gr_form);
 	d->gr_form->hide();
 
@@ -193,9 +195,8 @@ SearchDlg::SearchDlg(const Jid &jid, PsiAccount *pa)
 	pb_stop->setEnabled(false);
 	pb_search->setEnabled(false);
 
-	lv_results->setMultiSelection(true);
-	lv_results->setSelectionMode( Q3ListView::Extended );
-	connect(lv_results, SIGNAL(selectionChanged()), SLOT(selectionChanged()));
+	// Selection mode is set to ExtendedSelection in the .ui file
+	connect(lv_results, SIGNAL(itemSelectionChanged()), SLOT(selectionChanged()));
 	connect(pb_close, SIGNAL(clicked()), SLOT(close()));
 	connect(pb_search, SIGNAL(clicked()), SLOT(doSearchSet()));
 	connect(pb_stop, SIGNAL(clicked()), SLOT(doStop()));
@@ -239,7 +240,7 @@ SearchDlg::~SearchDlg()
 
 void SearchDlg::addEntry(const QString &jid, const QString &nick, const QString &first, const QString &last, const QString &email)
 {
-	Q3ListViewItem *lvi = new Q3ListViewItem(lv_results);
+	QTreeWidgetItem *lvi = new QTreeWidgetItem(lv_results);
 	lvi->setText(0, nick);
 	lvi->setText(1, first);
 	lvi->setText(2, last);
@@ -339,6 +340,7 @@ void SearchDlg::jt_finished()
 						lb_instructions->setText(str);
 
 						d->xdata = new XDataWidget( d->gr_form );
+						d->gr_form_layout->addWidget( d->xdata, d->gr_form_row++, 0, 1, 2 );
 						d->xdata->setFields( form.fields() );
 
 						d->xdata->show();
@@ -360,6 +362,10 @@ void SearchDlg::jt_finished()
 					if(f.isSecret())
 						le->setEchoMode(QLineEdit::Password);
 					le->setText(f.value());
+
+					d->gr_form_layout->addWidget(lb, d->gr_form_row, 0);
+					d->gr_form_layout->addWidget(le, d->gr_form_row, 1);
+					d->gr_form_row++;
 
 					d->lb_field.append(lb);
 					d->le_field.append(le);
@@ -401,17 +407,18 @@ void SearchDlg::jt_finished()
 					}
 				}
 
-				while ( lv_results->columns() )
-					lv_results->removeColumn( 0 );
-
+				// Rebuild columns from report fields
+				QStringList headers;
 				QList<XData::ReportField>::ConstIterator it = form.report().begin();
 				for ( ; it != form.report().end(); ++it ) {
-					lv_results->addColumn( ( *it ).label );
+					headers << ( *it ).label;
 				}
+				lv_results->setColumnCount( headers.size() );
+				lv_results->setHeaderLabels( headers );
 
 				QList<XData::ReportItem>::ConstIterator iit = form.reportItems().begin();
 				for ( ; iit != form.reportItems().end(); ++iit ) {
-					Q3ListViewItem *lvi = new Q3ListViewItem(lv_results);
+					QTreeWidgetItem *lvi = new QTreeWidgetItem(lv_results);
 
 					int i = 0;
 					it = form.report().begin();
@@ -459,31 +466,9 @@ void SearchDlg::doStop()
 
 void SearchDlg::selectionChanged()
 {
-	int d = 0;
-	Q3ListViewItem *lastChild = lv_results->firstChild();
-
-	if(!lastChild) {
-		pb_add->setEnabled(false);
-		pb_info->setEnabled(false);
-		return;
-	}
-
-	if( lastChild->isSelected() ) {
-		pb_add->setEnabled(true);
-		pb_info->setEnabled(true);
-	}
-	d++;
-
-	if ( lastChild ) {
-		while ( lastChild->nextSibling() ) {
-			lastChild = lastChild->nextSibling();
-			if( lastChild->isSelected() ) {
-				pb_add->setEnabled(true);
-				pb_info->setEnabled(true);
-			}
- 			d++;
-		}
-	}
+	bool hasSelection = !lv_results->selectedItems().isEmpty();
+	pb_add->setEnabled(hasSelection);
+	pb_info->setEnabled(hasSelection);
 }
 
 void SearchDlg::doAdd()

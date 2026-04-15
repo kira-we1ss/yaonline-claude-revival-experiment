@@ -23,7 +23,7 @@
 #include "actionlist.h"
 
 #include <QObject>
-#include <q3dict.h>
+#include <QHash>
 
 #include "iconaction.h"
 
@@ -41,7 +41,7 @@ public:
 	QString name;
 	int id;
 	QStringList sortedActions;
-	Q3Dict<IconAction> actions;
+	QHash<QString, IconAction*> actions;
 
 public slots:
 	void actionDestroyed(QObject *);
@@ -50,7 +50,7 @@ public slots:
 ActionList::ActionList( QString name, int id, bool autoDelete )
 {
 	d = new Private();
-	d->actions.setAutoDelete( autoDelete );
+	Q_UNUSED(autoDelete);
 
 	d->name = name;
 	d->id   = id;
@@ -78,7 +78,7 @@ int ActionList::id() const
 
 IconAction *ActionList::action( QString name ) const
 {
-	return d->actions[name];
+	return d->actions.value(name);
 }
 
 QStringList ActionList::actions() const
@@ -109,19 +109,13 @@ ActionList::Private::Private( const Private &from )
 	id   = from.id;
 	
 	actions = from.actions;
-	actions.setAutoDelete( from.actions.autoDelete() );
 	
 	sortedActions = from.sortedActions;
 }
 
 void ActionList::Private::actionDestroyed(QObject *obj)
 {
-	bool autoDelete = actions.autoDelete();
-	actions.setAutoDelete( false );
-
 	actions.remove( obj->objectName() );
-
-	actions.setAutoDelete( autoDelete );
 }
 
 //----------------------------------------------------------------------------

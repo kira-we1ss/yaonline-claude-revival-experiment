@@ -24,16 +24,13 @@
 #include <QLineEdit>
 #include <QCheckBox>
 #include <QLayout>
-#include <q3grid.h>
-#include <q3hbox.h>
-#include <q3vbox.h>
+#include <QVBoxLayout>
+#include <QGridLayout>
 #include <QComboBox>
 #include <QPushButton>
-#include <q3listbox.h>
 #include <QDomDocument>
 #include <QPointer>
 #include <QApplication>
-//Added by qt3to4:
 #include <QHBoxLayout>
 #include <QList>
 #include "common.h"
@@ -179,38 +176,51 @@ public:
 	QCheckBox *ck_auth;
 	QLabel *lb_url;
 	QLineEdit *le_url, *le_user, *le_pass;
-	Q3Grid *gr_auth;
+	QWidget *gr_auth;
 };
 
 ProxyEdit::ProxyEdit(QWidget *parent, const char *name)
-:Q3GroupBox(1, Qt::Horizontal, tr("Settings"), parent, name)
+: QGroupBox(tr("Settings"), parent)
 {
+	Q_UNUSED(name);
 	d = new Private;
 
-	//QVBoxLayout *vb = new QVBoxLayout(this);
-	//QVBox *gb = new QVBox(this);
-	//gb->setSpacing(4);
-	//vb->addWidget(gb);
+	QVBoxLayout *vb = new QVBoxLayout(this);
+	vb->setSpacing(4);
 
 	QLabel *l;
 
 	d->hp_host = new HostPortEdit(this);
+	vb->addWidget(d->hp_host);
 
-	Q3HBox *hb = new Q3HBox(this);
+	QWidget *hb = new QWidget(this);
+	QHBoxLayout *hbLayout = new QHBoxLayout(hb);
+	hbLayout->setContentsMargins(0, 0, 0, 0);
 	d->lb_url = new QLabel(tr("Polling URL:"), hb);
 	d->le_url = new QLineEdit(hb);
+	hbLayout->addWidget(d->lb_url);
+	hbLayout->addWidget(d->le_url);
+	vb->addWidget(hb);
 
 	d->ck_auth = new QCheckBox(tr("Use authentication"), this);
 	connect(d->ck_auth, SIGNAL(toggled(bool)), SLOT(ck_toggled(bool)));
+	vb->addWidget(d->ck_auth);
 
-	d->gr_auth = new Q3Grid(2, Qt::Horizontal, this);
-	d->gr_auth->setSpacing(4);
+	d->gr_auth = new QWidget(this);
+	QGridLayout *grLayout = new QGridLayout(d->gr_auth);
+	grLayout->setSpacing(4);
+	grLayout->setContentsMargins(0, 0, 0, 0);
 	l = new QLabel(tr("Username:"), d->gr_auth);
 	d->le_user = new QLineEdit(d->gr_auth);
+	grLayout->addWidget(l, 0, 0);
+	grLayout->addWidget(d->le_user, 0, 1);
 	l = new QLabel(tr("Password:"), d->gr_auth);
 	d->le_pass = new QLineEdit(d->gr_auth);
 	d->le_pass->setEchoMode(QLineEdit::Password);
+	grLayout->addWidget(l, 1, 0);
+	grLayout->addWidget(d->le_pass, 1, 1);
 	d->gr_auth->setEnabled(false);
+	vb->addWidget(d->gr_auth);
 
 	d->hp_host->setWhatsThis(
 		tr("Enter the hostname and port of your proxy server.") + "  " +

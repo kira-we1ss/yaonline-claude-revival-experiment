@@ -24,33 +24,21 @@
         </widget>
       </item>
       <item>
-        <widget class="Q3ListView" name="lv_keys" >
+        <widget class="QTreeWidget" name="lv_keys" >
           <property name="allColumnsShowFocus" >
             <bool>true</bool>
           </property>
-          <property name="resizeMode" >
-            <enum>Q3ListView::LastColumn</enum>
+          <property name="selectionMode" >
+            <enum>QAbstractItemView::SingleSelection</enum>
           </property>
           <column>
             <property name="text" >
               <string>Key ID</string>
             </property>
-            <property name="clickable" >
-              <bool>true</bool>
-            </property>
-            <property name="resizable" >
-              <bool>true</bool>
-            </property>
           </column>
           <column>
             <property name="text" >
               <string>User ID</string>
-            </property>
-            <property name="clickable" >
-              <bool>true</bool>
-            </property>
-            <property name="resizable" >
-              <bool>true</bool>
             </property>
           </column>
         </widget>

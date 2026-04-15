@@ -25,7 +25,15 @@
 #include <QImageReader>
 #include <QTimer>
 //#include <QApplication>
-#include <Q3Shared>
+// Qt3Support-free replacement for Q3Shared
+class Q3Shared {
+public:
+    Q3Shared() : count(0) {}
+    Q3Shared(const Q3Shared &) : count(0) {}
+    inline void ref() { ++count; }
+    inline bool deref() { return !--count; }
+    int count;
+};
 #include <QBuffer>
 #include <QImage>
 #include <QThread>

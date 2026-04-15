@@ -30,6 +30,8 @@
 
 #include "ui_pgpkey.h"
 
+class QTreeWidgetItem;
+
 class PGPKeyDlg : public QDialog
 {
 	Q_OBJECT
@@ -41,7 +43,7 @@ public:
 	const QCA::KeyStoreEntry& keyStoreEntry() const;
 
 private slots:
-	void qlv_doubleClicked(Q3ListViewItem *);
+	void qlv_doubleClicked(QTreeWidgetItem *);
 	void do_accept();
 
 private:

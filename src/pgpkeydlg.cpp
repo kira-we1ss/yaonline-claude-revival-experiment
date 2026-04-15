@@ -1,5 +1,5 @@
 /*
- * pgpkeydlg.h 
+ * pgpkeydlg.h
  * Copyright (C) 2001-2005  Justin Karneges
  *
  * This program is free software; you can redistribute it and/or
@@ -23,17 +23,18 @@
  *
  */
 
-#include <Q3ListViewItem>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
 #include <QString>
 #include <QMessageBox>
 
 #include <pgputil.h>
 #include "pgpkeydlg.h"
 
-class KeyViewItem : public Q3ListViewItem
+class KeyViewItem : public QTreeWidgetItem
 {
 public:
-	KeyViewItem(const QCA::KeyStoreEntry& entry, Q3ListView *par) : Q3ListViewItem(par)
+	KeyViewItem(const QCA::KeyStoreEntry& entry, QTreeWidget *par) : QTreeWidgetItem(par)
 	{
 		entry_ = entry;
 	}
@@ -47,11 +48,11 @@ PGPKeyDlg::PGPKeyDlg(Type t, const QString& defaultKeyID, QWidget *parent) : QDi
 	ui_.setupUi(this);
 	setModal(true);
 
-	connect(ui_.lv_keys, SIGNAL(doubleClicked(Q3ListViewItem *)), SLOT(qlv_doubleClicked(Q3ListViewItem *)));
+	connect(ui_.lv_keys, SIGNAL(itemDoubleClicked(QTreeWidgetItem*, int)), SLOT(qlv_doubleClicked(QTreeWidgetItem*)));
 	connect(ui_.pb_ok, SIGNAL(clicked()), SLOT(do_accept()));
 	connect(ui_.pb_cancel, SIGNAL(clicked()), SLOT(reject()));
 
-	Q3ListViewItem *isel = 0;
+	KeyViewItem *isel = 0;
 
 	foreach(QCA::KeyStore *ks, PGPUtil::instance().keystores_) {
 		if (ks->type() == QCA::KeyStore::PGPKeyring && ks->holdsIdentities()) {
@@ -61,7 +62,7 @@ PGPKeyDlg::PGPKeyDlg(Type t, const QString& defaultKeyID, QWidget *parent) : QDi
 					i->setText(0, ke.id().right(8));
 					i->setText(1, ke.name());
 					if(!defaultKeyID.isEmpty() && ke.pgpPublicKey().keyId() == defaultKeyID) {
-						ui_.lv_keys->setSelected(i, true);
+						ui_.lv_keys->setCurrentItem(i);
 						isel = i;
 					}
 				}
@@ -70,7 +71,7 @@ PGPKeyDlg::PGPKeyDlg(Type t, const QString& defaultKeyID, QWidget *parent) : QDi
 					i->setText(0, ke.id().right(8));
 					i->setText(1, ke.name());
 					if(!defaultKeyID.isEmpty() && ke.pgpSecretKey().keyId() == defaultKeyID) {
-						ui_.lv_keys->setSelected(i, true);
+						ui_.lv_keys->setCurrentItem(i);
 						isel = i;
 					}
 				}
@@ -78,10 +79,10 @@ PGPKeyDlg::PGPKeyDlg(Type t, const QString& defaultKeyID, QWidget *parent) : QDi
 		}
 	}
 
-	if(ui_.lv_keys->childCount() > 0 && !isel)
-		ui_.lv_keys->setSelected(ui_.lv_keys->firstChild(), true);
+	if(ui_.lv_keys->topLevelItemCount() > 0 && !isel)
+		ui_.lv_keys->setCurrentItem(ui_.lv_keys->topLevelItem(0));
 	else if(isel)
-		ui_.lv_keys->ensureItemVisible(isel);
+		ui_.lv_keys->scrollToItem(isel);
 }
 
 const QCA::KeyStoreEntry& PGPKeyDlg::keyStoreEntry() const
@@ -89,15 +90,15 @@ const QCA::KeyStoreEntry& PGPKeyDlg::keyStoreEntry() const
 	return entry_;
 }
 
-void PGPKeyDlg::qlv_doubleClicked(Q3ListViewItem *i)
+void PGPKeyDlg::qlv_doubleClicked(QTreeWidgetItem *i)
 {
-	ui_.lv_keys->setSelected(i, true);
+	ui_.lv_keys->setCurrentItem(i);
 	do_accept();
 }
 
 void PGPKeyDlg::do_accept()
 {
-	KeyViewItem *i = (KeyViewItem *)ui_.lv_keys->selectedItem();
+	KeyViewItem *i = (KeyViewItem *)ui_.lv_keys->currentItem();
 	if(!i) {
 		QMessageBox::information(this, tr("Error"), tr("Please select a key."));
 		return;

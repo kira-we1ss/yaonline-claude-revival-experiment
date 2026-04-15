@@ -130,66 +130,36 @@
                 <number>0</number>
               </property>
               <item>
-                <widget class="Q3ListView" name="lv_results" >
+                <widget class="QTreeWidget" name="lv_results" >
                   <property name="allColumnsShowFocus" >
                     <bool>true</bool>
                   </property>
-                  <property name="resizeMode" >
-                    <enum>Q3ListView::AllColumns</enum>
+                  <property name="selectionMode" >
+                    <enum>QAbstractItemView::ExtendedSelection</enum>
                   </property>
                   <column>
                     <property name="text" >
                       <string>Nickname</string>
-                    </property>
-                    <property name="clickable" >
-                      <bool>true</bool>
-                    </property>
-                    <property name="resizable" >
-                      <bool>true</bool>
                     </property>
                   </column>
                   <column>
                     <property name="text" >
                       <string>First Name</string>
                     </property>
-                    <property name="clickable" >
-                      <bool>true</bool>
-                    </property>
-                    <property name="resizable" >
-                      <bool>true</bool>
-                    </property>
                   </column>
                   <column>
                     <property name="text" >
                       <string>Last Name</string>
-                    </property>
-                    <property name="clickable" >
-                      <bool>true</bool>
-                    </property>
-                    <property name="resizable" >
-                      <bool>true</bool>
                     </property>
                   </column>
                   <column>
                     <property name="text" >
                       <string>E-Mail Address</string>
                     </property>
-                    <property name="clickable" >
-                      <bool>true</bool>
-                    </property>
-                    <property name="resizable" >
-                      <bool>true</bool>
-                    </property>
                   </column>
                   <column>
                     <property name="text" >
                       <string>Jabber ID</string>
-                    </property>
-                    <property name="clickable" >
-                      <bool>true</bool>
-                    </property>
-                    <property name="resizable" >
-                      <bool>true</bool>
                     </property>
                   </column>
                 </widget>

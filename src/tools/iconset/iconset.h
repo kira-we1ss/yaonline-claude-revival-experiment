@@ -33,7 +33,6 @@
 #include <QImage>
 
 class QIcon;
-class Q3MimeSourceFactory;
 class Anim;
 
 class Impix
@@ -225,8 +224,6 @@ public:
 	void setInfo(const QHash<QString, QString> &);
 
 	QListIterator<PsiIcon *> iterator() const;
-
-	Q3MimeSourceFactory *createMimeSourceFactory() const;
 
 	void addToFactory() const;
 	void removeFromFactory() const;
