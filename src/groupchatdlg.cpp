@@ -213,8 +213,8 @@ bool GCMainDlg::doSend()
 		return false;
 	}
 
-	if (str.lower().startsWith("/nick ")) {
-		QString nick = str.mid(6).stripWhiteSpace();
+	if (str.toLower().startsWith("/nick ")) {
+		QString nick = str.mid(6).trimmed();
 		if (!nick.isEmpty()) {
 			setNick(nick);
 		}

@@ -447,7 +447,7 @@ QString JT_Roster::toString() const
 bool JT_Roster::fromString(const QString &str)
 {
 	QDomDocument *dd = new QDomDocument;
-	if(!dd->setContent(lineDecode(str).utf8()))
+	if(!dd->setContent(lineDecode(str).toUtf8()))
 		return false;
 	QDomElement e = doc()->importNode(dd->documentElement(), true).toElement();
 	delete dd;

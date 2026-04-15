@@ -120,7 +120,7 @@ void AddUserDlg::pa_updatedActivity()
 
 Jid AddUserDlg::jid() const
 {
-	return Jid(le_jid->text().stripWhiteSpace());
+	return Jid(le_jid->text().trimmed());
 }
 
 void AddUserDlg::cancel()

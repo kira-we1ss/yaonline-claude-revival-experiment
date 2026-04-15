@@ -139,7 +139,7 @@ void JingleClientSlots::sendStanza(cricket::SessionClient*, const buzz::XmlEleme
 	//fprintf(stderr,"bling\n");
 	voiceCaller_->sendStanza(st);
 	//fprintf(stderr,"blong\n");
-	//fprintf(stderr,"Sending stanza \n%s\n\n",st.latin1());
+	//fprintf(stderr,"Sending stanza \n%s\n\n",st.toLatin1().constData());
 }
 
 void JingleClientSlots::requestSignaling() 

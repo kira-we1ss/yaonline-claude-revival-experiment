@@ -434,7 +434,7 @@ ContactViewItem *ContactProfile::addContactItem(Entry *e, ContactViewItem *group
 	if(e->alerting)
 		i->setAlert(&e->anim);
 	deferredUpdateGroups();
-	//printf("ContactProfile: adding [%s] to group [%s]\n", e->u.jid().full().latin1(), group_item->groupName().latin1());
+	//printf("ContactProfile: adding [%s] to group [%s]\n", e->u.jid().full().toLatin1().constData(), group_item->groupName().toLatin1().constData());
 	return i;
 }
 
@@ -468,7 +468,7 @@ void ContactProfile::removeContactItem(Entry *e, ContactViewItem *i)
 	d->cv->recalculateSize();
 
 	ContactViewItem *group_item = (ContactViewItem *)static_cast<Q3ListViewItem *>(i)->parent();
-	//printf("ContactProfile: removing [%s] from group [%s]\n", e->u.jid().full().latin1(), group_item->groupName().latin1());
+	//printf("ContactProfile: removing [%s] from group [%s]\n", e->u.jid().full().toLatin1().constData(), group_item->groupName().toLatin1().constData());
 	e->cvi.removeRef(i);
 	deferredUpdateGroups();
 	checkDestroyGroup(group_item);
@@ -1784,7 +1784,7 @@ void ContactProfile::dragDrop(const QString &text, ContactViewItem *i)
 	if(gr->groupType() == ContactViewItem::gUser && u.inGroup(gr->groupName()))
 		return;
 
-	//printf("putting [%s] into group [%s]\n", u.jid().full().latin1(), gr->groupName().latin1());
+	//printf("putting [%s] into group [%s]\n", u.jid().full().toLatin1().constData(), gr->groupName().toLatin1().constData());
 
 	// remove all other groups from this contact
 	for(QStringList::ConstIterator it = gl.begin(); it != gl.end(); ++it) {
@@ -2151,7 +2151,7 @@ void ContactView::keyPressEvent(QKeyEvent *e)
 		//d->typeAhead = QString::null;
 		Q3ListView::keyPressEvent(e);
 	} else {
-		QString text = e->text().lower();
+		QString text = e->text().toLower();
 		if ( text.isEmpty() ) {
 			Q3ListView::keyPressEvent(e);
 		} else if (key == Qt::Key_Escape) {
@@ -3243,10 +3243,10 @@ int ContactViewItem::compare(Q3ListViewItem *lvi, int, bool) const
 			if ( option.rosterContactSortStyle == Options::ContactSortStyle_Status ) {
 				ret = rankStatus(d->status) - rankStatus(i->status());
 				if(ret == 0)
-					ret = text(0).lower().localeAwareCompare(i->text(0).lower());
+					ret = text(0).toLower().localeAwareCompare(i->text(0).toLower());
 			}
 			else { // ContactSortStyle_Alpha
-				ret = text(0).lower().localeAwareCompare(i->text(0).lower());
+				ret = text(0).toLower().localeAwareCompare(i->text(0).toLower());
 			}
 		}
 	}
@@ -3264,7 +3264,7 @@ int ContactViewItem::compare(Q3ListViewItem *lvi, int, bool) const
 			else { // GroupSortStyle_Alpha
 				ret = rankGroup(d->groupType) - rankGroup(i->groupType());
 				if(ret == 0)
-					ret = text(0).lower().localeAwareCompare(i->text(0).lower());
+					ret = text(0).toLower().localeAwareCompare(i->text(0).toLower());
 			}
 		}
 		else if(i->type() == Profile) {
@@ -3275,7 +3275,7 @@ int ContactViewItem::compare(Q3ListViewItem *lvi, int, bool) const
 				ret = ourRank - theirRank;
 			}
 			else // AccountSortStyle_Alpha
-				ret = text(0).lower().localeAwareCompare(i->text(0).lower());
+				ret = text(0).toLower().localeAwareCompare(i->text(0).toLower());
 		}
 	}
 
@@ -3355,7 +3355,7 @@ void ContactViewItem::resetName(bool forceNoStatusMsg)
 			if (d->status_single) {
 				statusMsg.replace("<","&lt;");
 				statusMsg.replace(">","&gt;");
-				statusMsg = statusMsg.simplifyWhiteSpace();
+				statusMsg = statusMsg.simplified();
 				if (!statusMsg.isEmpty())
 					s += "<br><font size=-1 color='" + option.color[cStatus].name() + "'><nobr>" + statusMsg + "</nobr></font>";
 			}

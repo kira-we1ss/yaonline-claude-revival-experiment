@@ -142,7 +142,7 @@ VarList TranslationManager::availableTranslations()
 				continue;
 			QString lang = str.mid(4, n-4);
 
-			//printf("found [%s], lang=[%s]\n", str.latin1(), lang.latin1());
+			//printf("found [%s], lang=[%s]\n", str.toLatin1().constData(), lang.toLatin1().constData());
 
 			// get the language_name
 			QString name = QString("[") + str + "]";

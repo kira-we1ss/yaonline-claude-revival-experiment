@@ -212,7 +212,7 @@ void PsiContact::update(const UserListItem& u)
 	d->u_ = u;
 	Status status = d->status(d->u_);
 
-	d->comparisonName_ = QString(name() + jid().full() + account()->name()).lower();
+	d->comparisonName_ = QString(name() + jid().full() + account()->name()).toLower();
 	d->setStatus(status);
 
 	emit updated();

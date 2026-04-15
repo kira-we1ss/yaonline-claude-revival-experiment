@@ -205,14 +205,14 @@ private:
 					return FALSE;
 			}
 			else {
-				//printf("deleting [%s]\n", info.filePath().latin1());
+				//printf("deleting [%s]\n", info.filePath().toLatin1().constData());
 				d.remove(info.fileName());
 			}
 		}
 		QString name = d.dirName();
 		if(!d.cdUp())
 			return FALSE;
-		//printf("removing folder [%s]\n", d.filePath(name).latin1());
+		//printf("removing folder [%s]\n", d.filePath(name).toLatin1().constData());
 		d.rmdir(name);
 
 		return TRUE;
@@ -1686,7 +1686,7 @@ void PsiCon::recvNextEvent()
 	/*printf("--- Queue Content: ---\n");
 	PsiAccountListIt it(d->list);
 	for(PsiAccount *pa; (pa = it.current()); ++it) {
-		printf(" Account: [%s]\n", pa->name().latin1());
+		printf(" Account: [%s]\n", pa->name().toLatin1().constData());
 		pa->eventQueue()->printContent();
 	}*/
 	PsiAccount *pa = d->contactList->queueLowestEventId();

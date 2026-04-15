@@ -178,7 +178,7 @@ IconAction *MainWin::Private::getAction( QString name )
 	IconAction *action = actions.action( name );
 
 	if ( !action ) {
-		qWarning("MainWin::Private::getAction(): action %s not found!", name.latin1());
+		qWarning("MainWin::Private::getAction(): action %s not found!", name.toLatin1().constData());
 	}
 	//else
 	//	mainWin->registerAction( action );
@@ -1048,7 +1048,7 @@ void MainWin::setTrayToolTip(const Status &status, bool)
 
  	QString show = status.show();
 	if(!show.isEmpty()) {
-		show[0] = show[0].upper();
+		show[0] = show[0].toUpper();
 		s += " - "+show;
 	}
 

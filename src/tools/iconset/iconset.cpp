@@ -928,7 +928,7 @@ const PsiIcon *IconsetFactory::iconPtr(const QString &name)
 	const PsiIcon *i = IconsetFactoryPrivate::instance()->icon(name);
 	if ( !i ) {
 #ifndef YAPSI
-		qDebug("WARNING: IconsetFactory::icon(\"%s\"): icon not found", name.latin1());
+		qDebug("WARNING: IconsetFactory::icon(\"%s\"): icon not found", name.toLatin1().constData());
 #endif
 	}
 	return i;
@@ -1269,7 +1269,7 @@ public:
 						break;
 					}
 					else {
-						qDebug("Iconset::load(): Couldn't load %s (%s) graphic for the %s icon for the %s iconset", (*it).toLatin1().data(), graphic[*it].toLatin1().data(), name.toLatin1().data(), this->name.latin1());
+						qDebug("Iconset::load(): Couldn't load %s (%s) graphic for the %s icon for the %s iconset", (*it).toLatin1().data(), graphic[*it].toLatin1().data(), name.toLatin1().data(), this->name.toLatin1().constData());
 						loadSuccess = false;
 					}
 				}

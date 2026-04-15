@@ -73,14 +73,14 @@ static QStringList wrapString(const QString &str, int wid)
 	QStringList lines;
 	QString cur;
 	QString tmp = str;
-	//printf("parsing: [%s]\n", tmp.latin1());
+	//printf("parsing: [%s]\n", tmp.toLatin1().constData());
 	while(1) {
 		QString word = getNext(&tmp);
 		if(word == QString::null) {
 			lines += cur;
 			break;
 		}
-		//printf("word:[%s]\n", word.latin1());
+		//printf("word:[%s]\n", word.toLatin1().constData());
 		if(!cur.isEmpty()) {
 			if((int)cur.length() + (int)word.length() > wid) {
 				lines += cur;
@@ -322,12 +322,12 @@ void HistoryDlg::loadPage(int type)
 	else if(type == 1) {
 		d->pb_prev->setEnabled(false);
 		d->h->get(d->pa, d->jid, d->id_prev, EDB::Backward, 50);
-		//printf("EDB: requesting 50 events backward, starting at %s\n", d->id_prev.latin1());
+		//printf("EDB: requesting 50 events backward, starting at %s\n", d->id_prev.toLatin1().constData());
 	}
 	else if(type == 2) {
 		d->pb_next->setEnabled(false);
 		d->h->get(d->pa, d->jid, d->id_next, EDB::Forward, 50);
-		//printf("EDB: requesting 50 events forward, starting at %s\n", d->id_next.latin1());
+		//printf("EDB: requesting 50 events forward, starting at %s\n", d->id_next.toLatin1().constData());
 	}
 
 	//d->busy->start();
@@ -365,7 +365,7 @@ void HistoryDlg::edb_finished()
 				d->id_begin = r->last().id();
 				d->id_prev = r->last().prevId();
 				displayResult(r, EDB::Backward);
-				//printf("[%s],[%s],[%s],[%s]\n", d->id_prev.latin1(), d->id_begin.latin1(), d->id_end.latin1(), d->id_next.latin1());
+				//printf("[%s],[%s],[%s],[%s]\n", d->id_prev.toLatin1().constData(), d->id_begin.toLatin1().constData(), d->id_end.toLatin1().constData(), d->id_next.toLatin1().constData());
 			}
 			else if(d->reqtype == 2) {
 				// events are in forward order
@@ -382,7 +382,7 @@ void HistoryDlg::edb_finished()
 				const EDBItem &ei = r->first();
 				d->reqtype = 1;
 				d->h->get(d->pa, d->jid, ei.id(), EDB::Backward, 50);
-				//printf("EDB: requesting 50 events backward, starting at %s\n", d->id_prev.latin1());
+				//printf("EDB: requesting 50 events backward, starting at %s\n", d->id_prev.toLatin1().constData());
 				return;
 			}
 		}
@@ -440,7 +440,7 @@ void HistoryDlg::doFind()
 		return;
 	}
 
-	//printf("searching for: [%s], starting at id=[%s]\n", str.latin1(), id.latin1());
+	//printf("searching for: [%s], starting at id=[%s]\n", str.toLatin1().constData(), id.toLatin1().constData());
 	d->reqtype = 3;
 	d->findStr = str;
 	d->h->find(d->pa, str, d->jid, id, EDB::Backward);
@@ -503,7 +503,7 @@ void HistoryDlg::exportHistory(const QString &fname)
 				MessageEvent *me = (MessageEvent *)e;
 				stream << heading << endl;
 
-				QStringList lines = QStringList::split('\n', me->message().body(), true);
+				QStringList lines = me->message().body().split('\n', QString::KeepEmptyParts);
 				for(QStringList::ConstIterator lit = lines.begin(); lit != lines.end(); ++lit) {
 					QStringList sub = wrapString(*lit, 72);
 					for(QStringList::ConstIterator lit2 = sub.begin(); lit2 != sub.end(); ++lit2) {

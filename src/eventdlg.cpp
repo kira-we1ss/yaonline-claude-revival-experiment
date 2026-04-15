@@ -1101,8 +1101,8 @@ QStringList EventDlg::stringToList(const QString &s, bool enc) const
 		if(j.isEmpty())
 			j = c;
 
-		j = j.stripWhiteSpace();
-		//printf("j=[%s]\n", j.latin1());
+		j = j.trimmed();
+		//printf("j=[%s]\n", j.toLatin1().constData());
 		if(!j.isEmpty())
 			list += j;
 
@@ -1128,7 +1128,7 @@ QString EventDlg::findJidInString(const QString &s) const
 
 QString EventDlg::expandAddresses(const QString &in, bool enc) const
 {
-	//printf("in: [%s]\n", in.latin1());
+	//printf("in: [%s]\n", in.toLatin1().constData());
 	QString str;
 	QStringList list = stringToList(in, enc);
 	bool first = true;
@@ -1159,7 +1159,7 @@ QString EventDlg::expandAddresses(const QString &in, bool enc) const
 		str += name;
 	}
 
-	//printf("expanding: [%s]\n", str.latin1());
+	//printf("expanding: [%s]\n", str.toLatin1().constData());
 	return str;
 }
 
@@ -1188,10 +1188,10 @@ void EventDlg::to_changeResource(const QString &r)
 		//printf("invalid jid\n");
 		return;
 	}
-	//printf("s=[%s], j=[%s], p: [%d,%d]\n", s.latin1(), j.latin1(), p1, p2);
+	//printf("s=[%s], j=[%s], p: [%d,%d]\n", s.toLatin1().constData(), j.toLatin1().constData(), p1, p2);
 
 	QString js = jidToString(jid, r);
-	//printf("js=[%s]\n", js.latin1());
+	//printf("js=[%s]\n", js.toLatin1().constData());
 	/*str.remove(start, len);
 	str.insert(start, js);
 	d->le_to->deselect();
@@ -1222,7 +1222,7 @@ void EventDlg::to_tryComplete()
 		bool ok = true;
 		int n;
 		for(n = 0; n < (int)s.length(); ++n) {
-			if(s.at(n).lower() != name.at(n).lower()) {
+			if(s.at(n).toLower() != name.at(n).toLower()) {
 				ok = false;
 				break;
 			}
@@ -1289,7 +1289,7 @@ void EventDlg::doWhois(bool force)
 		str = d->le_from->text();
 	}
 
-	//printf("whois: [%s]\n", str.latin1());
+	//printf("whois: [%s]\n", str.toLatin1().constData());
 	d->lastWhois = str;
 	QStringList list = stringToList(str);
 	bool found = false;

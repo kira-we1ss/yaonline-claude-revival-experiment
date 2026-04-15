@@ -5,7 +5,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QLineEdit>
-#include <q3groupbox.h>
+#include <QGroupBox>
 #include <QList>
 
 #include "ui_opt_application.h"

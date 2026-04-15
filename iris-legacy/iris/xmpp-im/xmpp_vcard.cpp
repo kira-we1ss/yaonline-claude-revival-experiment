@@ -22,7 +22,7 @@
 
 #include <qstring.h>
 #include <qstringlist.h>
-#include <q3cstring.h>
+#include <QByteArray>
 
 #include <QImage>
 #include <qdom.h>
@@ -763,7 +763,7 @@ bool VCard::fromXml(const QDomElement &q)
 				e = findSubTag(i, "BINVAL", &found); // case for very clever clients ;-)
 
 			if ( found )
-				d->key = e.text().utf8(); // FIXME
+				d->key = e.text().toUtf8(); // FIXME
 		}
 		else if ( tag == "GENDER" ) {
 			QString gender = i.text().stripWhiteSpace().toLower();

@@ -16,7 +16,7 @@ OptionsTab::OptionsTab(QObject *parent, const char *name)
 }
 
 OptionsTab::OptionsTab(QObject *parent, QByteArray _id, QByteArray _parentId, QString _name, QString _desc, QString _tabIconName, QString _iconName)
-: QObject(parent, _name.latin1())
+: QObject(parent)
 {
 	v_id = _id;
 	v_parentId = _parentId;
@@ -140,7 +140,7 @@ void OptionsTabWidget::addTab(OptionsTab *tab)
 
 	// the widget will have no parent; it will be reparented
 	// when inserting it with "addTab"
-	QWidget *w = new QWidget(NULL, tab->name().latin1());
+	QWidget *w = new QWidget(NULL);
 
 	if ( tab->tabIcon() )
 		QTabWidget::addTab(w, tab->tabIcon()->icon(), tab->tabName());

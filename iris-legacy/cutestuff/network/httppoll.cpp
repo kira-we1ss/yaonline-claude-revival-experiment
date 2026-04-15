@@ -26,7 +26,7 @@
 #include <qpointer.h>
 #include <QtCrypto>
 //Added by qt3to4:
-#include <Q3CString>
+#include <QByteArray>
 #include <stdlib.h>
 #include "bsocket.h"
 
@@ -54,7 +54,7 @@ static QString hpk(int n, const QString &s)
 	if(n == 0)
 		return s;
 	else
-		return QCA::Base64().arrayToString( QCA::Hash("sha1").hash( Q3CString(hpk(n - 1, s).latin1()) ).toByteArray() );
+		return QCA::Base64().arrayToString( QCA::Hash("sha1").hash( QByteArray(hpk(n - 1, s).latin1()) ).toByteArray() );
 }
 
 class HttpPoll::Private
@@ -184,7 +184,7 @@ QByteArray HttpPoll::makePacket(const QString &ident, const QString &key, const 
 		str += newkey;
 	}
 	str += ',';
-	Q3CString cs = str.latin1();
+	QByteArray cs = str.latin1();
 	int len = cs.length();
 
 	QByteArray a(len + block.size());
@@ -385,7 +385,7 @@ static QString extractLine(QByteArray *buf, bool *found)
 	int n;
 	for(n = 0; n < (int)buf->size()-1; ++n) {
 		if(buf->at(n) == '\r' && buf->at(n+1) == '\n') {
-			//Q3CString cstr;
+			//QByteArray cstr;
 			//cstr.resize(n+1);
 			QByteArray cstr;
 			cstr.resize(n);
@@ -550,7 +550,7 @@ void HttpProxyPost::sock_connected()
 	s += "\r\n";
 
 	// write request
-	Q3CString cs = s.utf8();
+	QByteArray cs = s.toUtf8();
 	QByteArray block(cs.length());
 	memcpy(block.data(), cs.data(), block.size());
 	d->sock.write(block);

@@ -401,7 +401,7 @@ bool Jid::compare(const Jid &a, bool compareRes) const
 
 bool Jid::validDomain(const QString &s, QString *norm)
 {
-	/*QCString cs = s.utf8();
+	/*QCString cs = s.toUtf8();
 	cs.resize(1024);
 	if(stringprep(cs.data(), 1024, (Stringprep_profile_flags)0, stringprep_nameprep) != 0)
 		return false;
@@ -413,7 +413,7 @@ bool Jid::validDomain(const QString &s, QString *norm)
 
 bool Jid::validNode(const QString &s, QString *norm)
 {
-	/*QCString cs = s.utf8();
+	/*QCString cs = s.toUtf8();
 	cs.resize(1024);
 	if(stringprep(cs.data(), 1024, (Stringprep_profile_flags)0, stringprep_xmpp_nodeprep) != 0)
 		return false;
@@ -425,7 +425,7 @@ bool Jid::validNode(const QString &s, QString *norm)
 
 bool Jid::validResource(const QString &s, QString *norm)
 {
-	/*QCString cs = s.utf8();
+	/*QCString cs = s.toUtf8();
 	cs.resize(1024);
 	if(stringprep(cs.data(), 1024, (Stringprep_profile_flags)0, stringprep_xmpp_resourceprep) != 0)
 		return false;

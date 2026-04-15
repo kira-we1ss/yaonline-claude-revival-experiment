@@ -220,7 +220,7 @@ OptionsDlg::Private::Private(OptionsDlg *d, PsiCon *_psi, const Options &_opt)
 		if ( !parentId.isEmpty() ) {
 			Q3ListViewItemIterator it2( dlg->lv_tabs );
 			for ( ; it2.current(); ++it2) {
-				//qWarning("Searching the QListView %s...", it2.current()->text(1).latin1());
+				//qWarning("Searching the QListView %s...", it2.current()->text(1).toLatin1().constData());
 				if ( it2.current()->text(1) == parentId ) {
 					//qWarning("...done");
 					parent = it2.current();
@@ -396,7 +396,7 @@ void OptionsDlg::Private::openTab(QString id)
 	if ( !tab ) {
 		bool found = false;
 		for (OptionsTab *opttab : tabs) {
-			if ( opttab->id() == id.latin1() ) {
+			if ( opttab->id() == id.toLatin1().constData() ) {
 				tab = opttab->widget(); // create the widget
 				if ( !tab )
 					continue;
@@ -438,14 +438,14 @@ void OptionsDlg::Private::openTab(QString id)
 		}
 
 		if ( !found ) {
-			qWarning("OptionsDlg::Private::itemSelected(): could not create widget for id '%s'", id.latin1());
+			qWarning("OptionsDlg::Private::itemSelected(): could not create widget for id '%s'", id.toLatin1().constData());
 			return;
 		}
 	}
 
 	{
 		for (OptionsTab *opttab : tabs) {
-			if ( opttab->id() == id.latin1() ) {
+			if ( opttab->id() == id.toLatin1().constData() ) {
 				dlg->lb_pageTitle->setText( opttab->name() );
 				dlg->lb_pageTitle->setHelp( opttab->desc() );
 				dlg->lb_pageTitle->setPsiIcon( opttab->psiIcon() );

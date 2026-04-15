@@ -404,7 +404,7 @@ public:
 	XData::Field field() const
 	{
 		XData::Field f = XDataField::field();
-		f.setValue( QStringList::split("\n", edit->text(), true) );
+		f.setValue( edit->text().split("\n", QString::KeepEmptyParts) );
 		return f;
 	}
 

@@ -20,7 +20,7 @@
 
 #include "srvresolver.h"
 
-#include <q3cstring.h>
+#include <QByteArray>
 #include <qtimer.h>
 #include <q3dns.h>
 //Added by qt3to4:
@@ -61,7 +61,7 @@ public:
 
 	bool failed;
 	QHostAddress resultAddress;
-	Q_UINT16 resultPort;
+	quint16 resultPort;
 
 	bool srvonly;
 	QString srv;
@@ -171,7 +171,7 @@ QHostAddress SrvResolver::resultAddress() const
 	return d->resultAddress;
 }
 
-Q_UINT16 SrvResolver::resultPort() const
+quint16 SrvResolver::resultPort() const
 {
 	return d->resultPort;
 }

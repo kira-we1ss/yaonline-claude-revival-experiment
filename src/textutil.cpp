@@ -85,7 +85,7 @@ QString TextUtil::quote(const QString &toquote, int width, bool quoteEmpty)
 		col++;
 		if (atstart && quoted[i] == '>') ql++; else atstart=0;
 
-		switch(quoted[i].latin1())
+		switch(quoted[i].toLatin1().constData())
 		{
 			case '\n': ql = col = 0; atstart = 1; break;
 			case ' ':
@@ -264,13 +264,13 @@ QString TextUtil::resolveEntities(const QString &in)
 
 static bool linkify_pmatch(const QString &str1, int at, const QString &str2)
 {
-	// Q_ASSERT(str2.lower() == str2); // commented out in order to make debug builds speedy
+	// Q_ASSERT(str2.toLower() == str2); // commented out in order to make debug builds speedy
 
 	if(str2.length() > (str1.length()-at))
 		return FALSE;
 
 	for(int n = 0; n < (int)str2.length(); ++n) {
-		if(str1.at(n+at).lower() != str2.at(n))
+		if(str1.at(n+at).toLower() != str2.at(n))
 			return FALSE;
 	}
 
@@ -297,7 +297,7 @@ static QString linkify_htmlsafe(const QString &in)
 		if(linkify_isOneOf(in.at(n), dangerousChars)) {
 			// hex encode
 			QString hex;
-			hex.sprintf("%%%02X", in.at(n).latin1());
+			hex.sprintf("%%%02X", in.at(n).toLatin1().constData());
 			out.append(hex);
 		}
 		else {
@@ -464,7 +464,7 @@ QString TextUtil::linkify(const QString &in)
 			// attributes need to be encoded too.
 			href = Qt::escape(href);
 			href = linkify_htmlsafe(href);
-			//printf("link: [%s], href=[%s]\n", link.latin1(), href.latin1());
+			//printf("link: [%s], href=[%s]\n", link.toLatin1().constData(), href.toLatin1().constData());
 			linked = QString("<a href=\"%1\">").arg(href) + Qt::escape(link) + "</a>" + Qt::escape(pre.mid(cutoff));
 			out.replace(x1, len, linked);
 			n = x1 + linked.length() - 1;
@@ -499,7 +499,7 @@ QString TextUtil::linkify(const QString &in)
 			}
 
 			href += link;
-			//printf("link: [%s], href=[%s]\n", link.latin1(), href.latin1());
+			//printf("link: [%s], href=[%s]\n", link.toLatin1().constData(), href.toLatin1().constData());
 			linked = QString("<a href=\"%1\">").arg(href) + link + "</a>";
 			out.replace(x1, len, linked);
 			n = x1 + linked.length() - 1;

@@ -245,7 +245,7 @@ void soundPlay(const QString &str)
 #else
 	if(!option.player.isEmpty()) {
 		QStringList args;
-		args = QStringList::split(' ', option.player);
+		args = option.player.split(' ');
 		args += str;
 		QString prog = args.takeFirst();
 		QProcess::startDetached(prog, args);
@@ -342,7 +342,7 @@ void x11wmClass(Display *dsp, WId wid, QString resName)
 	//Display *dsp = x11Display();                 // get the display
 	//WId win = winId();                           // get the window
 	XClassHint classhint;                          // class hints
-	classhint.res_name = (char *)resName.latin1(); // res_name
+	classhint.res_name = (char *)resName.toLatin1().constData(); // res_name
 	classhint.res_class = app_name;                // res_class
 	XSetClassHint(dsp, wid, &classhint);           // set the class hints
 }

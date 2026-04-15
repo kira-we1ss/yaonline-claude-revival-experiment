@@ -22,7 +22,6 @@
 
 #include <QLabel>
 #include <QCursor>
-#include <Q3DragObject>
 #include <QLineEdit>
 #include <QToolButton>
 #include <QLayout>

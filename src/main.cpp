@@ -123,7 +123,7 @@ PsiMain::PsiMain(QObject *par)
 #ifndef YAPSI
 	if(lastLang.isEmpty()) {
 		lastLang = QTextCodec::locale();
-		//printf("guessing locale: [%s]\n", lastLang.latin1());
+		//printf("guessing locale: [%s]\n", lastLang.toLatin1().constData());
 	}
 #else
 	lastLang = "ru"; // QString(QTextCodec::locale()).left(2);
@@ -192,7 +192,7 @@ PsiMain::~PsiMain()
 #ifdef Q_OS_TEMP
 	RegDeleteKeyW(HKEY_LOCAL_MACHINE, affinixKey.ucs2());
 #else
-	RegDeleteKeyA(HKEY_LOCAL_MACHINE, affinixKey.latin1());
+	RegDeleteKeyA(HKEY_LOCAL_MACHINE, affinixKey.toLatin1().constData());
 #endif
 	delete rs;
 #endif

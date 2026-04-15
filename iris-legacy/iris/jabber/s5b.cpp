@@ -46,7 +46,7 @@ namespace XMPP {
 static QString makeKey(const QString &sid, const Jid &initiator, const Jid &target)
 {
 	QString str = sid + initiator.full() + target.full();
-	return QCA::Hash("sha1").hashToString(str.utf8());
+	return QCA::Hash("sha1").hashToString(str.toUtf8());
 }
 
 static bool haveHost(const StreamHostList &list, const Jid &j)
@@ -1823,7 +1823,7 @@ private slots:
 		}
 
 		// send initialization with our JID
-		QByteArray a(jid.full().utf8());
+		QByteArray a(jid.full().toUtf8());
 		client_udp->write(a);
 		++udp_tries;
 	}

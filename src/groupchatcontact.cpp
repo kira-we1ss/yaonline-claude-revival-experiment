@@ -62,7 +62,7 @@ void GroupchatContact::setBookmark(const ConferenceBookmark& bookmark)
 {
 	if (bookmark_ != bookmark) {
 		bookmark_ = bookmark;
-		comparisonName_ = name().lower();
+		comparisonName_ = name().toLower();
 		emit updated();
 	}
 }

@@ -1512,7 +1512,7 @@ PsiAccount::PsiAccount(const UserAccount &acc, PsiContactList *parent, CapsRegis
 	// Listen to the capabilities manager
 	connect(capsManager(),SIGNAL(capsChanged(const Jid&)),SLOT(capsChanged(const Jid&)));
 
-	//printf("PsiAccount: [%s] loaded\n", name().latin1());
+	//printf("PsiAccount: [%s] loaded\n", name().toLatin1().constData());
 	d->xmlConsole = new XmlConsole(this);
 	if(option.xmlConsoleOnLogin && enabled()) {
 		this->showXmlConsole();
@@ -1600,7 +1600,7 @@ PsiAccount::~PsiAccount()
 	d->contactList->unlink(this);
 	delete d;
 
-	//printf("PsiAccount: [%s] unloaded\n", str.latin1());
+	//printf("PsiAccount: [%s] unloaded\n", str.toLatin1().constData());
 }
 
 void PsiAccount::cleanupStream()
@@ -2470,7 +2470,7 @@ void PsiAccount::cs_authenticated()
 		return;
 	}
 
-	//printf("PsiAccount: [%s] authenticated\n", name().latin1());
+	//printf("PsiAccount: [%s] authenticated\n", name().toLatin1().constData());
 	d->conn->changePollInterval(10); // for http poll, slow down after login
 
 	// Update our jid (if necessary)
@@ -2535,7 +2535,7 @@ void PsiAccount::cs_connectionClosed()
 
 void PsiAccount::cs_delayedCloseFinished()
 {
-	//printf("PsiAccount: [%s] connection closed\n", name().latin1());
+	//printf("PsiAccount: [%s] connection closed\n", name().toLatin1().constData());
 }
 
 void PsiAccount::cs_warning(int w)
@@ -2719,7 +2719,7 @@ void PsiAccount::getErrorInfo(int err, AdvancedConnector *conn, Stream *stream, 
 		str = tr("None");
 		reconn = true;
 	}
-	//printf("str[%s], reconn=%d\n", str.latin1(), reconn);
+	//printf("str[%s], reconn=%d\n", str.toLatin1().constData(), reconn);
 	*_str = str;
 	*_reconn = reconn;
 	*_disableAutoConnect = disableAutoConnect;
@@ -2772,7 +2772,7 @@ void PsiAccount::cs_error(int err)
 #endif
 
 	emit connectionError(d->currentConnectionError);
-	//printf("Error: [%s]\n", str.latin1());
+	//printf("Error: [%s]\n", str.toLatin1().constData());
 
 #ifdef YAPSI
 	d->currentConnectionError = bakError;
@@ -2905,7 +2905,7 @@ void PsiAccount::client_rosterRequestFinished(bool success, int, const QString &
 	                           .arg(success));
 
 	if(success) {
-		//printf("PsiAccount: [%s] roster retrieved ok.  %d entries.\n", name().latin1(), d->client->roster().count());
+		//printf("PsiAccount: [%s] roster retrieved ok.  %d entries.\n", name().toLatin1().constData(), d->client->roster().count());
 
 		// delete flagged items
 		UserListIt it(d->userList);
@@ -2929,7 +2929,7 @@ void PsiAccount::client_rosterRequestFinished(bool success, int, const QString &
 		d->stopReconnect();
 	}
 	else {
-		//printf("PsiAccount: [%s] error retrieving roster: [%d, %s]\n", name().latin1(), code, str.latin1());
+		//printf("PsiAccount: [%s] error retrieving roster: [%d, %s]\n", name().toLatin1().constData(), code, str.toLatin1().constData());
 	}
 
 	rosterDone = true;
@@ -3644,7 +3644,7 @@ void PsiAccount::client_subscription(const Jid &j, const QString &str, const QSt
 
 void PsiAccount::client_debugText(const QString &)
 {
-	//printf("%s", str.latin1());
+	//printf("%s", str.toLatin1().constData());
 	//fflush(stdout);
 }
 
@@ -3669,8 +3669,8 @@ void PsiAccount::client_incomingFileTransfer()
 		return;
 
 	/*printf("psiaccount: incoming file transfer:\n");
-	printf("  From: [%s]\n", ft->peer().full().latin1());
-	printf("  Name: [%s]\n", ft->fileName().latin1());
+	printf("  From: [%s]\n", ft->peer().full().toLatin1().constData());
+	printf("  Name: [%s]\n", ft->fileName().toLatin1().constData());
 	printf("  Size: %d bytes\n", ft->fileSize());*/
 
 	FileEvent *fe = new FileEvent(ft->peer().full(), ft, this);
@@ -3747,7 +3747,7 @@ void PsiAccount::reconnect()
 	                           .arg(doReconnect));
 
 	if(doReconnect && !isConnected()) {
-		//printf("PsiAccount: [%s] reconnecting...\n", name().latin1());
+		//printf("PsiAccount: [%s] reconnecting...\n", name().toLatin1().constData());
 		emit reconnecting();
 		v_isActive = false;
 		d->startReconnectTimeout();
@@ -3882,7 +3882,7 @@ void PsiAccount::setStatusDirect(const Status &_s, bool withPriority)
 	if (!withPriority)
 		s.setPriority(d->acc.priority);
 
-	//printf("setting status to [%s]\n", s.status().latin1());
+	//printf("setting status to [%s]\n", s.status().toLatin1().constData());
 
 	// using pgp?
 	if(!d->cur_pgpSecretKey.isNull()) {
@@ -6038,7 +6038,7 @@ void PsiAccount::queueEvent(PsiEvent* e, ActivationType activationType)
 		d->userList.append(u);
 	}
 
-	//printf("queuing message from [%s] for [%s].\n", e->from().full().latin1(), e->jid().full().latin1());
+	//printf("queuing message from [%s] for [%s].\n", e->from().full().toLatin1().constData(), e->jid().full().toLatin1().constData());
 	d->eventQueue->enqueue(e);
 
 	updateReadNext(e->jid());
@@ -6227,7 +6227,7 @@ void PsiAccount::processReadNext(const UserListItem &u)
 
 void PsiAccount::processChatsHelper(const Jid& j, bool removeEvents)
 {
-	//printf("processing chats for [%s]\n", j.full().latin1());
+	//printf("processing chats for [%s]\n", j.full().toLatin1().constData());
 	ChatDlg *c = findChatDialog(j);
 	if(!c)
 		return;

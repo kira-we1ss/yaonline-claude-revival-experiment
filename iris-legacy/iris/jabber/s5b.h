@@ -22,7 +22,7 @@
 #define XMPP_S5B_H
 
 #include <qobject.h>
-#include <q3cstring.h>
+#include <QByteArray>
 #include <q3ptrlist.h>
 #include <QList>
 #include <QHostAddress>

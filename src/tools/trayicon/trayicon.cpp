@@ -37,9 +37,10 @@
   \sa show
 */
 TrayIcon::TrayIcon( QObject *parent, const char *name )
-: QObject(parent, name), pop(0), d(0)
+: QObject(parent), pop(0), d(0)
 {
-	v_isWMDock = FALSE;
+	Q_UNUSED(name);
+	v_isWMDock = false;
 }
 
 /**
@@ -50,9 +51,10 @@ TrayIcon::TrayIcon( QObject *parent, const char *name )
   \sa show
 */
 TrayIcon::TrayIcon( const QPixmap &icon, const QString &tooltip, QMenu *popup, QObject *parent, const char *name )
-: QObject(parent, name), pop(popup), pm(icon), tip(tooltip), d(0)
+: QObject(parent), pop(popup), pm(icon), tip(tooltip), d(0)
 {
-	v_isWMDock = FALSE;
+	Q_UNUSED(name);
+	v_isWMDock = false;
 
 	if ( !pm.width() || !pm.height() )
 		pm = QPixmap( 16, 16 );
@@ -177,7 +179,7 @@ bool TrayIcon::event( QEvent *e )
 	return QObject::event( e );
     }
 
-    return TRUE;
+    return true;
 }
 
 /**

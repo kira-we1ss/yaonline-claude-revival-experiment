@@ -249,7 +249,7 @@ protected:
 		QStringList::Iterator it = nicks.begin();
 		QStringList suggestedNicks;
 		for ( ; it != nicks.end(); ++it) {
-			if ( (*it).left(nickText.length()).lower() == nickText.lower() ) {
+			if ( (*it).left(nickText.length()).toLower() == nickText.toLower() ) {
 				if ( fromStart )
 					suggestedNicks << *it;
 				else
@@ -266,7 +266,7 @@ protected:
 			bool found = true;
 			QStringList::Iterator it = suggestedNicks.begin();
 			for ( ; it != suggestedNicks.end(); ++it) {
-				if ( (*it).left(testString.length()).lower() != testString.lower() ) {
+				if ( (*it).left(testString.length()).toLower() != testString.toLower() ) {
 					found = false;
 					break;
 				}

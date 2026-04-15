@@ -210,14 +210,14 @@ void CachedAvatar::saveToCache(const QByteArray& data)
 {
 	QString hash = QCA::Hash("sha1").hashToString(data);
 	hash_ = hash;
-	// printf("Saving %s to cache.\n",hash.latin1());
+	// printf("Saving %s to cache.\n",hash.toLatin1().constData());
 	QFile f(cachedFileName());
 	if (f.open(IO_WriteOnly)) {
 		f.writeBlock(data);
 		f.close();
 	}
 	else {
-		printf("Error opening %s for writing.\n",f.name().latin1());
+		printf("Error opening %s for writing.\n",f.name().toLatin1().constData());
 	}
 }
 
@@ -551,7 +551,7 @@ QString AvatarFactory::getCachedAvatarFileName(XMPP::Jid jid)
 
 Avatar* AvatarFactory::retrieveAvatar(const Jid& jid)
 {
-	//printf("Retrieving avatar of %s\n", jid.full().latin1());
+	//printf("Retrieving avatar of %s\n", jid.full().toLatin1().constData());
 
 	// Try finding a file avatar.
 	//printf("File avatar\n");

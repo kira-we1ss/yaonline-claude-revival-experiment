@@ -684,7 +684,7 @@ EDBFlatFile::File::File(const PsiAccount* _account, const Jid &_j)
 	t = new QTimer(this);
 	connect(t, SIGNAL(timeout()), SLOT(timer_timeout()));
 
-	//printf("[EDB opening -- %s]\n", j.full().latin1());
+	//printf("[EDB opening -- %s]\n", j.full().toLatin1().constData());
 #ifdef YAPSI
 	fname = getFileName(account, j, &type);
 #else
@@ -708,7 +708,7 @@ EDBFlatFile::File::~File()
 {
 	if(valid)
 		f.close();
-	//printf("[EDB closing -- %s]\n", j.full().latin1());
+	//printf("[EDB closing -- %s]\n", j.full().toLatin1().constData());
 
 	delete d;
 }
@@ -848,7 +848,7 @@ void EDBFlatFile::File::ensureIndex()
 		f.reset(); // go to beginning
 		d->index.clear();
 
-		//printf(" file: %s\n", fname.latin1());
+		//printf(" file: %s\n", fname.toLatin1().constData());
 		// build index
 		while(1) {
 			quint64 at = f.pos();

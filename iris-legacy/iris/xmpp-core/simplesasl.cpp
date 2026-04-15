@@ -25,7 +25,7 @@
 #include <q3ptrlist.h>
 #include <QList>
 #include <qca.h>
-#include <Q3CString>
+#include <QByteArray>
 #include <stdlib.h>
 #include <QtCrypto>
 #include <QDebug>
@@ -42,7 +42,7 @@
 namespace XMPP {
 struct Prop
 {
-	Q3CString var, val;
+	QByteArray var, val;
 };
 
 class PropList : public QList<Prop>
@@ -52,7 +52,7 @@ public:
 	{
 	}
 
-	void set(const Q3CString &var, const Q3CString &val)
+	void set(const QByteArray &var, const QByteArray &val)
 	{
 		Prop p;
 		p.var = var;
@@ -60,18 +60,18 @@ public:
 		append(p);
 	}
 
-	Q3CString get(const Q3CString &var)
+	QByteArray get(const QByteArray &var)
 	{
 		for(ConstIterator it = begin(); it != end(); ++it) {
 			if((*it).var == var)
 				return (*it).val;
 		}
-		return Q3CString();
+		return QByteArray();
 	}
 
-	Q3CString toString() const
+	QByteArray toString() const
 	{
-		Q3CString str;
+		QByteArray str;
 		bool first = true;
 		for(ConstIterator it = begin(); it != end(); ++it) {
 			if(!first)
@@ -95,7 +95,7 @@ public:
 			int n = str.find('=', at);
 			if(n == -1)
 				break;
-			Q3CString var, val;
+			QByteArray var, val;
 			var = str.mid(at, n-at);
 			at = n + 1;
 			if(str[at] == '\"') {
@@ -148,7 +148,7 @@ public:
 		return true;
 	}
 
-	int varCount(const Q3CString &var)
+	int varCount(const QByteArray &var)
 	{
 		int n = 0;
 		for(ConstIterator it = begin(); it != end(); ++it) {
@@ -158,7 +158,7 @@ public:
 		return n;
 	}
 
-	QStringList getValues(const Q3CString &var)
+	QStringList getValues(const QByteArray &var)
 	{
 		QStringList list;
 		for(ConstIterator it = begin(); it != end(); ++it) {
@@ -346,7 +346,7 @@ public:
 				// Continue with authentication
 				QByteArray plain;
 				if (!authz.isEmpty())
-					plain += authz.utf8();
+					plain += authz.toUtf8();
 			   	plain += '\0' + user.toUtf8() + '\0' + pass.toByteArray();
 				out_buf.resize(plain.length());
 				memcpy(out_buf.data(), plain.data(), out_buf.size());
@@ -406,30 +406,30 @@ public:
 			QByteArray a(32);
 			for(int n = 0; n < (int)a.size(); ++n)
 				a[n] = (char)(256.0*rand()/(RAND_MAX+1.0));
-			Q3CString cnonce = QCA::Base64().arrayToString(a).toLatin1();
+			QByteArray cnonce = QCA::Base64().arrayToString(a).toLatin1();
 
 			// make other variables
 			if (realm.isEmpty())
 				realm = QString::fromUtf8(in.get("realm"));
-			Q3CString nonce = in.get("nonce");
-			Q3CString nc = "00000001";
-			Q3CString uri = service.utf8() + '/' + host.utf8();
-			Q3CString qop = "auth";
+			QByteArray nonce = in.get("nonce");
+			QByteArray nc = "00000001";
+			QByteArray uri = service.toUtf8() + '/' + host.toUtf8();
+			QByteArray qop = "auth";
 
 			// build 'response'
-			Q3CString X = user.utf8() + ':' + realm.utf8() + ':' + Q3CString(pass.toByteArray());
+			QByteArray X = user.toUtf8() + ':' + realm.toUtf8() + ':' + QByteArray(pass.toByteArray());
 			QByteArray Y = QCA::Hash("md5").hash(X).toByteArray();
 			QByteArray tmp = ':' + nonce + ':' + cnonce;
 			if (!authz.isEmpty())
-				tmp += ':' + authz.utf8();
+				tmp += ':' + authz.toUtf8();
 			//qDebug() << (QString(tmp));
 
 			QByteArray A1(Y + tmp);
 			QByteArray A2 = QByteArray("AUTHENTICATE:") + uri;
-			Q3CString HA1 = QCA::Hash("md5").hashToString(A1).toLatin1();
-			Q3CString HA2 = QCA::Hash("md5").hashToString(A2).toLatin1();
-			Q3CString KD = HA1 + ':' + nonce + ':' + nc + ':' + cnonce + ':' + qop + ':' + HA2;
-			Q3CString Z = QCA::Hash("md5").hashToString(KD).toLatin1();
+			QByteArray HA1 = QCA::Hash("md5").hashToString(A1).toLatin1();
+			QByteArray HA2 = QCA::Hash("md5").hashToString(A2).toLatin1();
+			QByteArray KD = HA1 + ':' + nonce + ':' + nc + ':' + cnonce + ':' + qop + ':' + HA2;
+			QByteArray Z = QCA::Hash("md5").hashToString(KD).toLatin1();
 			
 			//qDebug() << (QString("simplesasl.cpp: A1 = %1").arg(QString(A1)).toAscii());
 			//qDebug() << (QString("simplesasl.cpp: A2 = %1").arg(QString(A2)).toAscii());
@@ -437,20 +437,20 @@ public:
 
 			// build output
 			PropList out;
-			out.set("username", user.utf8());
+			out.set("username", user.toUtf8());
 			if (!realm.isEmpty())
-				out.set("realm", realm.utf8());
+				out.set("realm", realm.toUtf8());
 			out.set("nonce", nonce);
 			out.set("cnonce", cnonce);
 			out.set("nc", nc);
-			//out.set("serv-type", service.utf8());
-			//out.set("host", host.utf8());
+			//out.set("serv-type", service.toUtf8());
+			//out.set("host", host.toUtf8());
 			out.set("digest-uri", uri);
 			out.set("qop", qop);
 			out.set("response", Z);
 			out.set("charset", "utf-8");
 			if (!authz.isEmpty())
-				out.set("authzid", authz.utf8());
+				out.set("authzid", authz.toUtf8());
 			QByteArray s(out.toString());
 			//qDebug() << (QString("OUT: %1").arg(QString(out.toString())));
 

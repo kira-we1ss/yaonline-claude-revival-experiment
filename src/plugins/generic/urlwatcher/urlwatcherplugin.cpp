@@ -275,7 +275,7 @@ void URLWatcherPlugin::message( const QString& message, const QString& fromJid, 
 			}
 			href += link;
 			href = linkify_htmlsafe(href);
-			//printf("link: [%s], href=[%s]\n", link.latin1(), href.latin1());
+			//printf("link: [%s], href=[%s]\n", link.toLatin1().constData(), href.toLatin1().constData());
 			linked = QString("<a href=\"%1\">").arg(href) + Qt::escape(link) + "</a>" + Qt::escape(pre.mid(cutoff));
 			out.replace(x1, len, linked);
 			n = x1 + linked.length() - 1;
@@ -308,7 +308,7 @@ void URLWatcherPlugin::message( const QString& message, const QString& fromJid, 
 			}
 
 			href += link;
-			//printf("link: [%s], href=[%s]\n", link.latin1(), href.latin1());
+			//printf("link: [%s], href=[%s]\n", link.toLatin1().constData(), href.toLatin1().constData());
 			linked = QString("<a href=\"%1\">").arg(href) + link + "</a>";
 			out.replace(x1, len, linked);
 			n = x1 + linked.length() - 1;

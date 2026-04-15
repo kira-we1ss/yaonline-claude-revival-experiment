@@ -26,7 +26,7 @@
 #include "applicationinfo.h"
 
 #include <QFileInfo>
-#include <Q3Dict>
+#include <QHash>
 #include <QCoreApplication>
 
 using namespace XMPP;
@@ -81,13 +81,13 @@ public:
 		if ( !to ) {
 			qWarning("PsiIconset::loadIconset(): 'to' iconset is NULL!");
 			if ( from )
-				qWarning("from->name() = '%s'", from->name().latin1());
+				qWarning("from->name() = '%s'", from->name().toLatin1().constData());
 			return;
 		}
 		if ( !from ) {
 			qWarning("PsiIconset::loadIconset(): 'from' iconset is NULL!");
 			if ( to )
-				qWarning("to->name() = '%s'", to->name().latin1());
+				qWarning("to->name() = '%s'", to->name().toLatin1().constData());
 			return;
 		}
 
@@ -371,9 +371,8 @@ bool PsiIconset::optionsChanged(const Options *old)
 		while ( !clear ) {
 			clear = true;
 
-			Q3DictIterator<Iconset> it3 ( roster );
-			for ( ; it3.current(); ++it3) {
-				QString name = it3.currentKey();
+			for (auto it3 = roster.begin(); it3 != roster.end(); ++it3) {
+				QString name = it3.key();
 				if ( name == option.defaultRosterIconset )
 					continue;
 

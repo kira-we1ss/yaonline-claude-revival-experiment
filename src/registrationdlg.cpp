@@ -21,7 +21,7 @@
 #include <QDomElement>
 #include <QLineEdit>
 #include <QMessageBox>
-#include <Q3Grid>
+#include <QGridLayout>
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QPointer>
@@ -135,16 +135,18 @@ public:
 	int type;
 	BusyWidget *busy;
 	QLabel *lb_top;
-	Q3Grid *gr_form;
+	QWidget *gr_form;
+	QGridLayout *gr_form_layout;
+	int gr_form_row;
 	Form form;
 
-	QList<QLabel> lb_field;
-	QList<QLineEdit> le_field;
+	QList<QLabel*> lb_field;
+	QList<QLineEdit*> le_field;
 	XDataWidget *xdata;
 };
 
 RegistrationDlg::RegistrationDlg(const Jid &jid, PsiAccount *pa)
-	: QDialog(0, 0, false)
+	: QDialog(0)
 {
 	setAttribute(Qt::WA_DeleteOnClose);
 	d = new Private;
@@ -153,20 +155,20 @@ RegistrationDlg::RegistrationDlg(const Jid &jid, PsiAccount *pa)
 	d->pa->dialogRegister(this, d->jid);
 	d->jt = 0;
 	d->xdata = 0;
-
-	d->lb_field.setAutoDelete(true);
-	d->le_field.setAutoDelete(true);
+	d->gr_form_row = 0;
 
 	setWindowTitle(tr("Registration: %1").arg(d->jid.full()));
 
-	QVBoxLayout *vb1 = new QVBoxLayout(this, 4);
+	QVBoxLayout *vb1 = new QVBoxLayout(this);
+	vb1->setContentsMargins(4, 4, 4, 4);
 	d->lb_top = new QLabel(this);
 	d->lb_top->setFrameStyle( QFrame::Panel | QFrame::Sunken );
 	d->lb_top->hide();
 	vb1->addWidget(d->lb_top);
 
-	d->gr_form = new Q3Grid(2, Qt::Horizontal, this);
-	d->gr_form->setSpacing(4);
+	d->gr_form = new QWidget(this);
+	d->gr_form_layout = new QGridLayout(d->gr_form);
+	d->gr_form_layout->setSpacing(4);
 	vb1->addWidget(d->gr_form);
 	d->gr_form->hide();
 
@@ -175,7 +177,8 @@ RegistrationDlg::RegistrationDlg(const Jid &jid, PsiAccount *pa)
 	line->setFrameStyle(QFrame::HLine | QFrame::Sunken);
 	vb1->addWidget(line);
 
-	QHBoxLayout *hb1 = new QHBoxLayout(vb1);
+	QHBoxLayout *hb1 = new QHBoxLayout();
+	vb1->addLayout(hb1);
 	d->busy = new BusyWidget(this);
 	hb1->addWidget(d->busy);
 	hb1->addStretch(1);
@@ -291,6 +294,7 @@ bool RegistrationDlg::processXData(const QDomElement& iq)
 
 		d->xdata = new XDataWidget(d->gr_form);
 		d->xdata->setFields(form.fields());
+		d->gr_form_layout->addWidget(d->xdata, d->gr_form_row++, 0, 1, 2);
 
 		d->xdata->show();
 		return true;
@@ -314,6 +318,10 @@ void RegistrationDlg::processLegacyForm(const XMPP::Form& form)
 		if (f.isSecret())
 			le->setEchoMode(QLineEdit::Password);
 		le->setText(f.value());
+
+		d->gr_form_layout->addWidget(lb, d->gr_form_row, 0);
+		d->gr_form_layout->addWidget(le, d->gr_form_row, 1);
+		d->gr_form_row++;
 
 		d->lb_field.append(lb);
 		d->le_field.append(le);

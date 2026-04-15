@@ -2004,11 +2004,11 @@ QStringList getProfilesList()
 
 bool profileExists(const QString &_name)
 {
-	QString name = _name.lower();
+	QString name = _name.toLower();
 
 	QStringList list = getProfilesList();
 	for(QStringList::ConstIterator it = list.begin(); it != list.end(); ++it) {
-		if((*it).lower() == name)
+		if((*it).toLower() == name)
 			return TRUE;
 	}
 	return FALSE;
@@ -2075,14 +2075,14 @@ static bool folderRemove(const QDir &_d)
 				return FALSE;
 		}
 		else {
-			//printf("deleting [%s]\n", info.filePath().latin1());
+			//printf("deleting [%s]\n", info.filePath().toLatin1().constData());
 			d.remove(info.fileName());
 		}
 	}
 	QString name = d.dirName();
 	if(!d.cdUp())
 		return FALSE;
-	//printf("removing folder [%s]\n", d.filePath(name).latin1());
+	//printf("removing folder [%s]\n", d.filePath(name).toLatin1().constData());
 	d.rmdir(name);
 
 	return TRUE;

@@ -33,7 +33,7 @@ RTParse::RTParse(const QString &_in)
 
 const QString &RTParse::output() const
 {
-	//printf("final: [%s]\n", out.latin1());
+	//printf("final: [%s]\n", out.toLatin1().constData());
 	return out;
 }
 
@@ -68,9 +68,9 @@ QString RTParse::next()
 		s = in.mid(v_at, x-v_at);
 	}
 	v_at += s.length();
-	//printf("chunk = '%s'\n", s.latin1());
+	//printf("chunk = '%s'\n", s.toLatin1().constData());
 	s = TextUtil::resolveEntities(s);
-	//printf("resolved = '%s'\n", s.latin1());
+	//printf("resolved = '%s'\n", s.toLatin1().constData());
 	return s;
 }
 
@@ -81,14 +81,14 @@ bool RTParse::atEnd() const
 
 void RTParse::putPlain(const QString &s)
 {
-	//printf("got this: [%s]\n", s.latin1());
+	//printf("got this: [%s]\n", s.toLatin1().constData());
 	out += Qt::escape(s);
-	//printf("changed to this: [%s]\n", expandEntities(s).latin1());
+	//printf("changed to this: [%s]\n", expandEntities(s).toLatin1().constData());
 }
 
 void RTParse::putRich(const QString &s)
 {
 	out += s;
-	//printf("+ '%s'\n", s.latin1());
+	//printf("+ '%s'\n", s.toLatin1().constData());
 }
 

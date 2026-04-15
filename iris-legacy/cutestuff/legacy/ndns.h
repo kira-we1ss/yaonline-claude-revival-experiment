@@ -22,7 +22,7 @@
 #define CS_NDNS_H
 
 #include <qobject.h>
-#include <q3cstring.h>
+#include <QByteArray>
 #include <qthread.h>
 #include <qmutex.h>
 #include <qhostaddress.h>

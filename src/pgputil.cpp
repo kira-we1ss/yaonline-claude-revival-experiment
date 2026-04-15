@@ -135,7 +135,7 @@ QString PGPUtil::stripHeaderFooter(const QString &str)
 	}
 	if(str.at(0) != '-')
 		return str;
-	QStringList lines = QStringList::split('\n', str, true);
+	QStringList lines = str.split('\n', QString::KeepEmptyParts);
 	QStringList::ConstIterator it = lines.begin();
 	// skip the first line
 	++it;
