@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"qt3support\\\\|QT3\\\\|setRichText\\\\|setPalette\\\\|setIconSet\\\\|setMargin\" /Users/kweiss/Downloads/yachat/src/*.pro)",
+      "Bash(grep -h \"^class \" /Users/kweiss/Downloads/yachat/src/*.h)",
+      "Bash(grep -v \":0$\")",
+      "Bash(grep -h \"#define.*http://jabber.org\\\\|#define.*jabber:\" /Users/kweiss/Downloads/yachat/iris/src/xmpp/xmpp-im/*.cpp /Users/kweiss/Downloads/yachat/iris/src/xmpp/xmpp-im/*.h)",
+      "Bash(ls -1 /Users/kweiss/Downloads/yachat/iris/src/xmpp/xmpp-im/*.h)",
+      "Bash(xargs -I {} basename {})",
+      "Bash(ls -1 /Users/kweiss/Downloads/yachat/src/*.h)",
+      "Bash(grep -h \"class.*Dialog\\\\|class.*Dlg\" /Users/kweiss/Downloads/yachat/src/*.h)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(python3:*)",
+      "Bash(ls /Users/kweiss/Downloads/yachat/src/psigrowlnotifier*)",
+      "Bash(git ls-tree:*)",
+      "Read(//opt/local/libexec/qt5/bin/**)",
+      "Read(//usr/local/Cellar/qt@5/5.15.18/bin/**)",
+      "Bash(/usr/local/opt/qt@5/bin/qmake src.pro)",
+      "Bash(/usr/local/opt/qt@5/bin/qmake /Users/kweiss/Downloads/yachat/src/src.pro)",
+      "Bash(/usr/local/opt/qt@5/bin/qmake psi.pro)",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(/usr/local/opt/qt@5/bin/qmake /Users/kweiss/Downloads/yachat/psi.pro)",
+      "Bash(xxd /Users/kweiss/Downloads/yachat/conf.pri)",
+      "Bash(xargs sed:*)",
+      "Bash(git:*)"
+    ]
+  }
+}
