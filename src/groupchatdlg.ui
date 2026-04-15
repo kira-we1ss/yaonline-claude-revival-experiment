@@ -273,7 +273,7 @@
   </customwidget>
   <customwidget>
    <class>GCUserView</class>
-   <extends>Q3ListView</extends>
+   <extends>QTreeWidget</extends>
    <header>gcuserview.h</header>
   </customwidget>
   <customwidget>

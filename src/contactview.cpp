@@ -38,6 +38,7 @@
 #include <QDropEvent>
 #include <QPixmap>
 #include <QDesktopWidget>
+#include <QtAlgorithms>
 #include <stdlib.h>
 #include "common.h"
 #include "userlist.h"
@@ -91,14 +92,13 @@ public:
 	Entry()
 	{
 		alerting = false;
-		cvi.setAutoDelete(true);
 	}
 	~Entry()
 	{
 	}
 
 	UserListItem u;
-	QList<ContactViewItem> cvi;
+	QList<ContactViewItem*> cvi;
 	bool alerting;
 	PsiIcon anim;
 };
@@ -114,8 +114,8 @@ public:
 	ContactViewItem *cvi;
 	ContactViewItem *self;
 	UserListItem su;
-	QList<Entry> roster;
-	QList<ContactViewItem> groups;
+	QList<Entry*> roster;
+	QList<ContactViewItem*> groups;
 	int oldstate;
 	QTimer *t;
 	PsiAccount *pa;
@@ -144,8 +144,6 @@ ContactProfile::ContactProfile(PsiAccount *pa, const QString &name, ContactView 
 	d->t = new QTimer;
 	connect(d->t, SIGNAL(timeout()), SLOT(updateGroups()));
 	connect(pa->psi(), SIGNAL(accountCountChanged()), d, SLOT(numAccountsChanged()));
-
-	d->roster.setAutoDelete(true);
 
 	d->self = 0;
 
@@ -389,7 +387,7 @@ void ContactProfile::updateEntry(const UserListItem &u)
 
 			// update remaining items
 			for (int _ci = 0; _ci < e->cvi.size(); ++_ci) {
-				ContactViewItem *i = &e->cvi[_ci];
+				ContactViewItem *i = e->cvi[_ci];
 				i->setContact(&e->u);
 				if(!u.isAvailable())
 					i->stopAnimateNick();
@@ -449,7 +447,7 @@ ContactViewItem *ContactProfile::ensureContactItem(Entry *e, ContactViewItem *gr
 	d->cv->recalculateSize();
 
 	for (int _ci = 0; _ci < e->cvi.size(); ++_ci) {
-		ContactViewItem *i = &e->cvi[_ci];
+		ContactViewItem *i = e->cvi[_ci];
 		ContactViewItem *g = (ContactViewItem *)static_cast<Q3ListViewItem *>(i)->parent();
 		if(g == group_item)
 			return i;
@@ -469,7 +467,8 @@ void ContactProfile::removeContactItem(Entry *e, ContactViewItem *i)
 
 	ContactViewItem *group_item = (ContactViewItem *)static_cast<Q3ListViewItem *>(i)->parent();
 	//printf("ContactProfile: removing [%s] from group [%s]\n", e->u.jid().full().toLatin1().constData(), group_item->groupName().toLatin1().constData());
-	e->cvi.removeRef(i);
+	e->cvi.removeAll(i);
+	delete i;
 	deferredUpdateGroups();
 	checkDestroyGroup(group_item);
 }
@@ -536,7 +535,7 @@ void ContactProfile::removeUnneededContactItems(Entry *e)
 	}
 
 	for (int _ci = e->cvi.size() - 1; _ci >= 0; --_ci) {
-		ContactViewItem *i = &e->cvi[_ci];
+		ContactViewItem *i = e->cvi[_ci];
 		bool del = false;
 		ContactViewItem *g = (ContactViewItem *)static_cast<Q3ListViewItem *>(i)->parent();
 
@@ -579,27 +578,27 @@ void ContactProfile::removeUnneededContactItems(Entry *e)
 void ContactProfile::clearContactItems(Entry *e)
 {
 	for (int _ci = e->cvi.size() - 1; _ci >= 0; --_ci)
-		removeContactItem(e, &e->cvi[_ci]);
+		removeContactItem(e, e->cvi[_ci]);
 }
 
 void ContactProfile::addAllNeededContactItems()
 {
 	for (int _ri = 0; _ri < d->roster.size(); ++_ri)
-		addNeededContactItems(&d->roster[_ri]);
+		addNeededContactItems(d->roster[_ri]);
 }
 
 void ContactProfile::removeAllUnneededContactItems()
 {
 	for (int _ri = 0; _ri < d->roster.size(); ++_ri)
-		removeUnneededContactItems(&d->roster[_ri]);
+		removeUnneededContactItems(d->roster[_ri]);
 }
 
 void ContactProfile::resetAllContactItemNames()
 {
 	for (int _ri = 0; _ri < d->roster.size(); ++_ri) {
-		Entry *e = &d->roster[_ri];
+		Entry *e = d->roster[_ri];
 		for (int _ci = 0; _ci < e->cvi.size(); ++_ci) {
-			ContactViewItem *i = &e->cvi[_ci];
+			ContactViewItem *i = e->cvi[_ci];
 			i->resetName();
 			contactView()->filterContact(i);
 		}
@@ -617,7 +616,8 @@ void ContactProfile::removeEntry(Entry *e)
 {
 	e->alerting = false;
 	clearContactItems(e);
-	d->roster.remove(e);
+	d->roster.removeAll(e);
+	delete e;
 }
 
 void ContactProfile::setAlert(const Jid &j, const PsiIcon *anim)
@@ -635,7 +635,7 @@ void ContactProfile::setAlert(const Jid &j, const PsiIcon *anim)
 		e->anim = *anim;
 		addNeededContactItems(e);
 		for (int _ci = 0; _ci < e->cvi.size(); ++_ci)
-			e->cvi[_ci].setAlert(anim);
+			e->cvi[_ci]->setAlert(anim);
 
 		if(option.scrollTo)
 			ensureVisible(e);
@@ -655,7 +655,7 @@ void ContactProfile::clearAlert(const Jid &j)
 
 		e->alerting = false;
 		for (int _ci = 0; _ci < e->cvi.size(); ++_ci)
-			e->cvi[_ci].clearAlert();
+			e->cvi[_ci]->clearAlert();
 		removeUnneededContactItems(e);
 	}
 }
@@ -663,13 +663,13 @@ void ContactProfile::clearAlert(const Jid &j)
 void ContactProfile::clear()
 {
 	for (int _ri = d->roster.size() - 1; _ri >= 0; --_ri)
-		removeEntry(&d->roster[_ri]);
+		removeEntry(d->roster[_ri]);
 }
 
 ContactProfile::Entry *ContactProfile::findEntry(const Jid &jid) const
 {
 	for (int _ri = 0; _ri < d->roster.size(); ++_ri) {
-		Entry *e = &d->roster[_ri];
+		Entry *e = d->roster[_ri];
 		if(e->u.jid().compare(jid))
 			return e;
 	}
@@ -679,9 +679,9 @@ ContactProfile::Entry *ContactProfile::findEntry(const Jid &jid) const
 ContactProfile::Entry *ContactProfile::findEntry(ContactViewItem *i) const
 {
 	for (int _ri = 0; _ri < d->roster.size(); ++_ri) {
-		Entry *e = &d->roster[_ri];
+		Entry *e = d->roster[_ri];
 		for (int _ci = 0; _ci < e->cvi.size(); ++_ci) {
-			ContactViewItem *cvi = &e->cvi[_ci];
+			ContactViewItem *cvi = e->cvi[_ci];
 			if(cvi == i)
 				return e;
 		}
@@ -738,7 +738,7 @@ QList<XMPP::Jid> ContactProfile::contactListFromGroup(const QString &groupName) 
 	QList<XMPP::Jid> list;
 
 	for (int _ri = 0; _ri < d->roster.size(); ++_ri) {
-		const Entry *e = &d->roster[_ri];
+		const Entry *e = d->roster[_ri];
 		const UserListItem &u = e->u;
 		if(u.isTransport())
 			continue;
@@ -766,7 +766,7 @@ int ContactProfile::contactSizeFromGroup(const QString &groupName) const
 	int total = 0;
 
 	for (int _ri = 0; _ri < d->roster.size(); ++_ri) {
-		const Entry *e = &d->roster[_ri];
+		const Entry *e = d->roster[_ri];
 		const UserListItem &u = e->u;
 		if(u.isTransport())
 			continue;
@@ -819,7 +819,7 @@ QStringList ContactProfile::groupList() const
 	QStringList groupList;
 
 	for (int _ri = 0; _ri < d->roster.size(); ++_ri) {
-		Entry *e = &d->roster[_ri];
+		Entry *e = d->roster[_ri];
 		foreach(QString group, e->u.groups()) {
 			if (!groupList.contains(group))
 				groupList.append(group);
@@ -841,7 +841,7 @@ void ContactProfile::animateNick(const Jid &j)
 	if(!e)
 		return;
 	for (int _ci = 0; _ci < e->cvi.size(); ++_ci)
-		e->cvi[_ci].setAnimateNick();
+		e->cvi[_ci]->setAnimateNick();
 }
 
 void ContactProfile::deferredUpdateGroups()
@@ -854,7 +854,7 @@ void ContactProfile::updateGroups()
 	int totalOnline = 0;
 	{
 		for (int _ri = 0; _ri < d->roster.size(); ++_ri) {
-			if(d->roster[_ri].u.isAvailable())
+			if(d->roster[_ri]->u.isAvailable())
 				++totalOnline;
 		}
 		if(d->cvi && option.showGroupCounts)
@@ -863,7 +863,7 @@ void ContactProfile::updateGroups()
 
 	{
 		for (int _gi = 0; _gi < d->groups.size(); ++_gi) {
-			ContactViewItem *g = &d->groups[_gi];
+			ContactViewItem *g = d->groups[_gi];
 			updateGroupInfo(g);
 			contactView()->filterGroup(g);
 		}
@@ -891,7 +891,7 @@ void ContactProfile::ensureVisible(Entry *e)
 			d->cv->setShowHidden(true);
 	}
 
-	ContactViewItem *i = e->cvi.first();
+	ContactViewItem *i = e->cvi.isEmpty() ? 0 : e->cvi.first();
 	if(!i)
 		return;
 	d->cv->ensureItemVisible(i);
@@ -1825,7 +1825,7 @@ public:
 
 	ContactView *cv;
 	QTimer *animTimer, *recalculateSizeTimer;
-	QList<ContactProfile> profiles;
+	QList<ContactProfile*> profiles;
 	QSize lastSize;
 	bool autoRosterResizeInProgress;
 
@@ -2121,9 +2121,8 @@ QTimer *ContactView::animTimer() const
 
 void ContactView::clear()
 {
-	d->profiles.setAutoDelete(true);
+	qDeleteAll(d->profiles);
 	d->profiles.clear();
-	d->profiles.setAutoDelete(false);
 }
 
 void ContactView::link(ContactProfile *cp)
@@ -2133,7 +2132,7 @@ void ContactView::link(ContactProfile *cp)
 
 void ContactView::unlink(ContactProfile *cp)
 {
-	d->profiles.removeRef(cp);
+	d->profiles.removeAll(cp);
 }
 
 void ContactView::keyPressEvent(QKeyEvent *e)
@@ -2172,7 +2171,7 @@ void ContactView::setShowOffline(bool x)
 		showOffline(v_showOffline);
 
 		for (int _pi = 0; _pi < d->profiles.size(); ++_pi) {
-			ContactProfile *cp = &d->profiles[_pi];
+			ContactProfile *cp = d->profiles[_pi];
 			if(!v_showOffline)
 				cp->removeAllUnneededContactItems();
 			else
@@ -2190,7 +2189,7 @@ void ContactView::setShowAway(bool x)
 		showAway(v_showAway);
 
 		for (int _pi = 0; _pi < d->profiles.size(); ++_pi) {
-			ContactProfile *cp = &d->profiles[_pi];
+			ContactProfile *cp = d->profiles[_pi];
 			if(!v_showAway)
 				cp->removeAllUnneededContactItems();
 			else
@@ -2208,7 +2207,7 @@ void ContactView::setShowHidden(bool x)
 		showHidden(v_showHidden);
 
 		for (int _pi = 0; _pi < d->profiles.size(); ++_pi) {
-			ContactProfile *cp = &d->profiles[_pi];
+			ContactProfile *cp = d->profiles[_pi];
 			if(!v_showHidden)
 				cp->removeAllUnneededContactItems();
 			else
@@ -2225,7 +2224,7 @@ void ContactView::setShowStatusMsg(bool x)
 		emit showStatusMsg(v_showStatusMsg);
 
 		for (int _pi = 0; _pi < d->profiles.size(); ++_pi) {
-			ContactProfile *cp = &d->profiles[_pi];
+			ContactProfile *cp = d->profiles[_pi];
 			cp->resetAllContactItemNames();
 		}
 		
@@ -2245,7 +2244,7 @@ void ContactView::setShowSelf(bool x)
 		showSelf(v_showSelf);
 
 		for (int _pi = 0; _pi < d->profiles.size(); ++_pi) {
-			ContactProfile *cp = &d->profiles[_pi];
+			ContactProfile *cp = d->profiles[_pi];
 			if (v_showSelf && ! cp->self()) {
 				cp->addSelf();
 			}
@@ -2285,7 +2284,7 @@ void ContactView::setShowAgents(bool x)
 		showAgents(v_showAgents);
 
 		for (int _pi = 0; _pi < d->profiles.size(); ++_pi) {
-			ContactProfile *cp = &d->profiles[_pi];
+			ContactProfile *cp = d->profiles[_pi];
 			if(!v_showAgents)
 				cp->removeAllUnneededContactItems();
 			else
