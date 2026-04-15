@@ -13,7 +13,7 @@
 *.user
 *.xcodeproj
 CLAUDE.md
-
+/.claude
 # Mac OS X metadata
 ._*
 .DS_Store
