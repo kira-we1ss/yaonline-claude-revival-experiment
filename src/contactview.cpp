@@ -2089,28 +2089,22 @@ void ContactView::setFilter(QString const &text)
 	bool refineSearch = text.startsWith(filterString_);
 	filterString_ = text;
 	
-	Q3ListViewItemIterator it(d->cv);
-	for (ContactViewItem *item; (item = (ContactViewItem *)it.current()); ++it)
-	{	
-		if (item->type() == ContactViewItem::Group) {
+	for (ContactViewItem *item = static_cast<ContactViewItem *>(d->cv->firstChild()); item; item = item->nextSiblingItem()) {
+		if (item->type() == ContactViewItem::Group)
 			filterGroup(item, refineSearch);
-		}
 	}
 }
 
 void ContactView::clearFilter()
 {
 	filterString_=QString();
-	Q3ListViewItemIterator it(d->cv);
-	for (ContactViewItem *item; (item = (ContactViewItem *)it.current()); ++it) 
-	{
-		if (item->type() != ContactViewItem::Contact && item->type() != ContactViewItem::Group) {
+	for (ContactViewItem *item = static_cast<ContactViewItem *>(d->cv->firstChild()); item; item = item->nextSiblingItem()) {
+		if (item->type() != ContactViewItem::Contact && item->type() != ContactViewItem::Group)
 			continue;
-		}
 		item->setVisible(true);
 		item->optionsUpdate();
 		item->repaint();
-	}	
+	}
 }
 
 
@@ -2405,12 +2399,8 @@ void ContactView::optionsUpdate()
 	Q3ListView::setPalette(mypal);
 
 	// reload the icons
-	Q3ListViewItemIterator it(this);
-	ContactViewItem *item;
-	for(; it.current() ; ++it) {
-		item = (ContactViewItem *)it.current();
+	for (ContactViewItem *item = static_cast<ContactViewItem *>(firstChild()); item; item = item->nextSiblingItem())
 		item->optionsUpdate();
-	}
 
 	// shortcuts
 	setShortcuts();
@@ -2438,8 +2428,7 @@ void ContactView::setShortcuts()
 
 void ContactView::resetAnim()
 {
-	for(Q3ListViewItemIterator it(this); it.current() ; ++it) {
-		ContactViewItem *item = (ContactViewItem *)it.current();
+	for (ContactViewItem *item = static_cast<ContactViewItem *>(firstChild()); item; item = item->nextSiblingItem()) {
 		if(item->isAlerting())
 			item->resetAnim();
 	}
@@ -2596,26 +2585,22 @@ QSize ContactView::sizeHint() const
 	int border = 5;
 	int h = border;
 
-	Q3ListView *listView = (Q3ListView *)this;
-	Q3ListViewItemIterator it( listView );
-	while ( it.current() ) {
-		if ( it.current()->isVisible() ) {
-			// also we need to check whether the group is open or closed
-			bool show = true;
-			Q3ListViewItem *item = it.current()->parent();
-			while ( item ) {
-				if ( !item->isOpen() ) {
-					show = false;
-					break;
-				}
-				item = item->parent();
-			}
+	for (Q3ListViewItemIterator it(this); it.current(); ++it) {
+		Q3ListViewItem *current = it.current();
+		if (!current->isVisible())
+			continue;
 
-			if ( show )
-				h += it.current()->height();
+		// also we need to check whether the group is open or closed
+		bool show = true;
+		for (Q3ListViewItem *item = current->parent(); item; item = item->parent()) {
+			if (!item->isOpen()) {
+				show = false;
+				break;
+			}
 		}
 
-		++it;
+		if (show)
+			h += current->height();
 	}
 
 	QWidget *topParent = window();
@@ -3485,8 +3470,7 @@ void ContactViewItem::updatePosition()
 		return;
 
 	ContactViewItem *after = 0;
-	for(Q3ListViewItem *i = par->firstChild(); i; i = i->nextSibling()) {
-		ContactViewItem *item = (ContactViewItem *)i;
+	for (ContactViewItem *item = par->firstChildItem(); item; item = item->nextSiblingItem()) {
 		// skip self
 		if(item == this)
 			continue;
@@ -3500,10 +3484,9 @@ void ContactViewItem::updatePosition()
 
 	if(after)
 		moveItem(after);
-	else {
-		Q3ListViewItem *i = par->firstChild();
-		moveItem(i);
-		i->moveItem(this);
+	else if (ContactViewItem *first = par->firstChildItem()) {
+		moveItem(first);
+		first->moveItem(this);
 	}
 }
 
