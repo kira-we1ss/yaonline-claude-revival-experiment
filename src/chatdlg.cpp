@@ -37,6 +37,8 @@
 #include <QKeyEvent>
 #include <QHBoxLayout>
 #include <QDropEvent>
+#include <QMimeData>
+#include <QUrl>
 #include <QList>
 #include <QMessageBox>
 #include <QShowEvent>
@@ -286,16 +288,37 @@ void ChatDlg::activated()
 
 void ChatDlg::dropEvent(QDropEvent* event)
 {
-	QStringList l;
-	if (account()->loggedIn() && Q3UriDrag::decodeLocalFiles(event, l) && !l.isEmpty()) {
-		account()->actionSendFiles(jid(), l);
+	QStringList files;
+	if (!account()->loggedIn() || !event->mimeData()->hasUrls())
+		return;
+
+	const QList<QUrl> urls = event->mimeData()->urls();
+	for (const QUrl &url : urls) {
+		if (url.isLocalFile())
+			files << url.toLocalFile();
+	}
+
+	if (!files.isEmpty()) {
+		account()->actionSendFiles(jid(), files);
+		event->acceptProposedAction();
 	}
 }
 
 void ChatDlg::dragEnterEvent(QDragEnterEvent* event)
 {
-	QStringList l;
-	event->accept(account()->loggedIn() && Q3UriDrag::canDecode(event) && Q3UriDrag::decodeLocalFiles(event, l) && !l.isEmpty());
+	if (!account()->loggedIn() || !event->mimeData()->hasUrls()) {
+		event->ignore();
+		return;
+	}
+
+	for (const QUrl &url : event->mimeData()->urls()) {
+		if (url.isLocalFile()) {
+			event->acceptProposedAction();
+			return;
+		}
+	}
+
+	event->ignore();
 }
 
 void ChatDlg::setJid(const Jid &j)

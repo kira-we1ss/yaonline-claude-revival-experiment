@@ -1,6 +1,6 @@
 TEMPLATE	= lib
 CONFIG		+= designer plugin release
-QT          += qt3support
+QT          += widgets
 TARGET		= psiwidgets
 
 target.path	= $$[QT_INSTALL_PLUGINS]/designer

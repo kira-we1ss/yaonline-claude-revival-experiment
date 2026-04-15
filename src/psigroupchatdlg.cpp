@@ -36,7 +36,6 @@
 #include <QAction>
 #include <QObject>
 #include <QMenu>
-#include <Q3TextDrag>
 #include <QCursor>
 #include <QCloseEvent>
 #include <QEvent>
@@ -1131,7 +1130,7 @@ void PsiGroupchatDlg::setLooks()
 	ui_.mle->chatEdit()->setFont(f);
 
 	f.fromString(option.font[fRoster]);
-	ui_.lv_users->Q3ListView::setFont(f);
+	ui_.lv_users->setFont(f);
 
 	if (PsiOptions::instance()->getOption("options.ui.chat.central-toolbar").toBool()) {
 		ui_.toolbar->show();

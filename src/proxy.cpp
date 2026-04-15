@@ -33,6 +33,7 @@
 #include <QApplication>
 #include <QHBoxLayout>
 #include <QList>
+#include <QListWidgetItem>
 #include "common.h"
 #include "iconwidget.h"
 
@@ -346,7 +347,7 @@ ProxyDlg::ProxyDlg(const ProxyItemList &list, const QStringList &methods, int de
 	if(!list.isEmpty()) {
 		if(def < 0)
 			def = 0;
-		lbx_proxy->setCurrentItem(def);
+		lbx_proxy->setCurrentRow(def);
 		selectCurrent();
 	}
 
@@ -369,13 +370,13 @@ void ProxyDlg::proxy_new()
 	d->list += s;
 
 	lbx_proxy->insertItem(s.name);
-	lbx_proxy->setCurrentItem(lbx_proxy->count()-1);
+	lbx_proxy->setCurrentRow(lbx_proxy->count()-1);
 	selectCurrent();
 }
 
 void ProxyDlg::proxy_remove()
 {
-	int x = lbx_proxy->currentItem();
+	int x = lbx_proxy->currentRow();
 	if(x != -1) {
 		ProxyItemList::Iterator it = d->list.begin();
 		for(int n = 0; n < x; ++n)
@@ -400,9 +401,9 @@ void ProxyDlg::cb_activated(int x)
 
 void ProxyDlg::selectCurrent()
 {
-	int x = lbx_proxy->currentItem();
+	int x = lbx_proxy->currentRow();
 	if(x != -1)
-		lbx_proxy->setSelected(x, true);
+		lbx_proxy->setCurrentRow(x);
 }
 
 QString ProxyDlg::getUniqueName() const
@@ -427,7 +428,7 @@ void ProxyDlg::saveIntoItem(int x)
 {
 	ProxyItem &s = d->list[x];
 	s.name = le_name->text();
-	int i = cb_type->currentItem();
+	int i = cb_type->currentIndex();
 	s.type = "http";
 	if(i == 0)
 		s.type = "http";
@@ -448,7 +449,7 @@ void ProxyDlg::qlbx_highlighted(int x)
 	// display the new item's content
 	if(x == -1) {
 		le_name->setText("");
-		cb_type->setCurrentItem(0);
+		cb_type->setCurrentIndex(0);
 		d->pe_settings->reset();
 		gb_prop->setEnabled(false);
 		pb_remove->setEnabled(false);
@@ -463,7 +464,7 @@ void ProxyDlg::qlbx_highlighted(int x)
 			i = 1;
 		else if(s.type == "poll")
 			i = 2;
-		cb_type->setCurrentItem(i);
+		cb_type->setCurrentIndex(i);
 		d->pe_settings->setProxySettings(s.settings);
 		cb_activated(i);
 		gb_prop->setEnabled(true);
@@ -473,10 +474,12 @@ void ProxyDlg::qlbx_highlighted(int x)
 
 void ProxyDlg::qle_textChanged(const QString &s)
 {
-	int x = lbx_proxy->currentItem();
+	int x = lbx_proxy->currentRow();
 	if(x != -1) {
 		unhookEdit();
-		lbx_proxy->changeItem(s, x);
+		QListWidgetItem *item = lbx_proxy->item(x);
+		if(item)
+			item->setText(s);
 		hookEdit();
 	}
 }
@@ -484,19 +487,19 @@ void ProxyDlg::qle_textChanged(const QString &s)
 // hookEdit / unhookEdit - disconnect some signals to prevent recursion
 void ProxyDlg::hookEdit()
 {
-	connect(lbx_proxy, SIGNAL(highlighted(int)), this, SLOT(qlbx_highlighted(int)));
+	connect(lbx_proxy, SIGNAL(currentRowChanged(int)), this, SLOT(qlbx_highlighted(int)));
 	connect(le_name, SIGNAL(textChanged(const QString &)), this, SLOT(qle_textChanged(const QString &)));
 }
 
 void ProxyDlg::unhookEdit()
 {
-	disconnect(lbx_proxy, SIGNAL(highlighted(int)), this, SLOT(qlbx_highlighted(int)));
+	disconnect(lbx_proxy, SIGNAL(currentRowChanged(int)), this, SLOT(qlbx_highlighted(int)));
 	disconnect(le_name, SIGNAL(textChanged(const QString &)), this, SLOT(qle_textChanged(const QString &)));
 }
 
 void ProxyDlg::doSave()
 {
-	int x = lbx_proxy->currentItem();
+	int x = lbx_proxy->currentRow();
 	if(x != -1)
 		saveIntoItem(x);
 	applyList(d->list, x);

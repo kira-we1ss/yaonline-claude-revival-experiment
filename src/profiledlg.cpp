@@ -27,13 +27,10 @@
 #include <QMessageBox>
 #include <QCheckBox>
 #include <QPushButton>
-#include <Q3Button>
-#include <Q3GroupBox>
-#include <Q3ListBox>
+#include <QListWidgetItem>
 #include <QInputDialog>
 #include <QFile>
 #include <QFileInfo>
-#include <Q3ButtonGroup>
 #include <QPixmap>
 #include "profiles.h"
 #include "iconwidget.h"
@@ -125,8 +122,8 @@ void ProfileOpenDlg::reload(const QString &choose)
 	cb_profile->clear();
 
 	if(list.count() == 0) {
-		gb_open->setEnabled(FALSE);
-		pb_open->setEnabled(FALSE);
+		gb_open->setEnabled(false);
+		pb_open->setEnabled(false);
 		pb_profiles->setFocus();
 	}
 	else {
@@ -139,8 +136,8 @@ void ProfileOpenDlg::reload(const QString &choose)
 			++x;
 		}
 
-		gb_open->setEnabled(TRUE);
-		pb_open->setEnabled(TRUE);
+		gb_open->setEnabled(true);
+		pb_open->setEnabled(true);
 		pb_open->setFocus();
 	}
 }
@@ -149,7 +146,8 @@ void ProfileOpenDlg::manageProfiles()
 {
 	ProfileManageDlg *w = new ProfileManageDlg(cb_profile->currentText(), this);
 	w->exec();
-	QString last = w->lbx_profiles->text(w->lbx_profiles->currentItem());
+	QListWidgetItem *current = w->lbx_profiles->currentItem();
+	QString last = current ? current->text() : QString();
 	delete w;
 
 	reload(last);
@@ -179,7 +177,7 @@ ProfileManageDlg::ProfileManageDlg(const QString &choose, QWidget *parent)
 	connect(pb_rename, SIGNAL(clicked()), SLOT(slotProfileRename()));
 	connect(pb_delete, SIGNAL(clicked()), SLOT(slotProfileDelete()));
 	connect(pb_close, SIGNAL(clicked()), SLOT(reject()));
-	connect(lbx_profiles, SIGNAL(highlighted(int)), SLOT(updateSelection()));
+	connect(lbx_profiles, SIGNAL(currentRowChanged(int)), SLOT(updateSelection()));
 
 	// load the listing
 	QStringList list = getProfilesList();
@@ -187,7 +185,7 @@ ProfileManageDlg::ProfileManageDlg(const QString &choose, QWidget *parent)
 	for(QStringList::ConstIterator it = list.begin(); it != list.end(); ++it) {
 		lbx_profiles->insertItem(*it);
 		if(*it == choose)
-			lbx_profiles->setCurrentItem(x);
+			lbx_profiles->setCurrentRow(x);
 		++x;
 	}
 
@@ -204,7 +202,7 @@ void ProfileManageDlg::slotProfileNew()
 		name = w->name;
 
 		lbx_profiles->insertItem(name);
-		lbx_profiles->setCurrentItem(lbx_profiles->count()-1);
+		lbx_profiles->setCurrentRow(lbx_profiles->count()-1);
 	}
 	delete w;
 
@@ -215,15 +213,18 @@ void ProfileManageDlg::slotProfileNew()
 
 void ProfileManageDlg::slotProfileRename()
 {
-	int x = lbx_profiles->currentItem();
+	int x = lbx_profiles->currentRow();
 	if(x == -1)
 		return;
 
-	QString oldname = lbx_profiles->text(x);
+	QListWidgetItem *item = lbx_profiles->item(x);
+	if(!item)
+		return;
+	QString oldname = item->text();
 	QString name;
 
 	while(1) {
-		bool ok = FALSE;
+		bool ok = false;
 		name = QInputDialog::getText(CAP(tr("Rename Profile")), tr("Please enter a new name for the profile.  Keep it simple.\nOnly use letters or numbers.  No punctuation or spaces."), QLineEdit::Normal, name, &ok, this);
 		if(!ok)
 			return;
@@ -239,15 +240,18 @@ void ProfileManageDlg::slotProfileRename()
 		break;
 	}
 
-	lbx_profiles->changeItem(name, x);
+	item->setText(name);
 }
 
 void ProfileManageDlg::slotProfileDelete()
 {
-	int x = lbx_profiles->currentItem();
+	int x = lbx_profiles->currentRow();
 	if(x == -1)
 		return;
-	QString name = lbx_profiles->text(x);
+	QListWidgetItem *item = lbx_profiles->item(x);
+	if(!item)
+		return;
+	QString name = item->text();
 	QString path = ApplicationInfo::profilesDir() + "/" + name;
 
 	// prompt first
@@ -286,15 +290,15 @@ void ProfileManageDlg::slotProfileDelete()
 
 void ProfileManageDlg::updateSelection()
 {
-	int x = lbx_profiles->currentItem();
+	int x = lbx_profiles->currentRow();
 
 	if(x == -1) {
-		pb_rename->setEnabled(FALSE);
-		pb_delete->setEnabled(FALSE);
+		pb_rename->setEnabled(false);
+		pb_delete->setEnabled(false);
 	}
 	else {
-		pb_rename->setEnabled(TRUE);
-		pb_delete->setEnabled(TRUE);
+		pb_rename->setEnabled(true);
+		pb_delete->setEnabled(true);
 	}
 }
 
@@ -306,7 +310,7 @@ ProfileNewDlg::ProfileNewDlg(QWidget *parent)
 	setModal(true);
 	setWindowTitle(CAP(caption()));
 
-	bg_defAct->setButton(bg_defAct->id((Q3Button *)rb_chat));
+	rb_chat->setChecked(true);
 	le_name->setFocus();
 
 	connect(pb_create, SIGNAL(clicked()), SLOT(slotCreate()));
@@ -332,7 +336,7 @@ void ProfileNewDlg::slotCreate()
 
 	// save config
 	UserProfile p;
-	p.prefs.defaultAction = bg_defAct->selected() == (Q3Button *)rb_message ? 0: 1;
+	p.prefs.defaultAction = rb_message->isChecked() ? 0 : 1;
 	p.prefs.useEmoticons = ck_useEmoticons->isChecked();
 	p.toFile(pathToProfileConfig(name));
 

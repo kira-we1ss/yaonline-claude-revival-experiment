@@ -8,11 +8,13 @@
 
 #include <QLayout>
 #include <QLabel>
-#include <q3listview.h>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
+#include <QHeaderView>
 #include <QStackedWidget>
 #include <QPen>
 #include <QPainter>
-#include <Q3Dict>
+#include <QHash>
 #include <QPixmap>
 #include <QVBoxLayout>
 
@@ -38,79 +40,35 @@
 // FancyItem
 //----------------------------------------------------------------------------
 
-class FancyItem : public Q3ListViewItem
+class FancyItem : public QTreeWidgetItem
 {
 public:
-	FancyItem(Q3ListView *, Q3ListViewItem *after);
+	FancyItem(QTreeWidget *view, QTreeWidgetItem *after)
+		: QTreeWidgetItem()
+	{
+		if (after) {
+			const int afterIndex = view->indexOfTopLevelItem(after);
+			view->insertTopLevelItem(afterIndex + 1, this);
+		}
+		else {
+			view->addTopLevelItem(this);
+		}
+	}
 
-	void setup();
-	int width(const QFontMetrics &, const Q3ListView *lv, int c) const;
-	void paintFocus(QPainter *, const QColorGroup &, const QRect &);
-	void paintCell(QPainter *p, const QColorGroup &, int c, int width, int align);
+	int width(const QFontMetrics &fm, const QTreeWidget *view, int column) const
+	{
+		int x = 0;
+		const QIcon icon = data(column, Qt::DecorationRole).value<QIcon>();
+		if (!icon.isNull())
+			x += view->iconSize().width();
+		else
+			x += 16;
+		x += 8;
+		x += fm.horizontalAdvance(text(column));
+		x += 8;
+		return x;
+	}
 };
-
-FancyItem::FancyItem(Q3ListView *lv, Q3ListViewItem *after)
-: Q3ListViewItem(lv, after)
-{
-}
-
-void FancyItem::setup()
-{
-	Q3ListView *lv = listView();
-	int ph = 0;
-	for(int i = 0; i < lv->columns(); ++i) {
-		if(pixmap(i))
-			ph = QMAX(ph, pixmap(i)->height());
-	}
-	int y = QMAX(ph, lv->fontMetrics().height());
-	y += 8;
-	setHeight(y);
-}
-
-int FancyItem::width(const QFontMetrics &fm, const Q3ListView *, int c) const
-{
-	int x = 0;
-	const QPixmap *pix = pixmap(c);
-	if(pix)
-		x += pix->width();
-	else
-		x += 16;
-	x += 8;
-	x += fm.width(text(c));
-	x += 8;
-	return x;
-}
-
-void FancyItem::paintFocus(QPainter *, const QColorGroup &, const QRect &)
-{
-	// re-implimented to do nothing.  selection is enough of a focus
-}
-
-void FancyItem::paintCell(QPainter *p, const QColorGroup &cg, int c, int w, int)
-{
-	int h = height();
-	QFontMetrics fm(p->font());
-	if(isSelected())
-		p->fillRect(0, 0, w, h-1, cg.highlight());
-	else
-		p->fillRect(0, 0, w, h, cg.base());
-
-	int x = 0;
-	const QPixmap *pix = pixmap(c);
-	if(pix) {
-		p->drawPixmap(4, (h - pix->height()) / 2, *pix);
-		x += pix->width();
-	}
-	else
-		x += 16;
-	x += 8;
-	int y = ((h - fm.height()) / 2) + fm.ascent();
-	p->setPen(isSelected() ? cg.highlightedText() : cg.text());
-	p->drawText(x, y, text(c));
-
-	p->setPen(QPen(QColor(0xE0, 0xE0, 0xE0), 0, Qt::DotLine));
-	p->drawLine(0, h-1, w-1, h-1);
-}
 
 //----------------------------------------------------------------------------
 // OptionsTabBase
@@ -168,7 +126,7 @@ public slots:
 	void openTab(QString id);
 
 private slots:
-	void itemSelected(Q3ListViewItem *);
+	void itemSelected(QTreeWidgetItem *, QTreeWidgetItem *);
 	void dataChanged();
 	void noDirtySlot(bool);
 	void createTabs();
@@ -182,7 +140,7 @@ public:
 	PsiCon *psi;
 	Options opt;
 	bool dirty, noDirty;
-	Q3Dict<QWidget> id2widget;
+	QHash<QString, QWidget*> id2widget;
 	QList<OptionsTab> tabs;
 
 	QMap<QString, QByteArray> changedMap;
@@ -198,9 +156,10 @@ OptionsDlg::Private::Private(OptionsDlg *d, PsiCon *_psi, const Options &_opt)
 
 	dlg->lb_pageTitle->setScaledContents(32, 32);
 
-	dlg->lv_tabs->setSorting( -1 );
+	dlg->lv_tabs->setSortingEnabled(false);
 	dlg->lv_tabs->header()->hide();
-	connect(dlg->lv_tabs, SIGNAL(selectionChanged(Q3ListViewItem *)), SLOT(itemSelected(Q3ListViewItem *)));
+	dlg->lv_tabs->setRootIsDecorated(false);
+	connect(dlg->lv_tabs, SIGNAL(currentItemChanged(QTreeWidgetItem *, QTreeWidgetItem *)), SLOT(itemSelected(QTreeWidgetItem *, QTreeWidgetItem *)));
 
 	createTabs();
 	createChangedMap();
@@ -215,15 +174,13 @@ OptionsDlg::Private::Private(OptionsDlg *d, PsiCon *_psi, const Options &_opt)
 		connect(opttab, SIGNAL(connectDataChanged(QWidget *)), SLOT(connectDataChanged(QWidget *)));
 
 		// search for parent
-		Q3ListViewItem *parent = 0, *prev = 0;
+		QTreeWidgetItem *parent = 0, *prev = 0;
 		QString parentId = opttab->parentId();
 		if ( !parentId.isEmpty() ) {
-			Q3ListViewItemIterator it2( dlg->lv_tabs );
-			for ( ; it2.current(); ++it2) {
-				//qWarning("Searching the QListView %s...", it2.current()->text(1).toLatin1().constData());
-				if ( it2.current()->text(1) == parentId ) {
-					//qWarning("...done");
-					parent = it2.current();
+			for (int idx = 0; idx < dlg->lv_tabs->topLevelItemCount(); ++idx) {
+				QTreeWidgetItem *candidate = dlg->lv_tabs->topLevelItem(idx);
+				if ( candidate->data(0, Qt::UserRole).toString() == parentId ) {
+					parent = candidate;
 
 					// notify the parent about the child
 					for (OptionsTab *opttab2 : tabs) {
@@ -243,32 +200,22 @@ OptionsDlg::Private::Private(OptionsDlg *d, PsiCon *_psi, const Options &_opt)
 		//qWarning("****************");
 
 		// search for previous item
-		Q3ListViewItem *top;
-		if ( parent )
-			top = parent->firstChild();
-		else
-			top = dlg->lv_tabs->firstChild();
-		prev = top;
-		while ( prev ) {
-			if ( !prev->nextSibling() )
-				break;
-			prev = prev->nextSibling();
-		}
+		QTreeWidgetItem *top = parent;
+		Q_UNUSED(top);
+		if ( dlg->lv_tabs->topLevelItemCount() > 0 )
+			prev = dlg->lv_tabs->topLevelItem(dlg->lv_tabs->topLevelItemCount() - 1);
 
 		if ( opttab->id().isEmpty() )
 			continue;
 
 		// create tab
-		Q3ListViewItem *item;
-		//if ( parent )
-		//	item = new FancyItem(parent, prev);
-		//else
-			item = new FancyItem(dlg->lv_tabs, prev);
+		QTreeWidgetItem *item;
+		item = new FancyItem(dlg->lv_tabs, prev);
 
 		item->setText(0, opttab->tabName());
 		if ( opttab->tabIcon() )
-			item->setPixmap(0, opttab->tabIcon()->impix().pixmap());
-		item->setText(1, opttab->id());
+			item->setIcon(0, QIcon(opttab->tabIcon()->impix().pixmap()));
+		item->setData(0, Qt::UserRole, opttab->id());
 
 		// create separator
 		//if ( !parent ) {
@@ -279,8 +226,10 @@ OptionsDlg::Private::Private(OptionsDlg *d, PsiCon *_psi, const Options &_opt)
 	// fix the width of the listview based on the largest item
 	int largestWidth = 0;
 	QFontMetrics fm(dlg->lv_tabs->font());
-	for(Q3ListViewItem *i = dlg->lv_tabs->firstChild(); i; i = i->nextSibling())
-		largestWidth = QMAX(largestWidth, i->width(fm, dlg->lv_tabs, 0));
+	for(int idx = 0; idx < dlg->lv_tabs->topLevelItemCount(); ++idx) {
+		FancyItem *item = static_cast<FancyItem *>(dlg->lv_tabs->topLevelItem(idx));
+		largestWidth = QMAX(largestWidth, item->width(fm, dlg->lv_tabs, 0));
+	}
 	dlg->lv_tabs->setFixedWidth(largestWidth + 32);
 
 	openTab( "application" );
@@ -392,7 +341,7 @@ void OptionsDlg::Private::openTab(QString id)
 	if ( id.isEmpty() )
 		return;
 
-	QWidget *tab = id2widget[id];
+	QWidget *tab = id2widget.value(id, nullptr);
 	if ( !tab ) {
 		bool found = false;
 		for (OptionsTab *opttab : tabs) {
@@ -403,7 +352,7 @@ void OptionsDlg::Private::openTab(QString id)
 
 				// TODO: how about QScrollView for large tabs?
 				// idea: maybe do it only for those, whose sizeHint is bigger than ws_tabs'
-				QWidget *w = new QWidget(dlg->ws_tabs, "QWidgetStack/tab");
+				QWidget *w = new QWidget(dlg->ws_tabs);
 				QVBoxLayout *vbox = new QVBoxLayout(w);
 				vbox->setSpacing(0);
 				vbox->setMargin(0);
@@ -415,7 +364,7 @@ void OptionsDlg::Private::openTab(QString id)
 				vbox->addWidget( toplbl );
 				vbox->addSpacing( 5 );*/
 
-				tab->reparent(w, 0, QPoint(0, 0));
+				tab->setParent(w);
 				vbox->addWidget(tab);
 				if ( !opttab->stretchable() )
 					vbox->addStretch();
@@ -455,13 +404,15 @@ void OptionsDlg::Private::openTab(QString id)
 		}
 	}
 
-	dlg->ws_tabs->raiseWidget( tab );
+	dlg->ws_tabs->setCurrentWidget( tab );
 
 	// and select item in lv_tabs...
-	Q3ListViewItemIterator it( dlg->lv_tabs );
-	while ( it.current() ) {
-		it.current()->setSelected( it.current()->text(1) == id );
-		++it;
+	for (int idx = 0; idx < dlg->lv_tabs->topLevelItemCount(); ++idx) {
+		QTreeWidgetItem *item = dlg->lv_tabs->topLevelItem(idx);
+		if (item->data(0, Qt::UserRole).toString() == id) {
+			dlg->lv_tabs->setCurrentItem(item);
+			break;
+		}
 	}
 }
 
@@ -478,12 +429,12 @@ void OptionsDlg::Private::connectDataChanged(QWidget *widget)
 	}
 }
 
-void OptionsDlg::Private::itemSelected(Q3ListViewItem *item)
+void OptionsDlg::Private::itemSelected(QTreeWidgetItem *item, QTreeWidgetItem *)
 {
 	if ( !item )
 		return;
 
-	openTab( item->text(1) );
+	openTab( item->data(0, Qt::UserRole).toString() );
 }
 
 void OptionsDlg::Private::dataChanged()
