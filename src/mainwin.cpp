@@ -212,18 +212,17 @@ void MainWin::Private::updateMenu(QStringList actions, QMenu *menu)
 //#ifdef Q_WS_X11
 //#define TOOLW_FLAGS WStyle_Customize
 //#else
-//#define TOOLW_FLAGS ((Qt::WFlags) 0)
+//#define TOOLW_FLAGS ((Qt::WindowFlags) 0)
 //#endif
 
 #ifdef Q_WS_WIN
 #define TOOLW_FLAGS (Qt::WindowMinimizeButtonHint)
 #else
-#define TOOLW_FLAGS ((Qt::WFlags) 0)
+#define TOOLW_FLAGS ((Qt::WindowFlags) 0)
 #endif
 
 MainWin::MainWin(bool _onTop, bool _asTool, PsiCon *psi, const char *name)
-:AdvancedWidget<Q3MainWindow>(0, (_onTop ? Qt::WStyle_StaysOnTop : Qt::Widget) | (_asTool ? (Qt::WStyle_Tool |TOOLW_FLAGS) : Qt::Widget))
-//: Q3MainWindow(0,name,(_onTop ? Qt::WStyle_StaysOnTop : Qt::Widget) | (_asTool ? (Qt::WStyle_Tool |TOOLW_FLAGS) : Qt::Widget))
+:AdvancedWidget<QMainWindow>(0, (_onTop ? Qt::WindowStaysOnTopHint : Qt::Widget) | (_asTool ? (Qt::Tool | TOOLW_FLAGS) : Qt::Widget))
 {
 	setObjectName(name);
 	setAttribute(Qt::WA_AlwaysShowToolTips);
@@ -535,17 +534,14 @@ void MainWin::setWindowOpts(bool _onTop, bool _asTool)
 	d->onTop = _onTop;
 	d->asTool = _asTool;
 
-	Qt::WFlags flags = 0;
-	if(d->onTop) {
-		flags |= Qt::WStyle_StaysOnTop;
-	}
-	if(d->asTool) {
-		flags |= Qt::WStyle_Tool | TOOLW_FLAGS;
-	}
+	Qt::WindowFlags flags = windowFlags();
+	flags &= ~(Qt::WindowStaysOnTopHint | Qt::Tool);
+	if(d->onTop)
+		flags |= Qt::WindowStaysOnTopHint;
+	if(d->asTool)
+		flags |= Qt::Tool | TOOLW_FLAGS;
 
-	QPoint p = pos();
-	reparent(parentWidget(), flags, p, FALSE);
-	move(p);
+	setWindowFlags(flags);
 	show();
 }
 
@@ -650,7 +646,7 @@ void MainWin::buildToolbars()
 		}
 
 		tb = new PsiToolBar(tbPref.name, this, d->psi);
-		moveDockWindow ( tb, tbPref.dock, tbPref.nl, tbPref.index, tbPref. extraOffset );
+		addToolBar(tbPref.dock, tb);
 
 		tb->setGroup( "mainWin", i );
 		tb->setType( PsiActionList::Actions_MainWin );
@@ -668,7 +664,7 @@ void MainWin::saveToolbarsPositions()
 {
 	for (int i = 0; i < toolbars.count(); i++) {
 		Options::ToolbarPrefs &tbPref = option.toolbars["mainWin"][i];
-		getLocation ( toolbars.at(i), tbPref.dock, tbPref.index, tbPref.nl, tbPref.extraOffset );
+		tbPref.dock = toolBarArea(toolbars.at(i));
 		tbPref.on = toolbars.at(i)->isVisible();
 	}
 }
@@ -1271,7 +1267,7 @@ void MainWin::setWindowIcon(const QPixmap&)
 #else
 void MainWin::setWindowIcon(const QPixmap& p)
 {
-	Q3MainWindow::setWindowIcon(p);
+	QMainWindow::setWindowIcon(QIcon(p));
 }
 #endif
 

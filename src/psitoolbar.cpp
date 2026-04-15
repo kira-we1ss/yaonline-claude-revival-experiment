@@ -53,15 +53,14 @@ PsiToolBar::Private::Private()
 	customizeable = true;
 	moveable = true;
 	psi = 0;
-	uniqueActions.setAutoDelete( true );
 }
 
 //----------------------------------------------------------------------------
 // PsiToolBar
 //----------------------------------------------------------------------------
 
-PsiToolBar::PsiToolBar(const QString& label, Q3MainWindow* mainWindow, PsiCon* psi)
-: Q3ToolBar(label, mainWindow, (QWidget*)mainWindow)
+PsiToolBar::PsiToolBar(const QString& label, QMainWindow* mainWindow, PsiCon* psi)
+: QToolBar(label, mainWindow)
 {
 	d = new Private();
 	d->psi = psi;
@@ -139,10 +138,7 @@ void PsiToolBar::initialize( Options::ToolbarPrefs &tbPref, bool createUniqueAct
 {
 	d->uniqueActions.clear();
 
-	setHorizontallyStretchable( tbPref.stretchable );
-	setVerticallyStretchable( tbPref.stretchable );
-
-	setMovingEnabled ( !tbPref.locked );
+	setMovable( !tbPref.locked );
 
 	if ( d->psi ) {
 		ActionList actions = d->psi->actionList()->suitableActions( d->type );
@@ -159,11 +155,11 @@ void PsiToolBar::initialize( Options::ToolbarPrefs &tbPref, bool createUniqueAct
 					d->uniqueActions.append( action );
 				}
 
-				action->addTo( this );
+				addAction( action );
 				emit registerAction( action );
 			}
 			else
-				qWarning("PsiToolBar::initialize(): action %s not found!", keys[j].latin1());
+				qWarning("PsiToolBar::initialize(): action %s not found!", qPrintable(keys[j]));
 		}
 	}
 	else

@@ -2094,18 +2094,21 @@ void PsiCon::buildToolbars()
 #endif
 }
 
-bool PsiCon::getToolbarLocation(Q3DockWindow* dw, Qt::Dock& dock, int& index, bool& nl, int& extraOffset) const
+bool PsiCon::getToolbarLocation(QToolBar* tb, Qt::ToolBarArea& area, int& index, bool& nl, int& extraOffset) const
 {
-#ifdef YAPSI
-	Q_UNUSED(dw);
-	Q_UNUSED(dock);
 	Q_UNUSED(index);
 	Q_UNUSED(nl);
 	Q_UNUSED(extraOffset);
-	return false;
+#ifndef YAPSI
+	if (d->mainwin && tb) {
+		area = d->mainwin->toolBarArea(tb);
+		return true;
+	}
 #else
-	return d->mainwin->getLocation(dw, dock, index, nl, extraOffset);
+	Q_UNUSED(tb);
+	Q_UNUSED(area);
 #endif
+	return false;
 }
 
 PsiActionList *PsiCon::actionList() const

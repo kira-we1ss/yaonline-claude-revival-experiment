@@ -50,7 +50,7 @@ class AccountsComboBox;
 class ChatDlg;
 class TuneController;
 class PsiContactList;
-class Q3DockWindow;
+class QToolBar;
 class TabManager;
 class ContactUpdatesManager;
 
@@ -142,7 +142,7 @@ public:
 	PsiActionList *actionList() const;
 
 	void buildToolbars();
-	bool getToolbarLocation(Q3DockWindow* dw, Qt::Dock& dock, int& index, bool& nl, int& extraOffset) const;
+	bool getToolbarLocation(QToolBar* tb, Qt::ToolBarArea& area, int& index, bool& nl, int& extraOffset) const;
 
 	IconSelectPopup *iconSelectPopup() const;
 	bool filterEvent(const PsiAccount*, const PsiEvent*) const;

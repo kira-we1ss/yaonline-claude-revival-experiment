@@ -643,7 +643,7 @@ void UserProfile::reset()
 	tbDef.stretchable = false;
 	tbDef.keys.clear();
 
-	tbDef.dock = Qt::DockTop;
+	tbDef.dock = Qt::TopToolBarArea;
 	tbDef.nl = true;
 	tbDef.extraOffset = 0;
 
@@ -670,7 +670,7 @@ void UserProfile::reset()
 		tb[0].locked = true;
 		tb[0].stretchable = true;
 		tb[0].keys << "button_options" << "button_status";
-		tb[0].dock = Qt::DockBottom;
+		tb[0].dock = Qt::BottomToolBarArea;
 
 		tb[1].name = QObject::tr("Show contacts");
 		tb[1].on = false;
@@ -682,7 +682,7 @@ void UserProfile::reset()
 		tb[2].locked = true;
 		tb[2].stretchable = true;
 		tb[2].keys << "event_notifier";
-		tb[2].dock = Qt::DockBottom;
+		tb[2].dock = Qt::BottomToolBarArea;
 		tb[2].index = 0;
 
 		for ( i = 0; i < sizeof(tb)/sizeof(Options::ToolbarPrefs); i++ )
@@ -853,22 +853,18 @@ static Options::ToolbarPrefs loadToolbarData( const QDomElement &e )
 	if (found3)
 	{
 		QString dockStr;
-		Qt::Dock dock = Qt::DockTop;
+		Qt::ToolBarArea dock = Qt::TopToolBarArea;
 		readEntry(tb_position, "dock", &dockStr);
 		if (dockStr == "DockTop")
-			dock = Qt::DockTop;
+			dock = Qt::TopToolBarArea;
 		else if (dockStr == "DockBottom")
-			dock = Qt::DockBottom;
+			dock = Qt::BottomToolBarArea;
 		else if (dockStr == "DockLeft")
-			dock = Qt::DockLeft;
+			dock = Qt::LeftToolBarArea;
 		else if (dockStr == "DockRight")
-			dock = Qt::DockRight;
-		else if (dockStr == "DockMinimized")
-			dock = Qt::DockMinimized;
-		else if (dockStr == "DockTornOff")
-			dock = Qt::DockTornOff;
-		else if (dockStr == "DockUnmanaged")
-			dock = Qt::DockUnmanaged;
+			dock = Qt::RightToolBarArea;
+		else
+			dock = Qt::TopToolBarArea; // DockMinimized/TornOff/Unmanaged → top
 
 		tb.dock = dock;
 
@@ -1205,21 +1201,17 @@ bool UserProfile::toFile(const QString &fname)
 					tb_prefs.appendChild(tb_position);
 
 					QString dockStr;
-					Qt::Dock dock = tb.dock;
-					if (dock == Qt::DockTop)
+					Qt::ToolBarArea dock = tb.dock;
+					if (dock == Qt::TopToolBarArea)
 						dockStr = "DockTop";
-					else if (dock == Qt::DockBottom)
+					else if (dock == Qt::BottomToolBarArea)
 						dockStr = "DockBottom";
-					else if (dock == Qt::DockLeft)
+					else if (dock == Qt::LeftToolBarArea)
 						dockStr = "DockLeft";
-					else if (dock == Qt::DockRight)
+					else if (dock == Qt::RightToolBarArea)
 						dockStr = "DockRight";
-					else if (dock == Qt::DockMinimized)
-						dockStr = "DockMinimized";
-					else if (dock == Qt::DockTornOff)
-						dockStr = "DockTornOff";
-					else if (dock == Qt::DockUnmanaged)
-						dockStr = "DockUnmanaged";
+					else
+						dockStr = "DockTop";
 
 					tb_position.appendChild(textTag(doc, "dock",		dockStr));
 					tb_position.appendChild(textTag(doc, "index",		tb.index));
@@ -1815,7 +1807,7 @@ bool UserProfile::fromFile(const QString &fname)
 					tb.locked = true;
 					tb.stretchable = true;
 					tb.keys << "event_notifier";
-					tb.dock  = Qt::DockBottom;
+					tb.dock  = Qt::BottomToolBarArea;
 					tb.index = 0;
 					prefs.toolbars["mainWin"].append(tb);
 				}

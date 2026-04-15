@@ -116,7 +116,7 @@ struct Options
 		bool stretchable;
 		QStringList keys;
 
-		Qt::Dock dock;
+		Qt::ToolBarArea dock;
 		int index;
 		bool nl;
 		int extraOffset;
@@ -259,7 +259,7 @@ bool fileCopy(const QString &src, const QString &dest);
 
 void soundPlay(const QString &);
 
-extern Qt::WFlags psi_dialog_flags;
+extern Qt::WindowFlags psi_dialog_flags;
 extern bool useSound;
 
 #endif

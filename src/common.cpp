@@ -59,7 +59,7 @@
 #include "yavisualutil.h"
 #endif
 
-Qt::WFlags psi_dialog_flags = (Qt::WindowSystemMenuHint | Qt::WindowMinMaxButtonsHint);
+Qt::WindowFlags psi_dialog_flags = (Qt::WindowSystemMenuHint | Qt::WindowMinMaxButtonsHint);
 
 Options option;
 bool useSound;

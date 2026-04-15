@@ -78,12 +78,17 @@ PositionOptionsTabToolbars::PositionOptionsTabToolbars(QWidget *parent, Options:
 	connect(ck_nl, SIGNAL(toggled(bool)), SLOT(dataChanged()));
 
 	le_name->setText( tb->name );
-	if ( tb->dock >= Qt::DockUnmanaged && tb->dock <= Qt::DockTornOff ) {
-		cb_dock->setCurrentItem( tb->dock + Qt::DockMinimized - Qt::DockTornOff );
-	}
-	else {
-		cb_dock->setCurrentItem( tb->dock - Qt::DockTop );
-	}
+	// cb_dock items: 0=Top, 1=Bottom, 2=Right, 3=Left, 4+=legacy (map to Top)
+	if (tb->dock == Qt::TopToolBarArea)
+		cb_dock->setCurrentItem(0);
+	else if (tb->dock == Qt::BottomToolBarArea)
+		cb_dock->setCurrentItem(1);
+	else if (tb->dock == Qt::RightToolBarArea)
+		cb_dock->setCurrentItem(2);
+	else if (tb->dock == Qt::LeftToolBarArea)
+		cb_dock->setCurrentItem(3);
+	else
+		cb_dock->setCurrentItem(0);
 	sb_index->setValue( tb->index );
 	sb_extraOffset->setValue( tb->extraOffset );
 	ck_nl->setChecked( tb->nl );
@@ -112,14 +117,13 @@ void PositionOptionsTabToolbars::dataChanged()
 void PositionOptionsTabToolbars::apply()
 {
 	tb->dirty = true;
-	if ( cb_dock->currentItem() >= 0 && cb_dock->currentItem() < 5 ) {
-		// Top, Bottom, Left, Right and Minimised
-		tb->dock = (Qt::ToolBarDock)(cb_dock->currentItem() + Qt::DockTop);
-	}
-	else {
-		// Unmanaged and TornOff
-		tb->dock = (Qt::ToolBarDock)(cb_dock->currentItem() - (Qt::DockMinimized - Qt::DockTornOff));
-	}
+	// cb_dock items: 0=Top, 1=Bottom, 2=Right, 3=Left, 4+=legacy (map to Top)
+	static const Qt::ToolBarArea dockMap[] = {
+		Qt::TopToolBarArea, Qt::BottomToolBarArea,
+		Qt::RightToolBarArea, Qt::LeftToolBarArea
+	};
+	int idx = cb_dock->currentItem();
+	tb->dock = (idx >= 0 && idx < 4) ? dockMap[idx] : Qt::TopToolBarArea;
 
 	tb->index = sb_index->value();
 	tb->extraOffset = sb_extraOffset->value();
@@ -365,7 +369,7 @@ void OptionsTabToolbars::toolbarAdd()
 	tb.stretchable = false;
 	tb.keys.clear();
 
-	tb.dock = Qt::DockTop;
+	tb.dock = Qt::TopToolBarArea;
 	tb.index = i;
 	tb.nl = true;
 	tb.extraOffset = 0;

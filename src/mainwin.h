@@ -21,7 +21,7 @@
 #ifndef MAINWIN_H
 #define MAINWIN_H
 
-#include <Q3MainWindow>
+#include <QMainWindow>
 #include <QMap>
 #include <QList>
 #include <QString>
@@ -45,8 +45,7 @@ namespace XMPP {
 	class Status;
 }
 
-class MainWin : public AdvancedWidget<Q3MainWindow>
-//class MainWin : public Q3MainWindow
+class MainWin : public AdvancedWidget<QMainWindow>
 {
 	Q_OBJECT
 private:

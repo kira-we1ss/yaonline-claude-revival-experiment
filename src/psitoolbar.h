@@ -21,7 +21,8 @@
 #ifndef PSITOOLBAR_H
 #define PSITOOLBAR_H
 
-#include <q3toolbar.h>
+#include <QToolBar>
+#include <QMainWindow>
 
 #include "psiactionlist.h"
 #include "common.h" // Options + ToolbarPrefs
@@ -29,12 +30,12 @@
 class PsiCon;
 class QContextMenuEvent;
 
-class PsiToolBar : public Q3ToolBar
+class PsiToolBar : public QToolBar
 {
 	Q_OBJECT
 
 public:
-	PsiToolBar(const QString& label, Q3MainWindow* mainWindow, PsiCon* psi);
+	PsiToolBar(const QString& label, QMainWindow* mainWindow, PsiCon* psi);
 	~PsiToolBar();
 
 	PsiActionList::ActionsType type() const;
