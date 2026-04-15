@@ -30,6 +30,7 @@
 #include <QCursor>
 #include <QMenu>
 #include <QIcon>
+#include <QHeaderView>
 #include <QDateTime>
 #include <QApplication>
 #include <QClipboard>
@@ -286,29 +287,28 @@ void ELineEdit::resourceMenuActivated(int x)
 //----------------------------------------------------------------------------
 // AttachView
 //----------------------------------------------------------------------------
-class AttachViewItem : public Q3ListViewItem
+class AttachViewItem : public QTreeWidgetItem
 {
 public:
 	AttachViewItem(const QString &_url, const QString &_desc, AttachView *par)
-	:Q3ListViewItem(par)
+	: QTreeWidgetItem(par)
 	{
 		type = 0;
 		url = _url;
 		desc = _desc;
 
-		setPixmap(0, IconsetFactory::icon("psi/www").impix());
+		setIcon(0, QIcon(IconsetFactory::icon("psi/www").impix()));
 		setText(0, url + " (" + desc + ')');
-		setMultiLinesEnabled(true);
 	}
 
 	AttachViewItem(const QString &_gc, const QString& from, const QString& reason, const QString& _password, AttachView *par)
-	:Q3ListViewItem(par)
+	: QTreeWidgetItem(par)
 	{
 		type = 1;
 		gc = _gc;
 		password = _password;
 
-		setPixmap(0, IconsetFactory::icon("psi/groupChat").impix());
+		setIcon(0, QIcon(IconsetFactory::icon("psi/groupChat").impix()));
 		QString text;
 		if (!from.isEmpty())
 			text = QObject::tr("Invitation to %1 from %2").arg(gc).arg(from);
@@ -318,12 +318,6 @@ public:
 			text += QString(" (%1)").arg(reason);
 		}
 		setText(0, text);
-		setMultiLinesEnabled(true);
-	}
-
-	int rtti() const
-	{
-		return 9100;
 	}
 
 	QString url, desc;
@@ -331,15 +325,17 @@ public:
 	int type;
 };
 
-AttachView::AttachView(QWidget *parent, const char *name)
-:Q3ListView(parent, name)
+AttachView::AttachView(QWidget *parent)
+: QTreeWidget(parent)
 {
 	v_readOnly = false;
-	addColumn(tr("Attachments"));
-	setResizeMode(Q3ListView::AllColumns);
+	setColumnCount(1);
+	setHeaderLabels(QStringList() << tr("Attachments"));
+	header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
 
-	connect(this, SIGNAL(contextMenuRequested(Q3ListViewItem *, const QPoint &, int)), SLOT(qlv_context(Q3ListViewItem *, const QPoint &, int)));
-	connect(this, SIGNAL(doubleClicked(Q3ListViewItem *)), SLOT(qlv_doubleClicked(Q3ListViewItem *)));
+	setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(this, SIGNAL(customContextMenuRequested(const QPoint&)), SLOT(qlv_context(const QPoint&)));
+	connect(this, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)), SLOT(qlv_doubleClicked(QTreeWidgetItem*,int)));
 };
 
 AttachView::~AttachView()
@@ -363,47 +359,46 @@ void AttachView::gcAdd(const QString &gc, const QString& from, const QString& re
 	childCountChanged();
 }
 
-void AttachView::qlv_context(Q3ListViewItem *lvi, const QPoint &pos, int)
+void AttachView::qlv_context(const QPoint &pos)
 {
-	AttachViewItem *i = (AttachViewItem *)lvi;
+	AttachViewItem *i = (AttachViewItem *)itemAt(pos);
 	if(!i)
 		return;
 
 	QMenu pm(this);
+	QAction *act0, *act1 = nullptr, *actRemove;
 	if(i->type == 0) {
-		pm.insertItem(tr("Go to &URL..."), 0);
-		pm.insertItem(tr("Copy location"), 1);
+		act0 = pm.addAction(tr("Go to &URL..."));
+		act1 = pm.addAction(tr("Copy location"));
 	}
 	else
-		pm.insertItem(tr("Join &Groupchat..."), 0);
-	pm.insertSeparator();
-	pm.insertItem(tr("Remove"), 2);
+		act0 = pm.addAction(tr("Join &Groupchat..."));
+	pm.addSeparator();
+	actRemove = pm.addAction(tr("Remove"));
+	actRemove->setEnabled(!v_readOnly);
 
-	if(v_readOnly)
-		pm.setItemEnabled(2, false);
-
-	int n = pm.exec(pos);
-	if(n == -1)
+	QAction *chosen = pm.exec(viewport()->mapToGlobal(pos));
+	if(!chosen)
 		return;
 
-	if(n == 0) {
+	if(chosen == act0) {
 		if(i->type == 0)
 			goURL(i->url);
 		else
 			actionGCJoin(i->gc, i->password);
 	}
-	else if(n == 1) {
+	else if(chosen == act1) {
 		QApplication::clipboard()->setText(i->url, QClipboard::Clipboard);
 		if(QApplication::clipboard()->supportsSelection())
 			QApplication::clipboard()->setText(i->url, QClipboard::Selection);
 	}
-	else if(n == 2) {
+	else if(chosen == actRemove) {
 		delete i;
 		childCountChanged();
 	}
 }
 
-void AttachView::qlv_doubleClicked(Q3ListViewItem *lvi)
+void AttachView::qlv_doubleClicked(QTreeWidgetItem *lvi, int)
 {
 	AttachViewItem *i = (AttachViewItem *)lvi;
 	if(!i)
@@ -431,8 +426,10 @@ UrlList AttachView::urlList() const
 {
 	UrlList list;
 
-	for(AttachViewItem *i = (AttachViewItem *)firstChild(); i; i = (AttachViewItem *)i->nextSibling())
+	for(int n = 0; n < topLevelItemCount(); ++n) {
+		AttachViewItem *i = (AttachViewItem *)topLevelItem(n);
 		list += Url(i->url, i->desc);
+	}
 
 	return list;
 }
@@ -1440,7 +1437,7 @@ void EventDlg::doSend()
 	if(!d->pa->checkConnected(this))
 		return;
 
-	if(d->mle->text().isEmpty() && d->attachView->childCount() == 0) {
+	if(d->mle->text().isEmpty() && d->attachView->topLevelItemCount() == 0) {
 		QMessageBox::information(this, tr("Warning"), tr("Please type in a message first."));
 		return;
 	}
@@ -1709,7 +1706,7 @@ void EventDlg::addUrl()
 
 void EventDlg::showHideAttachView()
 {
-	if(d->attachView->childCount() > 0) {
+	if(d->attachView->topLevelItemCount() > 0) {
 		if(d->attachView->isHidden())
 			d->attachView->show();
 	}
