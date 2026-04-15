@@ -16,7 +16,7 @@ QString TextUtil::loadText(const QString& fileName)
 	QString text;
 
 	QFile f(fileName);
-	if (f.open(IO_ReadOnly)) {
+	if (f.open(QIODevice::ReadOnly)) {
 		QTextStream t(&f);
 		t.setCodec("UTF-8");
 		while (!t.atEnd())
@@ -85,7 +85,7 @@ QString TextUtil::quote(const QString &toquote, int width, bool quoteEmpty)
 		col++;
 		if (atstart && quoted[i] == '>') ql++; else atstart=0;
 
-		switch(quoted[i].toLatin1().constData())
+		switch(quoted[i].toLatin1())
 		{
 			case '\n': ql = col = 0; atstart = 1; break;
 			case ' ':
@@ -163,14 +163,14 @@ QString TextUtil::rich2plain(const QString &in)
 		if(in[i] == '<') {
 			// find end of tag
 			++i;
-			int n = in.find('>', i);
+			int n = in.indexOf('>', i);
 			if(n == -1)
 				break;
 			QString str = in.mid(i, (n-i));
 			i = n;
 
 			QString tagName;
-			n = str.find(' ');
+			n = str.indexOf(' ');
 			if(n != -1)
 				tagName = str.mid(0, n);
 			else
@@ -187,7 +187,7 @@ QString TextUtil::rich2plain(const QString &in)
 		else if(in[i] == '&') {
 			// find a semicolon
 			++i;
-			int n = in.find(';', i);
+			int n = in.indexOf(';', i);
 			if(n == -1)
 				break;
 			QString type = in.mid(i, (n-i));
@@ -205,16 +205,16 @@ QString TextUtil::rich2plain(const QString &in)
 				out += '\'';
 		}
 		else if(in[i].isSpace()) {
-			if(in[i] == QChar::nbsp)
+			if(in[i] == QChar::Nbsp)
 				out += ' ';
 			else if(in[i] != '\n') {
 				if(i == 0)
 					out += ' ';
 				else {
 					QChar last = !out.isEmpty() ? out.at(out.length()-1) : QChar();
-					bool ok = TRUE;
+					bool ok = true;
 					if(last.isSpace() && last != '\n')
-						ok = FALSE;
+						ok = false;
 					if(ok)
 						out += ' ';
 				}
@@ -236,7 +236,7 @@ QString TextUtil::resolveEntities(const QString &in)
 		if(in[i] == '&') {
 			// find a semicolon
 			++i;
-			int n = in.find(';', i);
+			int n = in.indexOf(';', i);
 			if(n == -1)
 				break;
 			QString type = in.mid(i, (n-i));
@@ -267,24 +267,24 @@ static bool linkify_pmatch(const QString &str1, int at, const QString &str2)
 	// Q_ASSERT(str2.toLower() == str2); // commented out in order to make debug builds speedy
 
 	if(str2.length() > (str1.length()-at))
-		return FALSE;
+		return false;
 
 	for(int n = 0; n < (int)str2.length(); ++n) {
 		if(str1.at(n+at).toLower() != str2.at(n))
-			return FALSE;
+			return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
 static bool linkify_isOneOf(const QChar &c, const QString &charlist)
 {
 	for(int i = 0; i < (int)charlist.length(); ++i) {
 		if(c == charlist.at(i))
-			return TRUE;
+			return true;
 	}
 
-	return FALSE;
+	return false;
 }
 
 // encodes a few dangerous html characters
@@ -311,27 +311,27 @@ static QString linkify_htmlsafe(const QString &in)
 static bool linkify_okUrl(const QString &url)
 {
 	if(url.at(url.length()-1) == '.')
-		return FALSE;
+		return false;
 
-	return TRUE;
+	return true;
 }
 
 static bool linkify_okEmail(const QString &addy)
 {
 	// this makes sure that there is an '@' and a '.' after it, and that there is
 	// at least one char for each of the three sections
-	int n = addy.find('@');
+	int n = addy.indexOf('@');
 	if(n == -1 || n == 0)
-		return FALSE;
-	int d = addy.find('.', n+1);
+		return false;
+	int d = addy.indexOf('.', n+1);
 	if(d == -1 || d == 0)
-		return FALSE;
+		return false;
 	if((addy.length()-1) - d <= 0)
-		return FALSE;
-	if(addy.find("..") != -1)
+		return false;
+	if(addy.indexOf("..") != -1)
 		return false;
 
-	return TRUE;
+	return true;
 }
 
 QString TextUtil::linkify(const QString &in)

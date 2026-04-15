@@ -48,7 +48,7 @@ QString JIDUtil::encode(const QString &jid)
 		else if(!jid.at(n).isLetterOrNumber()) {
 			// hex encode
 			QString hex;
-			hex.sprintf("%%%02X", jid.at(n).toLatin1().constData());
+			hex = QString::asprintf("%%%02X", (unsigned char)jid.at(n).toLatin1());
 			jid2.append(hex);
 		}
 		else {

@@ -21,9 +21,8 @@
 #ifndef XMPP_S5B_H
 #define XMPP_S5B_H
 
-#include <qobject.h>
+#include <QObject>
 #include <QByteArray>
-#include <q3ptrlist.h>
 #include <QList>
 #include <QHostAddress>
 
@@ -43,8 +42,7 @@ namespace XMPP
 	class S5BServer;
 	struct S5BRequest;
 	typedef QList<StreamHost> StreamHostList;
-	typedef Q3PtrList<S5BConnection> S5BConnectionList;
-	typedef Q3PtrListIterator<S5BConnection> S5BConnectionListIt;
+	typedef QList<S5BConnection*> S5BConnectionList;
 
 	class S5BDatagram
 	{
@@ -260,7 +258,7 @@ namespace XMPP
 		void link(S5BManager *);
 		void unlink(S5BManager *);
 		void unlinkAll();
-		const Q3PtrList<S5BManager> & managerList() const;
+		const QList<S5BManager*> & managerList() const;
 		void writeUDP(const QHostAddress &addr, int port, const QByteArray &data);
 	};
 

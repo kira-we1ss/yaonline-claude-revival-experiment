@@ -101,7 +101,7 @@ bool DesktopUtil::openUrl(const QString &url)
 	return true;
 #endif
 
-	QByteArray ascii = url.toAscii();
+	QByteArray ascii = url.toLatin1();
 	if (ascii == url)
 		return doOpenUrl(QUrl::fromEncoded(ascii));
 	else

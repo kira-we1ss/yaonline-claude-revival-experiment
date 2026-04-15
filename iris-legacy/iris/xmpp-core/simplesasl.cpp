@@ -20,9 +20,8 @@
 
 #include "simplesasl.h"
 
-#include <qhostaddress.h>
-#include <qstringlist.h>
-#include <q3ptrlist.h>
+#include <QHostAddress>
+#include <QStringList>
 #include <QList>
 #include <qca.h>
 #include <QByteArray>
@@ -32,6 +31,7 @@
 
 #ifdef YAPSI
 #include <QUrl>
+#include <QUrlQuery>
 #include <QVariantMap>
 #include <QDateTime>
 #include "yaonline.h"
@@ -92,7 +92,7 @@ public:
 		while(1) {
 			while (at < str.length() && (str[at] == ',' || str[at] == ' ' || str[at] == '\t'))
 				  ++at;
-			int n = str.find('=', at);
+			int n = str.indexOf('=', at);
 			if(n == -1)
 				break;
 			QByteArray var, val;
@@ -100,7 +100,7 @@ public:
 			at = n + 1;
 			if(str[at] == '\"') {
 				++at;
-				n = str.find('\"', at);
+				n = str.indexOf('\"', at);
 				if(n == -1)
 					break;
 				val = str.mid(at, n-at);
@@ -363,10 +363,11 @@ public:
 			if (out_mech == "X-FACEBOOK-PLATFORM") {
 				QString fakeUrl = "http://facebook.com/?" + QString(in_buf);
 				QUrl url = QUrl(fakeUrl, QUrl::TolerantMode);
+				QUrlQuery urlQuery(url);
 
 				QVariantMap map;
-				map["method"]  = url.queryItemValue("method");
-				map["nonce"]   = url.queryItemValue("nonce");
+				map["method"]  = urlQuery.queryItemValue("method");
+				map["nonce"]   = urlQuery.queryItemValue("nonce");
 				map["call_id"] = QDateTime::currentDateTime().toTime_t();
 				xFacebookPlatformLogin(map);
 				return;
@@ -403,7 +404,7 @@ public:
 			//qDebug() << (QString("simplesasl.cpp: IN: %1").arg(QString(in.toString())));
 
 			// make a cnonce
-			QByteArray a(32);
+			QByteArray a(32, '\0');
 			for(int n = 0; n < (int)a.size(); ++n)
 				a[n] = (char)(256.0*rand()/(RAND_MAX+1.0));
 			QByteArray cnonce = QCA::Base64().arrayToString(a).toLatin1();

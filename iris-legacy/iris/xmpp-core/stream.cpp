@@ -45,11 +45,10 @@
 #include "xmpp.h"
 
 #include <qtextstream.h>
-#include <qpointer.h>
-#include <qtimer.h>
+#include <QPointer>
+#include <QTimer>
 #include <QList>
 #include <QByteArray>
-#include <Q3PtrList>
 #include <stdlib.h>
 #include "bytestream.h"
 #include <QtCrypto>
@@ -74,7 +73,7 @@ void XMPP::setDebug(Debug *p)
 
 static QByteArray randomArray(int size)
 {
-	QByteArray a(size);
+	QByteArray a(size, '\0');
 	for(int n = 0; n < size; ++n)
 		a[n] = (char)(256.0*rand()/(RAND_MAX+1.0));
 	return a;
@@ -150,7 +149,7 @@ public:
 		tlsHandler = 0;
 		tls = 0;
 		sasl = 0;
-		in.setAutoDelete(true);
+		// in: ownership managed manually (delete items when removed)
 
 		oldOnly = false;
 		allowPlain = NoAllowPlain;
@@ -223,7 +222,7 @@ public:
 	QString errText;
 	QDomElement errAppSpec;
 
-	Q3PtrList<Stanza> in;
+	QList<Stanza*> in;
 
 	QTimer noopTimer;
 	int noop_time;
@@ -323,8 +322,10 @@ void ClientStream::reset(bool all)
 		d->srv.reset();
 	}
 
-	if(all)
+	if(all) {
+		qDeleteAll(d->in);
 		d->in.clear();
+	}
 }
 
 Jid ClientStream::jid() const
@@ -552,9 +553,10 @@ Stanza ClientStream::read()
 	if(d->in.isEmpty())
 		return Stanza();
 	else {
-		Stanza *sp = d->in.getFirst();
+		Stanza *sp = d->in.first();
 		Stanza s = *sp;
-		d->in.removeRef(sp);
+		d->in.removeFirst();
+		delete sp;
 		return s;
 	}
 }
@@ -746,7 +748,7 @@ void ClientStream::sasl_authCheck(const QString &user, const QString &)
 //	printf("authcheck: [%s], [%s]\n", user.latin1(), authzid.latin1());
 //#endif
 	QString u = user;
-	int n = u.find('@');
+	int n = u.indexOf('@');
 	if(n != -1)
 		u.truncate(n);
 	d->srv.user = u;
@@ -855,7 +857,7 @@ void ClientStream::srvProcessNext()
 			}
 			case CoreProtocol::ESend: {
 				QByteArray a = d->srv.takeOutgoingData();
-				QByteArray cs(a.size()+1);
+				QByteArray cs(a.size()+1, '\0');
 				memcpy(cs.data(), a.data(), a.size());
 				printf("Need Send: {%s}\n", cs.data());
 				d->ss->write(a);
@@ -929,7 +931,7 @@ void ClientStream::processNext()
 			QString str;
 			if(i.isString) {
 				// skip whitespace pings
-				if(i.str.stripWhiteSpace().isEmpty())
+				if(i.str.trimmed().isEmpty())
 					continue;
 				str = i.str;
 			}
@@ -969,7 +971,7 @@ void ClientStream::processNext()
 			case CoreProtocol::ESend: {
 				QByteArray a = d->client.takeOutgoingData();
 #ifdef XMPP_DEBUG
-				QByteArray cs(a.size()+1);
+				QByteArray cs(a.size()+1, '\0');
 				memcpy(cs.data(), a.data(), a.size());
 				printf("Need Send: {%s}\n", cs.data());
 #endif

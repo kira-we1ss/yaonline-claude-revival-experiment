@@ -1046,7 +1046,7 @@ bool JT_VCard::take(const QDomElement &x)
 				if(q.isNull())
 					continue;
 
-				if(q.tagName().upper() == "VCARD") {
+				if(q.tagName().toUpper() == "VCARD") {
 					if(d->vcard.fromXml(q)) {
 						setSuccess();
 						return true;

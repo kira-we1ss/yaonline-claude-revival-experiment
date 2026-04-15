@@ -30,9 +30,9 @@
 
 #include <qpointer.h>
 #include <QList>
-#include <qtimer.h>
+#include <QTimer>
 //Added by qt3to4:
-#include <Q3PtrList>
+
 
 #ifdef USE_TLSHANDLER
 #include "xmpp.h"
@@ -104,7 +104,7 @@ int LayerTracker::finished(int encoded)
 
 		encoded -= i.encoded;
 		plain += i.plain;
-		it = list.remove(it);
+		it = list.erase(it);
 	}
 	return plain;
 }
@@ -347,7 +347,7 @@ class SecureStream::Private
 {
 public:
 	ByteStream *bs;
-	Q3PtrList<SecureLayer> layers;
+	QList<SecureLayer*> layers;
 	int pending;
 	int errorCode;
 	bool active;
@@ -355,8 +355,7 @@ public:
 
 	bool haveTLS() const
 	{
-		Q3PtrListIterator<SecureLayer> it(layers);
-		for(SecureLayer *s; (s = it.current()); ++it) {
+		for(SecureLayer *s : layers) {
 			if(s->type == SecureLayer::TLS
 #ifdef USE_TLSHANDLER
 			|| s->type == SecureLayer::TLSH
@@ -370,18 +369,16 @@ public:
 
 	bool haveSASL() const
 	{
-		Q3PtrListIterator<SecureLayer> it(layers);
-		for(SecureLayer *s; (s = it.current()); ++it) {
+		for(SecureLayer *s : layers) {
 			if(s->type == SecureLayer::SASL)
 				return true;
 		}
 		return false;
 	}
-	
+
 	bool haveCompress() const
 	{
-		Q3PtrListIterator<SecureLayer> it(layers);
-		for(SecureLayer *s; (s = it.current()); ++it) {
+		for(SecureLayer *s : layers) {
 			if(s->type == SecureLayer::Compression)
 				return true;
 		}
@@ -398,7 +395,7 @@ SecureStream::SecureStream(ByteStream *s)
 	connect(d->bs, SIGNAL(readyRead()), SLOT(bs_readyRead()));
 	connect(d->bs, SIGNAL(bytesWritten(int)), SLOT(bs_bytesWritten(int)));
 
-	d->layers.setAutoDelete(true);
+	// layers ownership managed manually (qDeleteAll in destructor)
 	d->pending = 0;
 	d->active = true;
 	d->topInProgress = false;
@@ -406,6 +403,8 @@ SecureStream::SecureStream(ByteStream *s)
 
 SecureStream::~SecureStream()
 {
+	qDeleteAll(d->layers);
+	d->layers.clear();
 	delete d;
 }
 
@@ -421,8 +420,7 @@ void SecureStream::linkLayer(QObject *s)
 int SecureStream::calcPrebytes() const
 {
 	int x = 0;
-	Q3PtrListIterator<SecureLayer> it(d->layers);
-	for(SecureLayer *s; (s = it.current()); ++it)
+	for(SecureLayer *s : d->layers)
 		x += s->prebytes;
 	return (d->pending - x);
 }
@@ -502,7 +500,7 @@ void SecureStream::startTLSClient(XMPP::TLSHandler *t, const QString &server, co
 
 void SecureStream::closeTLS()
 {
-	SecureLayer *s = d->layers.getLast();
+	SecureLayer *s = d->layers.last();
 	if(s) {
 		if(s->type == SecureLayer::TLS)
 			s->p.tls->close();
@@ -527,7 +525,7 @@ void SecureStream::write(const QByteArray &a)
 	d->pending += a.size();
 
 	// send to the last layer
-	SecureLayer *s = d->layers.getLast();
+	SecureLayer *s = d->layers.last();
 	if(s)
 		s->write(a);
 	else
@@ -544,7 +542,7 @@ void SecureStream::bs_readyRead()
 	QByteArray a = d->bs->read();
 
 	// send to the first layer
-	SecureLayer *s = d->layers.getFirst();
+	SecureLayer *s = d->layers.first();
 	if(s) {
 		s->writeIncoming(a);
 	}
@@ -555,8 +553,7 @@ void SecureStream::bs_readyRead()
 
 void SecureStream::bs_bytesWritten(int bytes)
 {
-	Q3PtrListIterator<SecureLayer> it(d->layers);
-	for(SecureLayer *s; (s = it.current()); ++it)
+	for(SecureLayer *s : d->layers)
 		bytes = s->finished(bytes);
 
 	if(bytes > 0) {
@@ -581,13 +578,9 @@ void SecureStream::layer_tlsClosed(const QByteArray &)
 void SecureStream::layer_readyRead(const QByteArray &a)
 {
 	SecureLayer *s = (SecureLayer *)sender();
-	Q3PtrListIterator<SecureLayer> it(d->layers);
-	while(it.current() != s)
-		++it;
-
+	int idx = d->layers.indexOf(s);
 	// pass upwards
-	++it;
-	s = it.current();
+	s = (idx + 1 < d->layers.size()) ? d->layers[idx + 1] : nullptr;
 	if(s)
 		s->writeIncoming(a);
 	else
@@ -597,13 +590,9 @@ void SecureStream::layer_readyRead(const QByteArray &a)
 void SecureStream::layer_needWrite(const QByteArray &a)
 {
 	SecureLayer *s = (SecureLayer *)sender();
-	Q3PtrListIterator<SecureLayer> it(d->layers);
-	while(it.current() != s)
-		++it;
-
+	int idx = d->layers.indexOf(s);
 	// pass downwards
-	--it;
-	s = it.current();
+	s = (idx > 0) ? d->layers[idx - 1] : nullptr;
 	if(s)
 		s->write(a);
 	else
@@ -616,6 +605,7 @@ void SecureStream::layer_error(int x)
 	int type = s->type;
 	d->errorCode = x;
 	d->active = false;
+	qDeleteAll(d->layers);
 	d->layers.clear();
 	if(type == SecureLayer::TLS)
 		error(ErrTLS);
@@ -630,7 +620,7 @@ void SecureStream::layer_error(int x)
 void SecureStream::insertData(const QByteArray &a)
 {
 	if(!a.isEmpty()) {
-		SecureLayer *s = d->layers.getLast();
+		SecureLayer *s = d->layers.last();
 		if(s)
 			s->writeIncoming(a);
 		else

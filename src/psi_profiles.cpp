@@ -94,32 +94,32 @@ void UserAccount::reset()
 {
 	id = QUuid::createUuid().toString();
 	name = "Default";
-	opt_enabled = TRUE;
-	opt_auto = FALSE;
-	tog_offline = TRUE;
-	tog_away = TRUE;
-	tog_hidden = FALSE;
-	tog_agents = TRUE;
-	tog_self = FALSE;
-	customAuth = FALSE;
-	req_mutual_auth = FALSE;
-	legacy_ssl_probe = TRUE;
+	opt_enabled = true;
+	opt_auto = false;
+	tog_offline = true;
+	tog_away = true;
+	tog_hidden = false;
+	tog_agents = true;
+	tog_self = false;
+	customAuth = false;
+	req_mutual_auth = false;
+	legacy_ssl_probe = true;
 	security_level = QCA::SL_None;
 	ssl = SSL_Auto;
 	jid = "";
 	pass = "";
-	opt_pass = FALSE;
+	opt_pass = false;
 	port = 5222;
-	opt_host = FALSE;
+	opt_host = false;
 	host = "";
-	opt_automatic_resource = TRUE;
+	opt_automatic_resource = true;
 	resource = "Psi";
 	priority = 5;
-	opt_keepAlive = TRUE;
+	opt_keepAlive = true;
 	allow_plain = XMPP::ClientStream::AllowPlainOverTLS;
-	opt_compress = FALSE;
-	opt_log = TRUE;
-	opt_reconn = FALSE;
+	opt_compress = false;
+	opt_log = true;
+	opt_reconn = false;
 	opt_ignoreSSLWarnings = false;
 
 	proxy_index = 0;
@@ -271,11 +271,11 @@ QDomElement UserAccount::toXml(QDomDocument &doc, const QString &tagName)
 	a.appendChild(gs);
 	git = groupState.begin();
 	for ( ; git != groupState.end(); ++git) {
-		//if ( !git.data().open || git.data().rank ) { // don't save unnecessary entries (the default is 'true' to open, and '0' to rank)
+		//if ( !git.value()().open || git.value()().rank ) { // don't save unnecessary entries (the default is 'true' to open, and '0' to rank)
 			QDomElement group = doc.createElement("group");
 			group.setAttribute("name", git.key());
-			group.setAttribute("open", git.data().open ? "true" : "false");
-			group.setAttribute("rank", QString::number(git.data().rank));
+			group.setAttribute("open", git.value()().open ? "true" : "false");
+			group.setAttribute("rank", QString::number(git.value()().rank));
 			gs.appendChild(group);
 		//}
 	}
@@ -369,7 +369,7 @@ void UserAccount::fromXml(const QDomElement &a)
 	// read password (we must do this after reading the jid, to decode properly)
 	readEntry(a, "password", &pass);
 	if(!pass.isEmpty()) {
-		opt_pass = TRUE;
+		opt_pass = true;
 		pass = decodePassword(pass, jid);
 	}
 
@@ -460,67 +460,67 @@ UserProfile::UserProfile()
 void UserProfile::reset()
 {
 	bool nix, win, mac;
-	nix = win = mac = FALSE;
+	nix = win = mac = false;
 
 #ifdef Q_WS_X11
-	nix = TRUE;
+	nix = true;
 #endif
 #ifdef Q_WS_WIN
-	win = TRUE;
+	win = true;
 #endif
 #ifdef Q_WS_MAC
-	mac = TRUE;
+	mac = true;
 #endif
 
 	// global
 	mwgeom.setRect(64, 64, 150, 360);
 	lastStatusString = "";
-	useSound = TRUE;
+	useSound = true;
 	proxyList.clear();
 	acc.clear();
 
 	// prefs
-	prefs.useleft = FALSE;
-	prefs.singleclick = FALSE;
- 	prefs.hideMenubar = FALSE;
+	prefs.useleft = false;
+	prefs.singleclick = false;
+ 	prefs.hideMenubar = false;
 	prefs.defaultAction = 1;
 	prefs.delChats = dcHour;
 	prefs.browser = 0;
-	prefs.alwaysOnTop = FALSE;
-	prefs.keepSizes = TRUE;
-	prefs.ignoreHeadline = FALSE;
-	prefs.ignoreNonRoster = FALSE;
-	prefs.excludeGroupChatsFromIgnore = TRUE;
+	prefs.alwaysOnTop = false;
+	prefs.keepSizes = true;
+	prefs.ignoreHeadline = false;
+	prefs.ignoreNonRoster = false;
+	prefs.excludeGroupChatsFromIgnore = true;
 	prefs.useDock = true;
-	prefs.dockDCstyle = win ? TRUE: FALSE;
-	prefs.dockHideMW = FALSE;
-	prefs.dockToolMW = FALSE;
+	prefs.dockDCstyle = win ? true: false;
+	prefs.dockHideMW = false;
+	prefs.dockToolMW = false;
 #ifdef Q_WS_MAC
 	prefs.alertStyle = 0;
 #else
 	prefs.alertStyle = 2;
 #endif
-	prefs.popupMsgs = FALSE;
-	prefs.popupChats = FALSE;
-	prefs.popupHeadlines = FALSE;
-	prefs.popupFiles = FALSE;
-	prefs.noAwayPopup = FALSE;
+	prefs.popupMsgs = false;
+	prefs.popupChats = false;
+	prefs.popupHeadlines = false;
+	prefs.popupFiles = false;
+	prefs.noAwayPopup = false;
 	prefs.noUnlistedPopup = false;
-	prefs.raise = FALSE;
+	prefs.raise = false;
 	prefs.incomingAs = 0;
-	prefs.askOnline = FALSE;
-	prefs.askOffline = FALSE;
-	prefs.rosterAnim = TRUE;
+	prefs.askOnline = false;
+	prefs.askOffline = false;
+	prefs.rosterAnim = true;
 	prefs.autoVCardOnLogin = true;
 	prefs.xmlConsoleOnLogin = false;
 	prefs.asAway = 10;
 	prefs.asXa = 30;
 	prefs.asOffline = 0;
-	prefs.use_asAway = TRUE;
-	prefs.use_asXa = TRUE;
-	prefs.use_asOffline = FALSE;
+	prefs.use_asAway = true;
+	prefs.use_asXa = true;
+	prefs.use_asOffline = false;
 	prefs.asMessage = QObject::tr("Auto Status (idle)");
-	prefs.scrollTo = TRUE;
+	prefs.scrollTo = true;
 	prefs.useEmoticons = false;
 	prefs.alertOpenChats = true;
 	prefs.raiseChatWindow = false;
@@ -603,7 +603,7 @@ void UserProfile::reset()
 	prefs.outlineHeadings = false;
 
 	prefs.player = "play";
-	prefs.noAwaySound = FALSE;
+	prefs.noAwaySound = false;
 
 	prefs.onevent[eMessage]    = ApplicationInfo::resourcesDir() + "/sound/chat2.wav";
 	prefs.onevent[eChat1]      = ApplicationInfo::resourcesDir() + "/sound/chat1.wav";
@@ -770,8 +770,8 @@ void UserProfile::reset()
 	prefs.eventPriorityFile     = 2;
 
 	// Last used path remembering
-	prefs.lastPath = QDir::homeDirPath();
-	prefs.lastSavePath = QDir::homeDirPath();
+	prefs.lastPath = QDir::homePath();
+	prefs.lastSavePath = QDir::homePath();
 
 	// data transfer
 	prefs.dtPort = 8010;
@@ -1299,7 +1299,7 @@ bool UserProfile::toFile(const QString &fname)
 				roster_service.appendChild(item);
 
 				item.setAttribute("service", it.key());
-				item.setAttribute("iconset", it.data());
+				item.setAttribute("iconset", it.value()());
 			}
 		}
 
@@ -1314,7 +1314,7 @@ bool UserProfile::toFile(const QString &fname)
 				roster_custom.appendChild(item);
 
 				item.setAttribute("regExp", it.key());
-				item.setAttribute("iconset", it.data());
+				item.setAttribute("iconset", it.value()());
 			}
 		}
 
@@ -1378,10 +1378,10 @@ bool UserProfile::fromFile(const QString &fname)
 
 	QDomElement base = doc.documentElement();
 	if(base.tagName() != "psiconf")
-		return FALSE;
+		return false;
 	confver = base.attribute("version");
 	if(confver != "1.0")
-		return FALSE;
+		return false;
 
 	readEntry(base, "progver", &progver);
 
@@ -1620,21 +1620,21 @@ bool UserProfile::fromFile(const QString &fname)
 					if(e.hasAttribute("use"))
 						readBoolAttribute(e, "use", &prefs.use_asAway);
 					else
-						prefs.use_asAway = TRUE;
+						prefs.use_asAway = true;
 				}
 				e = findSubTag(tag, "xa", &found);
 				if(found) {
 					if(e.hasAttribute("use"))
 						readBoolAttribute(e, "use", &prefs.use_asXa);
 					else
-						prefs.use_asXa = TRUE;
+						prefs.use_asXa = true;
 				}
 				e = findSubTag(tag, "offline", &found);
 				if(found) {
 					if(e.hasAttribute("use"))
 						readBoolAttribute(e, "use", &prefs.use_asOffline);
 					else
-						prefs.use_asOffline = TRUE;
+						prefs.use_asOffline = true;
 				}
 
 				readNumEntry(tag, "away", &prefs.asAway);
@@ -1964,7 +1964,7 @@ bool UserProfile::fromFile(const QString &fname)
 		}
 	}
 
-	return TRUE;
+	return true;
 }
 
 
@@ -2009,38 +2009,38 @@ bool profileExists(const QString &_name)
 	QStringList list = getProfilesList();
 	for(QStringList::ConstIterator it = list.begin(); it != list.end(); ++it) {
 		if((*it).toLower() == name)
-			return TRUE;
+			return true;
 	}
-	return FALSE;
+	return false;
 }
 
 bool profileNew(const QString &name)
 {
 	if(name.isEmpty())
-		return FALSE;
+		return false;
 
 #ifndef YAPSI_ACTIVEX_SERVER
 	// verify the string is sane
 	for(int n = 0; n < (int)name.length(); ++n) {
 		if(!name.at(n).isLetterOrNumber())
-			return FALSE;
+			return false;
 	}
 #endif
 
 	// make it
 	QDir d(ApplicationInfo::profilesDir());
 	if(!d.exists())
-		return FALSE;
+		return false;
 	QDir p(ApplicationInfo::profilesDir() + "/" + name);
 	if(!p.exists()) {
 	        if (!d.mkdir(name))
-			return FALSE;
+			return false;
 	}
 
 	p.mkdir("history");
 	p.mkdir("vcard");
 
-	return TRUE;
+	return true;
 }
 
 bool profileRename(const QString &oldname, const QString &name)
@@ -2048,17 +2048,17 @@ bool profileRename(const QString &oldname, const QString &name)
 	// verify the string is sane
 	for(int n = 0; n < (int)name.length(); ++n) {
 		if(!name.at(n).isLetterOrNumber())
-			return FALSE;
+			return false;
 	}
 
 	// locate the folder
 	QDir d(ApplicationInfo::profilesDir());
 	if(!d.exists())
-		return FALSE;
+		return false;
 	if(!d.rename(oldname, name))
-		return FALSE;
+		return false;
 
-	return TRUE;
+	return true;
 }
 
 static bool folderRemove(const QDir &_d)
@@ -2072,7 +2072,7 @@ static bool folderRemove(const QDir &_d)
 		QFileInfo info(d, *it);
 		if(info.isDir()) {
 			if(!folderRemove(QDir(info.filePath())))
-				return FALSE;
+				return false;
 		}
 		else {
 			//printf("deleting [%s]\n", info.filePath().toLatin1().constData());
@@ -2081,18 +2081,18 @@ static bool folderRemove(const QDir &_d)
 	}
 	QString name = d.dirName();
 	if(!d.cdUp())
-		return FALSE;
+		return false;
 	//printf("removing folder [%s]\n", d.filePath(name).toLatin1().constData());
 	d.rmdir(name);
 
-	return TRUE;
+	return true;
 }
 
 bool profileDelete(const QString &path)
 {
 	QDir d(path);
 	if(!d.exists())
-		return TRUE;
+		return true;
 
 	return folderRemove(QDir(path));
 }

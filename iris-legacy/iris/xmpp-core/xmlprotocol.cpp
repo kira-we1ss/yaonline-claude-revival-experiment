@@ -320,7 +320,7 @@ void XmlProtocol::outgoingDataWritten(int bytes)
 		int id = i.id;
 		int size = i.size;
 		bytes -= i.size;
-		it = trackQueue.remove(it);
+		it = trackQueue.erase(it);
 
 		if(type == TrackItem::Raw) {
 			// do nothing
@@ -555,9 +555,7 @@ int XmlProtocol::internalWriteString(const QString &s, TrackItem::Type t, int id
 {
 	QString out=sanitizeForStream(s);
 	QByteArray cs = s.toUtf8();
-	QByteArray a(cs.length());
-	memcpy(a.data(), cs.data(), a.size());
-	return internalWriteData(a, t, id);
+	return internalWriteData(cs, t, id);
 }
 
 void XmlProtocol::sendTagOpen()
