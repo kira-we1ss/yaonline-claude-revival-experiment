@@ -283,18 +283,20 @@ ContactViewItem *ContactProfile::addGroup(const QString &name)
 // check for special group
 ContactViewItem *ContactProfile::checkGroup(int type)
 {
-	ContactViewItem *item;
-	if(d->cvi)
-		item = d->cvi->firstChildItem();
-	else
-		item = (ContactViewItem *)d->cv->firstChild();
-
-	for(; item; item = item->nextSiblingItem()) {
+	for(ContactViewItem *item = firstGroupItem(); item; item = item->nextSiblingItem()) {
 		if(item->type() == ContactViewItem::Group && item->groupType() == type)
 			return item;
 	}
 
 	return 0;
+}
+
+ContactViewItem *ContactProfile::firstGroupItem() const
+{
+	if(d->cvi)
+		return d->cvi->firstChildItem();
+
+	return d->cv->firstTopLevelItem();
 }
 
 // make a tooltip with account information
@@ -309,13 +311,7 @@ QString ContactProfile::makeTip(bool trim, bool doLinkify) const
 // check for user group
 ContactViewItem *ContactProfile::checkGroup(const QString &name)
 {
-	ContactViewItem *item;
-	if(d->cvi)
-		item = d->cvi->firstChildItem();
-	else
-		item = (ContactViewItem *)d->cv->firstChild();
-
-	for(; item; item = item->nextSiblingItem()) {
+	for(ContactViewItem *item = firstGroupItem(); item; item = item->nextSiblingItem()) {
 		if(item->type() == ContactViewItem::Group && item->groupType() == ContactViewItem::gUser && item->groupName() == name)
 				return item;
 	}
@@ -895,7 +891,7 @@ void ContactProfile::ensureVisible(Entry *e)
 	ContactViewItem *i = e->cvi.isEmpty() ? 0 : e->cvi.first();
 	if(!i)
 		return;
-	d->cv->ensureItemVisible(i);
+	d->cv->ensureContactItemVisible(i);
 }
 
 void ContactProfile::doContextMenu(ContactViewItem *i, const QPoint &pos)
@@ -1912,7 +1908,7 @@ public slots:
 	 */
 	bool doToolTip(QPoint pos)
 	{
-		ContactViewItem *i = (ContactViewItem *)cv->itemAt(pos);
+		ContactViewItem *i = cv->itemAtPosition(pos);
 		if(i) {
 			QRect r(cv->itemRect(i));
 			QPoint globalPos = cv->mapToGlobal(pos);
@@ -2028,6 +2024,39 @@ ContactView::~ContactView()
 	delete d;
 }
 
+ContactViewItem *ContactView::toContactViewItem(Q3ListViewItem *item)
+{
+	return static_cast<ContactViewItem *>(item);
+}
+
+ContactViewItem *ContactView::itemAtPosition(const QPoint &pos) const
+{
+	return toContactViewItem(itemAt(pos));
+}
+
+void ContactView::setCurrentContactItem(ContactViewItem *item)
+{
+	if(item)
+		setSelected(item, true);
+}
+
+void ContactView::setContactItemOpen(ContactViewItem *item, bool open)
+{
+	if(item)
+		setOpen(item, open);
+}
+
+void ContactView::ensureContactItemVisible(ContactViewItem *item)
+{
+	if(item)
+		ensureItemVisible(item);
+}
+
+int ContactView::itemVerticalPosition(ContactViewItem *item) const
+{
+	return item ? itemPos(item) : 0;
+}
+
 bool ContactView::filterContact(ContactViewItem *item, bool refineSearch)
 {
 	if (!item) {
@@ -2045,7 +2074,7 @@ bool ContactView::filterContact(ContactViewItem *item, bool refineSearch)
 	}
 	if (TextUtil::rich2plain(item->text(0)).contains(filterString_,Qt::CaseInsensitive))
 	{
-		ensureItemVisible(item);
+		ensureContactItemVisible(item);
 		item->setVisible(true);
 		item->optionsUpdate();			
 	}
@@ -2093,7 +2122,7 @@ void ContactView::setFilter(const QString &text)
 	bool refineSearch = text.startsWith(filterString_);
 	filterString_ = text;
 	
-	for (ContactViewItem *item = static_cast<ContactViewItem *>(d->cv->firstChild()); item; item = item->nextSiblingItem()) {
+	for (ContactViewItem *item = firstTopLevelItem(); item; item = item->nextSiblingItem()) {
 		if (item->type() == ContactViewItem::Group)
 			filterGroup(item, refineSearch);
 	}
@@ -2102,7 +2131,7 @@ void ContactView::setFilter(const QString &text)
 void ContactView::clearFilter()
 {
 	filterString_=QString();
-	for (ContactViewItem *item = static_cast<ContactViewItem *>(d->cv->firstChild()); item; item = item->nextSiblingItem()) {
+	for (ContactViewItem *item = firstTopLevelItem(); item; item = item->nextSiblingItem()) {
 		if (item->type() != ContactViewItem::Contact && item->type() != ContactViewItem::Group)
 			continue;
 		item->setVisible(true);
@@ -2115,6 +2144,16 @@ void ContactView::clearFilter()
 QTimer *ContactView::animTimer() const
 {
 	return d->animTimer;
+}
+
+ContactViewItem *ContactView::selectedContactViewItem() const
+{
+	return static_cast<ContactViewItem *>(selectedItem());
+}
+
+ContactViewItem *ContactView::firstTopLevelItem() const
+{
+	return static_cast<ContactViewItem *>(Q3ListView::firstChild());
 }
 
 void ContactView::clear()
@@ -2302,7 +2341,7 @@ void ContactView::qlv_contextMenuRequested(Q3ListViewItem *lvi, const QPoint &po
 
 void ContactView::qlv_contextPopup(Q3ListViewItem *lvi, const QPoint &pos, int)
 {
-	ContactViewItem *i = (ContactViewItem *)lvi;
+	ContactViewItem *i = toContactViewItem(lvi);
 	if(!i)
 		return;
 
@@ -2316,8 +2355,8 @@ void ContactView::qlv_singleclick(int button, Q3ListViewItem *i, const QPoint &p
 	if(!i)
 		return;
 
-	ContactViewItem *item = (ContactViewItem *)i;
-	setSelected(item, true);
+	ContactViewItem *item = toContactViewItem(i);
+	setCurrentContactItem(item);
 
 	if(button == Qt::MidButton) {
 		if(item->type() == ContactViewItem::Contact)
@@ -2326,7 +2365,7 @@ void ContactView::qlv_singleclick(int button, Q3ListViewItem *i, const QPoint &p
 	else {
 		const QPixmap * pix = item->pixmap(0);			
 		if (button == Qt::LeftButton && item->type() == ContactViewItem::Group && pix && viewport()->mapFromGlobal(pos).x() <= pix->width() + treeStepSize()) {
-			setOpen(item, !item->isOpen());
+			setContactItemOpen(item, !item->isOpen());
 		}
 		else if(option.useleft) {
 			if(button == Qt::LeftButton) {
@@ -2369,7 +2408,7 @@ void ContactView::qlv_doubleclick(Q3ListViewItem *i)
 	if(option.singleclick)
 		return;
 
-	ContactViewItem *item = (ContactViewItem *)i;
+	ContactViewItem *item = toContactViewItem(i);
 	item->contactProfile()->scActionDefault(item);
 
 	//d->typeAhead = "";
@@ -2377,7 +2416,7 @@ void ContactView::qlv_doubleclick(Q3ListViewItem *i)
 
 void ContactView::qlv_itemRenamed(Q3ListViewItem *lvi, int, const QString &text)
 {
-	ContactViewItem *i = (ContactViewItem *)lvi;
+	ContactViewItem *i = toContactViewItem(lvi);
 	i->contactProfile()->doItemRenamed(i, text);
 }
 
@@ -2403,7 +2442,7 @@ void ContactView::optionsUpdate()
 	Q3ListView::setPalette(mypal);
 
 	// reload the icons
-	for (ContactViewItem *item = static_cast<ContactViewItem *>(firstChild()); item; item = item->nextSiblingItem())
+	for (ContactViewItem *item = firstTopLevelItem(); item; item = item->nextSiblingItem())
 		item->optionsUpdate();
 
 	// shortcuts
@@ -2432,7 +2471,7 @@ void ContactView::setShortcuts()
 
 void ContactView::resetAnim()
 {
-	for (ContactViewItem *item = static_cast<ContactViewItem *>(firstChild()); item; item = item->nextSiblingItem()) {
+	for (ContactViewItem *item = firstTopLevelItem(); item; item = item->nextSiblingItem()) {
 		if(item->isAlerting())
 			item->resetAnim();
 	}
@@ -2440,7 +2479,7 @@ void ContactView::resetAnim()
 
 void ContactView::doRecvEvent()
 {
-	ContactViewItem *i = (ContactViewItem *)selectedItem();
+	ContactViewItem *i = selectedContactViewItem();
 	if(!i)
 		return;
 	i->contactProfile()->scRecvEvent(i);
@@ -2448,7 +2487,7 @@ void ContactView::doRecvEvent()
 
 void ContactView::doRename()
 {
-	ContactViewItem *i = (ContactViewItem *)selectedItem();
+	ContactViewItem *i = selectedContactViewItem();
 	if(!i)
 		return;
 	i->contactProfile()->scRename(i);
@@ -2459,20 +2498,20 @@ void ContactView::doAssignAvatar()
 	// FIXME: Should check the supported filetypes dynamically
 	QString file = QFileDialog::getOpenFileName(this, tr("Choose an image"), "", tr("All files (*.png *.jpg *.gif)"));
 	if (!file.isNull()) {
-		ContactViewItem *i = (ContactViewItem *)selectedItem();
+		ContactViewItem *i = selectedContactViewItem();
 		i->contactProfile()->psiAccount()->avatarFactory()->importManualAvatar(i->u()->jid(),file);
 	}
 }
 
 void ContactView::doClearAvatar()
 {
-	ContactViewItem *i = (ContactViewItem *)selectedItem();
+	ContactViewItem *i = selectedContactViewItem();
 	i->contactProfile()->psiAccount()->avatarFactory()->removeManualAvatar(i->u()->jid());
 }
 
 void ContactView::doEnter()
 {
-	ContactViewItem *i = (ContactViewItem *)selectedItem();
+	ContactViewItem *i = selectedContactViewItem();
 	if(!i)
 		return;
 	i->contactProfile()->scActionDefault(i);
@@ -2480,20 +2519,20 @@ void ContactView::doEnter()
 
 void ContactView::doContext()
 {
-	ContactViewItem *i = (ContactViewItem *)selectedItem();
+	ContactViewItem *i = selectedContactViewItem();
 	if(!i)
 		return;
-	ensureItemVisible(i);
+	ensureContactItemVisible(i);
 
 	if(i->type() == ContactViewItem::Group)
-		setOpen(i, !i->isOpen());
+		setContactItemOpen(i, !i->isOpen());
 	else
-		qlv_contextPopup(i, viewport()->mapToGlobal(QPoint(32, itemPos(i))), 0);
+		qlv_contextPopup(i, viewport()->mapToGlobal(QPoint(32, itemVerticalPosition(i))), 0);
 }
 
 void ContactView::doSendMessage()
 {
-	ContactViewItem *i = (ContactViewItem *)selectedItem();
+	ContactViewItem *i = selectedContactViewItem();
 	if(!i)
 		return;
 	i->contactProfile()->scSendMessage(i);
@@ -2501,7 +2540,7 @@ void ContactView::doSendMessage()
 
 void ContactView::doOpenChat()
 {
-	ContactViewItem *i = (ContactViewItem *)selectedItem();
+	ContactViewItem *i = selectedContactViewItem();
 	if(!i)
 		return;
 	i->contactProfile()->scOpenChat(i);
@@ -2510,7 +2549,7 @@ void ContactView::doOpenChat()
 #ifdef WHITEBOARDING
 void ContactView::doOpenWhiteboard()
 {
-	ContactViewItem *i = (ContactViewItem *)selectedItem();
+	ContactViewItem *i = selectedContactViewItem();
 	if(!i)
 		return;
 	i->contactProfile()->scOpenWhiteboard(i);
@@ -2519,7 +2558,7 @@ void ContactView::doOpenWhiteboard()
 
 void ContactView::doHistory()
 {
-	ContactViewItem *i = (ContactViewItem *)selectedItem();
+	ContactViewItem *i = selectedContactViewItem();
 	if(!i)
 		return;
 	i->contactProfile()->scHistory(i);
@@ -2527,7 +2566,7 @@ void ContactView::doHistory()
 
 void ContactView::doVCard()
 {
-	ContactViewItem *i = (ContactViewItem *)selectedItem();
+	ContactViewItem *i = selectedContactViewItem();
 	if(!i)
 		return;
 	i->contactProfile()->scVCard(i);
@@ -2535,7 +2574,7 @@ void ContactView::doVCard()
 
 void ContactView::doLogon()
 {
-	ContactViewItem *i = (ContactViewItem *)selectedItem();
+	ContactViewItem *i = selectedContactViewItem();
 	if(!i)
 		return;
 	Status s=i->contactProfile()->psiAccount()->status();
@@ -2544,7 +2583,7 @@ void ContactView::doLogon()
 
 void ContactView::doRemove()
 {
-	ContactViewItem *i = (ContactViewItem *)selectedItem();
+	ContactViewItem *i = selectedContactViewItem();
 	if(!i)
 		return;
 	i->contactProfile()->scRemove(i);
@@ -2552,7 +2591,7 @@ void ContactView::doRemove()
 
 Q3DragObject *ContactView::dragObject()
 {
-	ContactViewItem *i = (ContactViewItem *)selectedItem();
+	ContactViewItem *i = selectedContactViewItem();
 	if(!i)
 		return 0;
 	if(i->type() != ContactViewItem::Contact)
@@ -2677,16 +2716,18 @@ void RichListViewItem::setup()
 			v_rt = 0;
 			return;
 		}
-		
-		const Q3ListView* lv = listView();
-		const QPixmap* px = pixmap(0);
-		int left =  lv->itemMargin() + ((px)?(px->width() + lv->itemMargin()):0);
+
+		Q3ListView *lv = contactListView();
+		if(!lv)
+			return;
+
+		const int left = contentLeftOffset(0);
 
 		v_active = lv->isActiveWindow();
 		v_selected = isSelected();
 
 		if ( v_selected  ) {
-			txt = QString("<font color=\"%1\">").arg(listView()->colorGroup().color( QColorGroup::HighlightedText ).name()) + txt + "</font>";
+			txt = QString("<font color=\"%1\">").arg(lv->colorGroup().color( QColorGroup::HighlightedText ).name()) + txt + "</font>";
 		}
 		
 		if(v_rt)
@@ -2695,7 +2736,7 @@ void RichListViewItem::setup()
 		v_rt->setDefaultFont(lv->font());
 		v_rt->setDocumentMargin(0);
 		v_rt->setHtml(txt);
-		v_rt->setTextWidth(lv->columnWidth(0) - left - depth() * lv->treeStepSize());
+		v_rt->setTextWidth(availableTextWidth(0));
 
 		v_widthUsed = int(v_rt->idealWidth()) + left;
 
@@ -2708,6 +2749,30 @@ void RichListViewItem::setup()
 	}
 }
 
+Q3ListView *RichListViewItem::contactListView() const
+{
+	return listView();
+}
+
+int RichListViewItem::contentLeftOffset(int column) const
+{
+	Q3ListView *lv = contactListView();
+	if(!lv)
+		return 0;
+
+	const QPixmap *px = pixmap(column);
+	return lv->itemMargin() + (px ? px->width() + lv->itemMargin() : 0);
+}
+
+int RichListViewItem::availableTextWidth(int column) const
+{
+	Q3ListView *lv = contactListView();
+	if(!lv)
+		return 0;
+
+	return lv->columnWidth(column) - contentLeftOffset(column) - depth() * lv->treeStepSize();
+}
+
 void RichListViewItem::paintCell(QPainter *p, const QColorGroup &cg, int column, int width, int align)
 {
 	if(!v_rt){
@@ -2717,7 +2782,11 @@ void RichListViewItem::paintCell(QPainter *p, const QColorGroup &cg, int column,
 
 	p->save();
 
-	Q3ListView* lv = listView();
+	Q3ListView *lv = contactListView();
+	if(!lv) {
+		p->restore();
+		return;
+	}
 
 	if ( isSelected() != v_selected || lv->isActiveWindow() != v_active) 
 		setup();
@@ -2771,7 +2840,7 @@ void RichListViewItem::paintCell(QPainter *p, const QColorGroup &cg, int column,
 	delete paper;
 }
 
-int RichListViewItem::widthUsed()
+int RichListViewItem::widthUsed() const
 {
 	return v_widthUsed;
 }
@@ -3005,6 +3074,11 @@ int ContactViewItem::parentGroupType() const
 	return item->groupType();
 }
 
+ContactView *ContactViewItem::contactView() const
+{
+	return static_cast<ContactView *>(listView());
+}
+
 ContactViewItem *ContactViewItem::parentItem() const
 {
 	return static_cast<ContactViewItem *>(Q3ListViewItem::parent());
@@ -3020,10 +3094,15 @@ ContactViewItem *ContactViewItem::nextSiblingItem() const
 	return static_cast<ContactViewItem *>(Q3ListViewItem::nextSibling());
 }
 
+bool ContactViewItem::hasChildrenItems() const
+{
+	return childCount() > 0;
+}
+
 void ContactViewItem::drawGroupIcon()
 {
 	if ( type_ == Group ) {
-		if ( childCount() == 0 )
+		if ( !hasChildrenItems() )
 			setIcon(IconsetFactory::iconPtr("psi/groupEmpty"));
 		else if ( isOpen() )
 			setIcon(IconsetFactory::iconPtr("psi/groupOpen"));
@@ -3172,7 +3251,7 @@ void ContactViewItem::paintCell(QPainter *p, const QColorGroup & cg, int column,
  */
 void ContactViewItem::setOpen(bool o)
 {
-	((ContactView *)listView())->recalculateSize();
+	contactView()->recalculateSize();
 
 	Q3ListViewItem::setOpen(o);
 	drawGroupIcon();
@@ -3317,7 +3396,7 @@ void ContactViewItem::resetStatus()
 	}
 
 	// If the status is shown, update the text of the item too
-	if (static_cast<ContactView*>(Q3ListViewItem::listView())->isShowStatusMsg())
+	if (contactView()->isShowStatusMsg())
 		resetName();
 }
 
@@ -3331,7 +3410,7 @@ void ContactViewItem::resetName(bool forceNoStatusMsg)
 		}
 
 		// Add the status message if wanted 
-		if (!forceNoStatusMsg && static_cast<ContactView*>(Q3ListViewItem::listView())->isShowStatusMsg()) {
+		if (!forceNoStatusMsg && contactView()->isShowStatusMsg()) {
 			QString statusMsg;
 			if (d->u->priority() != d->u->userResourceList().end()) 
 				statusMsg = (*d->u->priority()).status().status();
@@ -3450,7 +3529,7 @@ void ContactViewItem::stopAnimateNick()
 	if ( !d->animatingNick )
 		return;
 
-	disconnect(static_cast<ContactView*>(Q3ListViewItem::listView())->animTimer(), SIGNAL(timeout()), this, SLOT(animateNick()));
+	disconnect(contactView()->animTimer(), SIGNAL(timeout()), this, SLOT(animateNick()));
 
 	d->animatingNick = false;
 	repaint();
@@ -3460,7 +3539,7 @@ void ContactViewItem::setAnimateNick()
 {
 	stopAnimateNick();
 
-	connect(static_cast<ContactView*>(Q3ListViewItem::listView())->animTimer(), SIGNAL(timeout()), SLOT(animateNick()));
+	connect(contactView()->animTimer(), SIGNAL(timeout()), SLOT(animateNick()));
 
 	d->animatingNick = true;
 	d->animateNickX = 0;

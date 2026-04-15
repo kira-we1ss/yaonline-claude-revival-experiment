@@ -92,6 +92,7 @@ public:
 
 	ContactViewItem *checkGroup(int type);
 	ContactViewItem *checkGroup(const QString &name);
+	ContactViewItem *firstGroupItem() const;
 
 	void setName(const char *);
 
@@ -203,6 +204,11 @@ public:
 	~ContactView();
 
 	bool isShowOffline() const { return v_showOffline; }
+	ContactViewItem *itemAtPosition(const QPoint &pos) const;
+	void setCurrentContactItem(ContactViewItem *item);
+	void setContactItemOpen(ContactViewItem *item, bool open);
+	void ensureContactItemVisible(ContactViewItem *item);
+	int itemVerticalPosition(ContactViewItem *item) const;
 	bool isShowAgents() const { return v_showAgents; }
 	bool isShowAway() const { return v_showAway; }
 	bool isShowHidden() const { return v_showHidden; }
@@ -217,6 +223,8 @@ public:
 	void clear();
 	void resetAnim();
 	QTimer *animTimer() const;
+	ContactViewItem *selectedContactViewItem() const;
+	ContactViewItem *firstTopLevelItem() const;
 
 	IconAction *qa_send, *qa_chat, *qa_ren, *qa_hist, *qa_logon, *qa_recv, *qa_rem, *qa_vcard;
 	IconAction *qa_assignAvatar, *qa_clearAvatar;
@@ -296,6 +304,8 @@ private:
 	void link(ContactProfile *);
 	void unlink(ContactProfile *);
 	bool allowResize() const;
+
+	static ContactViewItem *toContactViewItem(Q3ListViewItem *item);
 };
 
 
@@ -313,9 +323,12 @@ public:
 	virtual void setText(int column, const QString& text);
 	virtual void setup();
 	virtual ~RichListViewItem();
-	int widthUsed();
+	int widthUsed() const;
 
 protected:
+	Q3ListView *contactListView() const;
+	int contentLeftOffset(int column) const;
+	int availableTextWidth(int column) const;
 	virtual void paintCell( QPainter * p, const QColorGroup & cg, int column
 , int width, int align );
 private:
@@ -350,9 +363,11 @@ public:
 	bool isAlerting() const;
 	bool isAnimatingNick() const;
 	int parentGroupType() const; // use with contacts: returns grouptype of parent group
+	ContactView *contactView() const;
 	ContactViewItem *parentItem() const;
 	ContactViewItem *firstChildItem() const;
 	ContactViewItem *nextSiblingItem() const;
+	bool hasChildrenItems() const;
 
 	void setContact(UserListItem *);
 	void setProfileName(const QString &);
