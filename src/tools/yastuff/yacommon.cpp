@@ -452,10 +452,9 @@ QList<Ya::SpooledMessage> Ya::lastMessages(const PsiAccount* me, const XMPP::Jid
 
 	const EDBResult* r = exp.result();
 	if (r && r->count() > 0) {
-		Q3PtrListIterator<EDBItem> it(*r);
-		it.toLast();
-		for (; it.current(); --it) {
-			PsiEvent *e = it.current()->event();
+		for (int _ei = r->count() - 1; _ei >= 0; --_ei) {
+			const EDBItem *_item = &r->at(_ei);
+			PsiEvent *e = _item->event();
 
 			if (e->type() == PsiEvent::Message) {
 				MessageEvent* me = static_cast<MessageEvent*>(e);
@@ -488,10 +487,10 @@ static QList<Ya::SpooledMessage> messagesFor(const PsiAccount* me, XMPP::Jid int
 
 		const EDBResult* r = exp.result();
 		if (r && r->count() > 0) {
-			Q3PtrListIterator<EDBItem> it(*r);
-			for (; it.current(); ++it) {
-				id = it.current()->nextId();
-				PsiEvent *e = it.current()->event();
+			for (int _ei = 0; _ei < r->count(); ++_ei) {
+				const EDBItem *_item = &r->at(_ei);
+				id = _item->nextId();
+				PsiEvent *e = _item->event();
 
 				if (e->type() == PsiEvent::Message) {
 					MessageEvent* me = static_cast<MessageEvent*>(e);

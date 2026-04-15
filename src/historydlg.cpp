@@ -338,37 +338,14 @@ void HistoryDlg::displayResult(const EDBResult *r, int direction, int max)
 {
 	//d->lv->setUpdatesEnabled(false);
 	d->lv->clear();
-	Q3PtrListIterator<EDBItem> it(*r);
-	if(direction == EDB::Forward)
-		it.toLast();
 	int at = 0;
-	for(EDBItem *i; (i = it.current()) && (max == -1 ? true : at < max);) {
+	int startIdx = (direction == EDB::Forward) ? r->count() - 1 : 0;
+	int step = (direction == EDB::Forward) ? -1 : 1;
+	for(int idx = startIdx; idx >= 0 && idx < r->count() && (max == -1 ? true : at < max); idx += step) {
+		const EDBItem *i = &r->at(idx);
 		PsiEvent *e = i->event();
-/*printf(" id=%s", i->id().latin1());
-if(i->prevId())
-	printf(", prevId=%s", i->prevId().latin1());
-if(i->nextId())
-	printf(", nextId=%s", i->nextId().latin1());
-printf("\n");
-if(e->type() == PsiEvent::Message) {
-	MessageEvent *me = (MessageEvent *)e;
-	printf(" body: [%s]\n", me->message().body().latin1());
-}
-else if(e->type() == PsiEvent::Auth) {
-	AuthEvent *ae = (AuthEvent *)e;
-	printf(" authType: [%s]\n", ae->authType().latin1());
-}
-else {
-	printf(" unknown event type\n");
-}
-printf("\n");*/
-
 		d->lv->addEvent(e, i->prevId());
 		++at;
-		if(direction == EDB::Backward)
-			++it;
-		else
-			--it;
 	}
 	//d->lv->setUpdatesEnabled(true);
 	//d->lv->repaint(true);
@@ -380,37 +357,32 @@ void HistoryDlg::edb_finished()
 	if(d->h->lastRequestType() == EDBHandle::Read && r) {
 		//printf("EDB: retrieved %d events:\n", r->count());
 		if(r->count() > 0) {
-			Q3PtrListIterator<EDBItem> it(*r);
 			if(d->reqtype == 0 || d->reqtype == 1) {
 				// events are in backward order
 				// first entry is the end event
-				it.toFirst();
-				d->id_end = it.current()->id();
-				d->id_next = it.current()->nextId();
+				d->id_end = r->first().id();
+				d->id_next = r->first().nextId();
 				// last entry is the begin event
-				it.toLast();
-				d->id_begin = it.current()->id();
-				d->id_prev = it.current()->prevId();
+				d->id_begin = r->last().id();
+				d->id_prev = r->last().prevId();
 				displayResult(r, EDB::Backward);
 				//printf("[%s],[%s],[%s],[%s]\n", d->id_prev.latin1(), d->id_begin.latin1(), d->id_end.latin1(), d->id_next.latin1());
 			}
 			else if(d->reqtype == 2) {
 				// events are in forward order
 				// last entry is the end event
-				it.toLast();
-				d->id_end = it.current()->id();
-				d->id_next = it.current()->nextId();
+				d->id_end = r->last().id();
+				d->id_next = r->last().nextId();
 				// first entry is the begin event
-				it.toFirst();
-				d->id_begin = it.current()->id();
-				d->id_prev = it.current()->prevId();
+				d->id_begin = r->first().id();
+				d->id_prev = r->first().prevId();
 				displayResult(r, EDB::Forward);
 			}
 			else if(d->reqtype == 3) {
 				// should only be one entry
-				EDBItem *ei = it.current();
+				const EDBItem &ei = r->first();
 				d->reqtype = 1;
-				d->h->get(d->pa, d->jid, ei->id(), EDB::Backward, 50);
+				d->h->get(d->pa, d->jid, ei.id(), EDB::Backward, 50);
 				//printf("EDB: requesting 50 events backward, starting at %s\n", d->id_prev.latin1());
 				return;
 			}
@@ -509,9 +481,9 @@ void HistoryDlg::exportHistory(const QString &fname)
 		}
 
 		// events are in forward order
-		Q3PtrListIterator<EDBItem> it(*r);
-		for(EDBItem *i; (i = it.current()); ++it) {
-			id = it.current()->nextId();
+		for (int idx = 0; idx < r->count(); ++idx) {
+			const EDBItem *i = &r->at(idx);
+			id = i->nextId();
 			PsiEvent *e = i->event();
 			QString txt;
 

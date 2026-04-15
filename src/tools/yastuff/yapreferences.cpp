@@ -935,10 +935,10 @@ void YaPreferences::convertHistory(PsiContact* contact)
 
 		const EDBResult* r = exp.result();
 		if (r && r->count() > 0) {
-			Q3PtrListIterator<EDBItem> it(*r);
-			for (; it.current(); ++it) {
-				id = it.current()->nextId();
-				PsiEvent *e = it.current()->event();
+			for (int _ei = 0; _ei < r->count(); ++_ei) {
+				const EDBItem *_item = &r->at(_ei);
+				id = _item->nextId();
+				PsiEvent *e = _item->event();
 				Q_ASSERT(e);
 				Q_ASSERT(!e->account());
 				e->setAccount(contact->account());

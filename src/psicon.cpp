@@ -284,12 +284,8 @@ public:
 	void updateIconSelect()
 	{
 		Iconset iss;
-		Q3PtrListIterator<Iconset> iconsets(PsiIconset::instance()->emoticons);
-		Iconset *iconset;
-		while ( (iconset = iconsets.current()) != 0 ) {
+		for (Iconset *iconset : PsiIconset::instance()->emoticons) {
 			iss += *iconset;
-
-			++iconsets;
 		}
 
 		iconSelect->setIconset(iss);

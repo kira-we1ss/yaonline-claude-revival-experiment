@@ -25,7 +25,6 @@
 #include <QDateTime>
 #include <QList>
 #include <QPixmap>
-#include <Q3PtrList>
 #include "xmpp_resource.h"
 #include "xmpp_liverosteritem.h"
 #include "mood.h"
@@ -161,7 +160,7 @@ private:
 	AvatarFactory* v_avatarFactory;
 };
 
-typedef Q3PtrListIterator<UserListItem> UserListIt;
+typedef QList<UserListItem*>::iterator UserListIt;
 
 class UserList : public QList<UserListItem>
 {

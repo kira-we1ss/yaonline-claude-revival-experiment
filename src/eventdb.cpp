@@ -279,10 +279,9 @@ int EDB::op_erase(const PsiAccount* account, const Jid &j)
 void EDB::resultReady(int req, EDBResult *r)
 {
 	// deliver
-	Q3PtrListIterator<EDBHandle> it(d->list);
-	for(EDBHandle *h; (h = it.current()); ++it) {
-		if(h->listeningFor() == req) {
-			h->edb_resultReady(r);
+	for (EDBHandle &h : d->list) {
+		if(h.listeningFor() == req) {
+			h.edb_resultReady(r);
 			return;
 		}
 	}
@@ -292,10 +291,9 @@ void EDB::resultReady(int req, EDBResult *r)
 void EDB::writeFinished(int req, bool b)
 {
 	// deliver
-	Q3PtrListIterator<EDBHandle> it(d->list);
-	for(EDBHandle *h; (h = it.current()); ++it) {
-		if(h->listeningFor() == req) {
-			h->edb_writeFinished(b);
+	for (EDBHandle &h : d->list) {
+		if(h.listeningFor() == req) {
+			h.edb_writeFinished(b);
 			return;
 		}
 	}
@@ -469,8 +467,8 @@ int EDBFlatFile::erase(const PsiAccount* account, const Jid &j)
 
 EDBFlatFile::File *EDBFlatFile::findFile(const PsiAccount* account, const Jid &j) const
 {
-	Q3PtrListIterator<File> it(d->flist);
-	for(File *i; (i = it.current()); ++it) {
+	for (int _fi = 0; _fi < d->flist.size(); ++_fi) {
+		File *i = &d->flist[_fi];
 		if(i->account == account && i->j.compare(j, false))
 			return i;
 	}

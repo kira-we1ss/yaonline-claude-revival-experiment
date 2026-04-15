@@ -19,7 +19,7 @@
  */
 
 #include "trayicon.h"
-#include "q3popupmenu.h"
+#include <QMenu>
 //Added by qt3to4:
 #include <QPixmap>
 #include <QMouseEvent>

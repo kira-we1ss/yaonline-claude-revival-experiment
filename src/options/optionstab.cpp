@@ -247,9 +247,8 @@ QWidget *MetaOptionsTab::widget()
 	connect(w, SIGNAL(connectDataChanged(QWidget *)), SIGNAL(connectDataChanged(QWidget *)));
 	connect(w, SIGNAL(noDirty(bool)), SIGNAL(noDirty(bool)));
 
-	Q3PtrListIterator<OptionsTab> it(tabs);
-	for ( ; it.current(); ++it)
-		t->addTab(it.current());
+	for (OptionsTab *tab : tabs)
+		t->addTab(tab);
 
 	// set the current widget to 0, otherwise qt4 will show no widget
 	t->setCurrentIndex(0);
@@ -259,9 +258,8 @@ QWidget *MetaOptionsTab::widget()
 
 void MetaOptionsTab::applyOptions(Options *opt)
 {
-	Q3PtrListIterator<OptionsTab> it(tabs);
-	for ( ; it.current(); ++it)
-		it.current()->applyOptions(opt);
+	for (OptionsTab *tab : tabs)
+		tab->applyOptions(opt);
 }
 
 void MetaOptionsTab::restoreOptions(const Options *opt)
@@ -271,16 +269,14 @@ void MetaOptionsTab::restoreOptions(const Options *opt)
 		d->restoreOptions(opt);
 	}
 
-	Q3PtrListIterator<OptionsTab> it(tabs);
-	for ( ; it.current(); ++it)
-		it.current()->restoreOptions(opt);
+	for (OptionsTab *tab : tabs)
+		tab->restoreOptions(opt);
 }
 
 void MetaOptionsTab::setData(PsiCon *psi, QWidget *w)
 {
-	Q3PtrListIterator<OptionsTab> it(tabs);
-	for ( ; it.current(); ++it)
-		it.current()->setData(psi, w);
+	for (OptionsTab *tab : tabs)
+		tab->setData(psi, w);
 }
 
 #include "optionstab.moc"

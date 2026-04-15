@@ -30,7 +30,6 @@
 #include <QPixmapCache>
 #include <QPixmap>
 #include <Q3Button>
-#include <Q3PtrList>
 #include <QFrame>
 #include <QLabel>
 #include <QMenu>
@@ -270,8 +269,7 @@ void PopupAction::setIcon (const PsiIcon *icon, bool showText, bool alert)
 		IconAction::setIcon(QIcon());
 	}
 
-	for ( Q3PtrListIterator<PopupActionButton> it(d->buttons); it.current(); ++it ) {
-		PopupActionButton *btn = it.current();
+	for (PopupActionButton *btn : d->buttons) {
 		btn->setIcon (d->icon, showText);
 	}
 
@@ -283,8 +281,7 @@ void PopupAction::setIcon (const PsiIcon *icon, bool showText, bool alert)
 void PopupAction::setText (const QString &text)
 {
 	IconAction::setText (text);
-	for ( Q3PtrListIterator<PopupActionButton> it(d->buttons); it.current(); ++it ) {
-		PopupActionButton *btn = it.current();
+	for (PopupActionButton *btn : d->buttons) {
 		btn->setLabel (text);
 	}
 }
@@ -318,8 +315,7 @@ void PopupAction::objectDestroyed ()
 void PopupAction::setEnabled (bool e)
 {
 	IconAction::setEnabled (e);
-	for ( Q3PtrListIterator<PopupActionButton> it(d->buttons); it.current(); ++it ) {
-		PopupActionButton *btn = it.current();
+	for (PopupActionButton *btn : d->buttons) {
 		btn->setEnabled (e);
 	}
 }
@@ -623,9 +619,7 @@ void EventNotifierAction::setText(const QString &t)
 {
 	IconAction::setText("<nobr>" + t + "</nobr>");
 
-	Q3PtrListIterator<MLabel> it ( d->labels );
-	for ( ; it.current(); ++it) {
-		MLabel *label = it.current();
+	for (MLabel *label : d->labels) {
 		label->setText(text());
 	}
 }
@@ -640,11 +634,9 @@ void EventNotifierAction::hide()
 {
 	d->hide = true;
 
-	Q3PtrListIterator<MLabel> it ( d->labels );
-	for ( ; it.current(); ++it) {
-		MLabel *label = it.current();
-		label->hide();
+	for (MLabel *label : d->labels) {
 		Q3ToolBar *toolBar = dynamic_cast<Q3ToolBar*>(label->parent());
+		label->hide();
 		if (toolBar) {
 			QObjectList l = toolBar->queryList( "QWidget" );
 			int found = 0;
@@ -664,9 +656,7 @@ void EventNotifierAction::show()
 {
 	d->hide = false;
 
-	Q3PtrListIterator<MLabel> it ( d->labels );
-	for ( ; it.current(); ++it) {
-		MLabel *label = it.current();
+	for (MLabel *label : d->labels) {
 		label->show();
 		Q3ToolBar *toolBar = dynamic_cast<Q3ToolBar*>(label->parent());
 		if (toolBar)

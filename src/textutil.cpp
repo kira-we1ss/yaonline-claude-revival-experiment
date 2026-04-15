@@ -1,5 +1,4 @@
 #include <QTextDocument> // for escape()
-#include <Q3PtrList>
 #include <QUrl>
 #include <QFile>
 #include <QTextStream>
@@ -529,9 +528,7 @@ QString TextUtil::emoticonify(const QString &in)
 
 			int foundPos = -1, foundLen = -1;
 
-			Q3PtrListIterator<Iconset> iconsets(PsiIconset::instance()->emoticons);
-			Iconset *iconset;
-    			while ( (iconset = iconsets.current()) != 0 ) {
+			for (Iconset *iconset : PsiIconset::instance()->emoticons) {
 				QListIterator<PsiIcon*> it = iconset->iterator();
 				while ( it.hasNext()) {
 					PsiIcon *icon = it.next();
@@ -574,8 +571,6 @@ QString TextUtil::emoticonify(const QString &in)
 						iii = n + rx.matchedLength();
 					} while ( searchAgain );
 				}
-
-				++iconsets;
 			}
 
 			QString s;

@@ -36,7 +36,6 @@
 #include <QMenu>
 #include <QMenuItem>
 #include <QMessageBox>
-#include <Q3PtrList>
 
 #include "im.h"
 #include "common.h"
@@ -941,10 +940,7 @@ void YaMainWin::accountContactsChanged()
 // {
 // 	bool enableFriends = false;
 // 	foreach(PsiAccount* account, psi_->contactList()->enabledAccounts()) {
-// 		Q3PtrListIterator<UserListItem> it(*account->userList());
-// 		UserListItem* item;
-// 		while ((item = it.current()) != 0) {
-// 			++it;
+// 		for (UserListItem* item : *account->userList()) {
 // 			if (Ya::isInFriends(item)) {
 // 				enableFriends = true;
 // 				break;

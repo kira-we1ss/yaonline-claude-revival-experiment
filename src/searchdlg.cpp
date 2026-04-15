@@ -23,7 +23,6 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <Q3Grid>
-#include <Q3PtrList>
 
 #include "jidutil.h"
 #include "psiaccount.h"
@@ -274,13 +273,12 @@ void SearchDlg::doSearchSet()
 		Form submitForm = d->form;
 
 		// import the changes back into the form.
-		// the QPtrList of QLineEdits should be in the same order
-		Q3PtrListIterator<QLineEdit> lit(d->le_field);
+		// the QList of QLineEdits should be in the same order
+		int leIdx = 0;
 		for(Form::Iterator it = submitForm.begin(); it != submitForm.end(); ++it) {
 			FormField &f = *it;
-			QLineEdit *le = lit.current();
+			QLineEdit *le = d->le_field.at(leIdx++);
 			f.setValue(le->text());
-			++lit;
 		}
 
 		d->jt->set(submitForm);

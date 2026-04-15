@@ -14,7 +14,6 @@
 #include <QPainter>
 #include <Q3Dict>
 #include <QPixmap>
-#include <Q3PtrList>
 #include <QVBoxLayout>
 
 // tabs
@@ -207,10 +206,7 @@ OptionsDlg::Private::Private(OptionsDlg *d, PsiCon *_psi, const Options &_opt)
 	createChangedMap();
 
 	// fill the QListView
-	Q3PtrListIterator<OptionsTab> it ( tabs );
-	OptionsTab *opttab;
-	for ( ; it.current(); ++it) {
-		opttab = it.current();
+	for (OptionsTab *opttab : tabs) {
 		//qWarning("Adding tab %s...", (const char *)opttab->id());
 		opttab->setData(psi, dlg);
 		connect(opttab, SIGNAL(dataChanged()), SLOT(dataChanged()));
@@ -230,10 +226,7 @@ OptionsDlg::Private::Private(OptionsDlg *d, PsiCon *_psi, const Options &_opt)
 					parent = it2.current();
 
 					// notify the parent about the child
-					Q3PtrListIterator<OptionsTab> it3 ( tabs );
-					OptionsTab *opttab2;
-					for ( ; it3.current(); ++it3) {
-						opttab2 = it3.current();
+					for (OptionsTab *opttab2 : tabs) {
 						//qWarning("Searching tabs %s...", (const char *)opttab2->id());
 						if ( opttab2->id() == opttab->parentId() ) {
 							//qWarning("...done");
@@ -402,11 +395,7 @@ void OptionsDlg::Private::openTab(QString id)
 	QWidget *tab = id2widget[id];
 	if ( !tab ) {
 		bool found = false;
-		Q3PtrListIterator<OptionsTab> it ( tabs );
-		OptionsTab *opttab;
-		for ( ; it.current(); ++it) {
-			opttab = it.current();
-
+		for (OptionsTab *opttab : tabs) {
 			if ( opttab->id() == id.latin1() ) {
 				tab = opttab->widget(); // create the widget
 				if ( !tab )
@@ -455,11 +444,7 @@ void OptionsDlg::Private::openTab(QString id)
 	}
 
 	{
-		Q3PtrListIterator<OptionsTab> it ( tabs );
-		OptionsTab *opttab;
-		for ( ; it.current(); ++it) {
-			opttab = it.current();
-
+		for (OptionsTab *opttab : tabs) {
 			if ( opttab->id() == id.latin1() ) {
 				dlg->lb_pageTitle->setText( opttab->name() );
 				dlg->lb_pageTitle->setHelp( opttab->desc() );
@@ -522,11 +507,7 @@ void OptionsDlg::Private::doApply()
 	if ( !dirty )
 		return;
 
-	Q3PtrListIterator<OptionsTab> it ( tabs );
-	OptionsTab *opttab;
-	for ( ; it.current(); ++it) {
-		opttab = it.current();
-
+	for (OptionsTab *opttab : tabs) {
 		opttab->applyOptions( &opt );
 	}
 

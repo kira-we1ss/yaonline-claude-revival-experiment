@@ -586,9 +586,7 @@ void OptionsTabIconsetEmoticons::restoreOptions(const Options *opt)
 	d->iss_emoticons->clear();
 
 	{
-		Q3PtrListIterator<Iconset> it ( PsiIconset::instance()->emoticons );
-		Iconset *is;
-		for ( ; (is = it.current()); ++it) {
+		for (Iconset *is : PsiIconset::instance()->emoticons) {
 			d->iss_emoticons->insert(*is);
 			d->iss_emoticons->setItemSelected(d->iss_emoticons->lastItem(), true);
 		}
@@ -598,9 +596,7 @@ void OptionsTabIconsetEmoticons::restoreOptions(const Options *opt)
 	{
 		QStringList loaded;
 		{
-			Q3PtrListIterator<Iconset> it( PsiIconset::instance()->emoticons );
-			Iconset *tmp;
-			for ( ; (tmp = it.current()); ++it) {
+			for (Iconset *tmp : PsiIconset::instance()->emoticons) {
 				QFileInfo fi ( tmp->fileName() );
 				loaded << fi.fileName();
 			}

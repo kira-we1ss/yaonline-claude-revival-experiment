@@ -19,7 +19,6 @@
 #include <QResizeEvent>
 #include <QKeyEvent>
 #include <QVBoxLayout>
-#include <Q3PtrList>
 #include <QHBoxLayout>
 #include <QPixmap>
 
@@ -1472,20 +1471,18 @@ public:
 
 	TransferMapping *findMapping(FileTransferHandler *h)
 	{
-		Q3PtrListIterator<TransferMapping> it(transferList);
-		for(TransferMapping *i; (i = it.current()); ++it) {
-			if(i->h == h)
-				return i;
+		for (int idx = 0; idx < transferList.size(); ++idx) {
+			if(transferList[idx].h == h)
+				return &transferList[idx];
 		}
 		return 0;
 	}
 
 	TransferMapping *findMapping(int id)
 	{
-		Q3PtrListIterator<TransferMapping> it(transferList);
-		for(TransferMapping *i; (i = it.current()); ++it) {
-			if(i->id == id)
-				return i;
+		for (int idx = 0; idx < transferList.size(); ++idx) {
+			if(transferList[idx].id == id)
+				return &transferList[idx];
 		}
 		return 0;
 	}
@@ -1676,9 +1673,8 @@ void FileTransDlg::clearFinished()
 	QList<FileTransItem> list = d->getFinished();
 	{
 		// remove related transfer mappings
-		Q3PtrListIterator<FileTransItem> it(list);
-		for(FileTransItem *fi; (fi = it.current()); ++it) {
-			TransferMapping *i = d->findMapping(fi->id);
+		for (FileTransItem &fi : list) {
+			TransferMapping *i = d->findMapping(fi.id);
 			d->transferList.removeRef(i);
 		}
 	}
@@ -1717,8 +1713,8 @@ void FileTransDlg::updateItems()
 {
 	// operate on a copy so that we can delete items in updateProgress
 	QList<TransferMapping> list = d->transferList;
-	Q3PtrListIterator<TransferMapping> it(list);
-	for(TransferMapping *i; (i = it.current()); ++it) {
+	for (int idx = 0; idx < list.size(); ++idx) {
+		TransferMapping *i = &list[idx];
 		if(i->h) {
 			i->logSent();
 			d->updateProgress(i);
@@ -1759,8 +1755,8 @@ void FileTransDlg::itemClear(int id)
 void FileTransDlg::killTransfers(PsiAccount *pa)
 {
 	QList<TransferMapping> list = d->transferList;
-	Q3PtrListIterator<TransferMapping> it(list);
-	for(TransferMapping *i; (i = it.current()); ++it) {
+	for (int idx = 0; idx < list.size(); ++idx) {
+		TransferMapping *i = &list[idx];
 		// this account?
 		if(i->h->account() == pa) {
 			FileTransItem *fi = d->findItem(i->id);
