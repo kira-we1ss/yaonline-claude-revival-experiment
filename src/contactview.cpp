@@ -34,6 +34,7 @@
 #include <QLayout>
 #include <QKeyEvent>
 #include <QEvent>
+#include <QHelpEvent>
 #include <QList>
 #include <QDropEvent>
 #include <QPixmap>
@@ -142,8 +143,8 @@ ContactProfile::ContactProfile(PsiAccount *pa, const QString &name, ContactView 
 	d->cv = cv;
 	d->cv->link(this);
 	d->t = new QTimer;
-	connect(d->t, SIGNAL(timeout()), SLOT(updateGroups()));
-	connect(pa->psi(), SIGNAL(accountCountChanged()), d, SLOT(numAccountsChanged()));
+	connect(d->t, &QTimer::timeout, this, &ContactProfile::updateGroups);
+	connect(pa->psi(), &PsiCon::accountCountChanged, d, &Private::numAccountsChanged);
 
 	d->self = 0;
 
@@ -284,7 +285,7 @@ ContactViewItem *ContactProfile::checkGroup(int type)
 {
 	ContactViewItem *item;
 	if(d->cvi)
-		item = (ContactViewItem *)d->cvi->firstChild();
+		item = d->cvi->firstChildItem();
 	else
 		item = (ContactViewItem *)d->cv->firstChild();
 
@@ -310,7 +311,7 @@ ContactViewItem *ContactProfile::checkGroup(const QString &name)
 {
 	ContactViewItem *item;
 	if(d->cvi)
-		item = (ContactViewItem *)d->cvi->firstChild();
+		item = d->cvi->firstChildItem();
 	else
 		item = (ContactViewItem *)d->cv->firstChild();
 
@@ -1936,9 +1937,12 @@ private slots:
 };
 
 ContactView::ContactView(QWidget *parent, const char *name)
-:Q3ListView(parent, name, Qt::WNoAutoErase | Qt::WResizeNoErase)
+	: Q3ListView(parent, name)
 {
 	d = new Private(this);
+
+	setAttribute(Qt::WA_NoSystemBackground);
+	setAttribute(Qt::WA_StaticContents);
 
 	// setup the QListView
 	setAllColumnsShowFocus(true);
@@ -1959,10 +1963,10 @@ ContactView::ContactView(QWidget *parent, const char *name)
 
 	// catch signals
 	lcto_active = false;
-	connect(this, SIGNAL(itemRenamed(Q3ListViewItem *, int, const QString &)), SLOT(qlv_itemRenamed(Q3ListViewItem *, int, const QString &)));
-	connect(this, SIGNAL(mouseButtonPressed(int, Q3ListViewItem *, const QPoint &, int)),SLOT(qlv_singleclick(int, Q3ListViewItem *, const QPoint &, int)) );
-	connect(this, SIGNAL(doubleClicked(Q3ListViewItem *)),SLOT(qlv_doubleclick(Q3ListViewItem *)) );
-	connect(this, SIGNAL(contextMenuRequested(Q3ListViewItem *, const QPoint &, int)), SLOT(qlv_contextMenuRequested(Q3ListViewItem *, const QPoint &, int)));
+	connect(this, &Q3ListView::itemRenamed, this, &ContactView::qlv_itemRenamed);
+	connect(this, &Q3ListView::mouseButtonPressed, this, &ContactView::qlv_singleclick);
+	connect(this, static_cast<void (Q3ListView::*)(Q3ListViewItem *)>(&Q3ListView::doubleClicked), this, &ContactView::qlv_doubleclick);
+	connect(this, &Q3ListView::contextMenuRequested, this, &ContactView::qlv_contextMenuRequested);
 
 	v_showOffline = true;
 	v_showAway = true;
@@ -1978,7 +1982,7 @@ ContactView::ContactView(QWidget *parent, const char *name)
 	d->animTimer->start(120 * 5);
 
 	d->recalculateSizeTimer = new QTimer(this);
-	connect(d->recalculateSizeTimer, SIGNAL(timeout()), d, SLOT(recalculateSize()));
+	connect(d->recalculateSizeTimer, &QTimer::timeout, d, &Private::recalculateSize);
 
 	// actions
 	qa_send = new IconAction("", "psi/sendMessage", tr("Send &message"), 0, this);
@@ -2084,7 +2088,7 @@ bool ContactView::filterGroup(ContactViewItem *group, bool refineSearch)
 	return groupContainsAFinding;
 }
 
-void ContactView::setFilter(QString const &text)
+void ContactView::setFilter(const QString &text)
 {
 	bool refineSearch = text.startsWith(filterString_);
 	filterString_ = text;
@@ -2592,7 +2596,7 @@ QSize ContactView::sizeHint() const
 
 		// also we need to check whether the group is open or closed
 		bool show = true;
-		for (Q3ListViewItem *item = current->parent(); item; item = item->parent()) {
+		for (ContactViewItem *item = static_cast<ContactViewItem *>(current)->parentItem(); item; item = item->parentItem()) {
 			if (!item->isOpen()) {
 				show = false;
 				break;

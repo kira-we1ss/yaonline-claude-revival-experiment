@@ -24,10 +24,9 @@
 #include <QObject>
 #include <Q3ListView>
 #include <QList>
-#include <QPixmap>
-#include <QKeyEvent>
-#include <QEvent>
-#include <QDropEvent>
+#include <QPoint>
+#include <QSize>
+#include <QStringList>
 
 #include "xmpp_clientstream.h"
 
@@ -37,8 +36,15 @@ class ContactView;
 class ContactViewItem;
 class PsiAccount;
 class PsiIcon;
-class QTimer;
+class Q3DragObject;
+class QColorGroup;
+class QDropEvent;
+class QKeyEvent;
+class QMimeSource;
+class QPainter;
 class QPixmap;
+class QTimer;
+class QEvent;
 namespace XMPP {
 	class Status;
 }
@@ -205,7 +211,7 @@ public:
 
 	bool filterContact(ContactViewItem *item, bool refineSearch = false);
 	bool filterGroup(ContactViewItem *item, bool refineSearch = false);
-	void setFilter(QString const &text);
+	void setFilter(const QString &text);
 	void clearFilter();
 	
 	void clear();
