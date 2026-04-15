@@ -21,13 +21,12 @@
 #include "historydlg.h"
 
 #include <QMenu>
-#include <q3header.h>
+#include <QHeaderView>
 #include <QLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QFileDialog>
-#include <Q3SimpleRichText>
 #include <QMessageBox>
 #include <QFrame>
 #include <QApplication>
@@ -148,7 +147,7 @@ HistoryDlg::HistoryDlg(const Jid &jid, PsiAccount *pa)
 
 	QVBoxLayout *vb1 = new QVBoxLayout(this, 8);
 	d->lv = new HistoryView(this);
-	d->lv->setVScrollBarMode(Q3ScrollView::AlwaysOn);
+	d->lv->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
 	connect(d->lv, SIGNAL(aOpenEvent(PsiEvent *)), SLOT(actionOpenEvent(PsiEvent *)));
 	QSizePolicy sp = d->lv->sizePolicy();
 	sp.setVerStretch(1);
@@ -410,8 +409,8 @@ void HistoryDlg::edb_finished()
 		//printf("EDB: error\n");
 	}
 
-	if(d->lv->firstChild())
-		d->lv->setSelected(d->lv->firstChild(), true);
+	if(d->lv->topLevelItemCount() > 0)
+		d->lv->setCurrentItem(d->lv->topLevelItem(0));
 
 	//d->busy->stop();
 	d->pb_refresh->setEnabled(true);
@@ -429,12 +428,12 @@ void HistoryDlg::doFind()
 	if(str.isEmpty())
 		return;
 
-	if(d->lv->childCount() < 1)
+	if(d->lv->topLevelItemCount() < 1)
 		return;
 
-	HistoryViewItem *i = (HistoryViewItem *)d->lv->selectedItem();
+	HistoryViewItem *i = (HistoryViewItem *)d->lv->currentItem();
 	if(!i)
-		i = (HistoryViewItem *)d->lv->firstChild();
+		i = (HistoryViewItem *)d->lv->topLevelItem(0);
 	QString id = i->eventId;
 	if(id.isEmpty()) {
 		QMessageBox::information(this, tr("Find"), tr("Already at beginning of message history."));
@@ -532,32 +531,29 @@ void HistoryDlg::exportHistory(const QString &fname)
 //----------------------------------------------------------------------------
 // HistoryView
 //----------------------------------------------------------------------------
-HistoryView::HistoryView(QWidget *parent, const char *name)
-:Q3ListView(parent, name)
+HistoryView::HistoryView(QWidget *parent)
+: QTreeWidget(parent)
 {
 	at_id = 0;
-	connect(this, SIGNAL(doubleClicked(Q3ListViewItem *)), SLOT(qlv_doubleclick(Q3ListViewItem *)));
-	connect(this, SIGNAL(rightButtonPressed(Q3ListViewItem *, const QPoint &, int)), SLOT(qlv_contextPopup(Q3ListViewItem *, const QPoint &, int)));
+	connect(this, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)), SLOT(qlv_doubleclick(QTreeWidgetItem*,int)));
+	setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(this, SIGNAL(customContextMenuRequested(const QPoint&)), SLOT(qlv_contextPopup(const QPoint&)));
 
 	setAllColumnsShowFocus(true);
-	addColumn(tr("Type"));
-	addColumn(tr("Origin"));
-	addColumn(tr("Date"));
-	addColumn(tr("Text"));
-	setSorting(2);
-	setResizeMode(Q3ListView::LastColumn);
-	setShowToolTips(false);
-	header()->setClickEnabled(false);
-	header()->setMovingEnabled(false);
-	header()->setResizeEnabled(false);
+	setColumnCount(4);
+	setHeaderLabels(QStringList() << tr("Type") << tr("Origin") << tr("Date") << tr("Text"));
+	setSortingEnabled(true);
+	sortByColumn(2, Qt::AscendingOrder);
+	header()->setStretchLastSection(true);
+	header()->setSectionsClickable(false);
+	header()->setSectionsMovable(false);
+	header()->setSectionResizeMode(QHeaderView::Interactive);
+	header()->setSectionResizeMode(3, QHeaderView::Stretch);
 }
 
 void HistoryView::resizeEvent(QResizeEvent *e)
 {
-	Q3ListView::resizeEvent(e);
-
-	if(e->oldSize().width() != e->size().width())
-		doResize();
+	QTreeWidget::resizeEvent(e);
 }
 
 void HistoryView::keyPressEvent(QKeyEvent *e)
@@ -565,17 +561,12 @@ void HistoryView::keyPressEvent(QKeyEvent *e)
 	if(e->key() == Qt::Key_Enter || e->key() == Qt::Key_Return)
 		doOpenEvent();
 	else
-		Q3ListView::keyPressEvent(e);
+		QTreeWidget::keyPressEvent(e);
 }
 
 void HistoryView::doResize()
 {
-	Q3ListViewItemIterator it(this);
-	HistoryViewItem *item;
-	for(; it.current() ; ++it) {
-		item = (HistoryViewItem *)it.current();
-		item->setup();
-	}
+	// no-op: rich text resize not needed with QTreeWidget
 }
 
 void HistoryView::addEvent(PsiEvent *e, const QString &eid)
@@ -585,44 +576,40 @@ void HistoryView::addEvent(PsiEvent *e, const QString &eid)
 
 void HistoryView::doOpenEvent()
 {
-	HistoryViewItem *i = (HistoryViewItem *)selectedItem();
+	HistoryViewItem *i = (HistoryViewItem *)currentItem();
 	if(!i)
 		return;
 	aOpenEvent(i->e);
 }
 
-void HistoryView::qlv_doubleclick(Q3ListViewItem *xi)
+void HistoryView::qlv_doubleclick(QTreeWidgetItem *xi, int)
 {
-	HistoryViewItem *i = (HistoryViewItem *)xi;
-
-	setSelected(i, true);
+	setCurrentItem(xi);
 	doOpenEvent();
 }
 
-void HistoryView::qlv_contextPopup(Q3ListViewItem *ix, const QPoint &pos, int)
+void HistoryView::qlv_contextPopup(const QPoint &pos)
 {
-	HistoryViewItem *i = (HistoryViewItem *)ix;
+	HistoryViewItem *i = (HistoryViewItem *)currentItem();
 	if(!i)
 		return;
 
 	QMenu popup;
-	popup.insertItem(tr("Open"), 1);
-	popup.insertSeparator();
-	popup.insertItem(tr("Copy"), 2);
+	QAction *openAct = popup.addAction(tr("Open"));
+	popup.addSeparator();
+	QAction *copyAct = popup.addAction(tr("Copy"));
+	copyAct->setEnabled(i->e->type() == PsiEvent::Message);
 
-	if(i->e->type() != PsiEvent::Message)
-		popup.setItemEnabled(2, false);
+	QAction *chosen = popup.exec(viewport()->mapToGlobal(pos));
 
-	int x = popup.exec(pos);
-
-	if(x == 1)
+	if(chosen == openAct)
 		doOpenEvent();
-	else if(x == 2) {
-		HistoryViewItem *i = (HistoryViewItem *)selectedItem();
-		if(!i)
+	else if(chosen == copyAct) {
+		HistoryViewItem *ci = (HistoryViewItem *)currentItem();
+		if(!ci)
 			return;
 
-		MessageEvent *me = (MessageEvent *)i->e;
+		MessageEvent *me = (MessageEvent *)ci->e;
 		QApplication::clipboard()->setText(me->message().body(), QClipboard::Clipboard);
 		if(QApplication::clipboard()->supportsSelection())
 			QApplication::clipboard()->setText(me->message().body(), QClipboard::Selection);
@@ -633,10 +620,9 @@ void HistoryView::qlv_contextPopup(Q3ListViewItem *ix, const QPoint &pos, int)
 //----------------------------------------------------------------------------
 // HistoryViewItem
 //----------------------------------------------------------------------------
-HistoryViewItem::HistoryViewItem(PsiEvent *_e, const QString &eid, int xid, Q3ListView *parent)
-:Q3ListViewItem(parent)
+HistoryViewItem::HistoryViewItem(PsiEvent *_e, const QString &eid, int xid, QTreeWidget *parent)
+: QTreeWidgetItem(parent)
 {
-	rt = 0;
 	id = xid;
 	eventId = eid;
 
@@ -653,20 +639,20 @@ HistoryViewItem::HistoryViewItem(PsiEvent *_e, const QString &eid, int xid, Q3Li
 	if(e->type() == PsiEvent::Message) {
 		MessageEvent *me = (MessageEvent *)e;
 		const Message &m = me->message();
-		text = TextUtil::plain2rich(m.body());
+		text = m.body();
 
 		if(!m.urlList().isEmpty())
-			setPixmap(0, IconsetFactory::icon("psi/www").impix());
+			setIcon(0, QIcon(IconsetFactory::icon("psi/www").impix()));
 		else if(e->originLocal())
-			setPixmap(0, IconsetFactory::icon("psi/sendMessage").impix());
+			setIcon(0, QIcon(IconsetFactory::icon("psi/sendMessage").impix()));
 		else if(a)
-			setPixmap(0, a->impix());
+			setIcon(0, QIcon(a->impix()));
 	}
 	else if(e->type() == PsiEvent::Auth) {
 		AuthEvent *ae = (AuthEvent *)e;
 		text = ae->authType();
 		if (a)
-			setPixmap(0, a->impix());
+			setIcon(0, QIcon(a->impix()));
 	}
 
 	if(e->originLocal())
@@ -674,96 +660,14 @@ HistoryViewItem::HistoryViewItem(PsiEvent *_e, const QString &eid, int xid, Q3Li
 	else
 		setText(1, HistoryView::tr("From"));
 
-	QString date;
-	const QDateTime &ts = e->timeStamp();
-	/*date.sprintf("%02d/%02d/%02d %02d:%02d:%02d",
-		ts.date().month(),
-		ts.date().day(),
-		ts.date().year(),
-		ts.time().hour(),
-		ts.time().minute(),
-		ts.time().second());*/
-	date = ts.toString(Qt::LocalDate);
-
+	QString date = e->timeStamp().toString(Qt::LocalDate);
 	setText(2, date);
-
-	rt = new Q3SimpleRichText(text, listView()->font());
+	setText(3, text);
 }
 
 HistoryViewItem::~HistoryViewItem()
 {
-	delete rt;
 	delete e;
 }
 
-// reimplemented from QListViewItem.  setup() and paintCell() are tricky stuff
-void HistoryViewItem::setup()
-{
-	widthChanged();
-
-	Q3ListView *lv = listView();
-
-	if(rt) {
-		int w = lv->columnWidth(3);
-		rt->setWidth(w);
-	}
-
-	int y;
-	//y = lv->fontMetrics().size(AlignVCenter, displayStr).height();
-	if(!rt)
-		y = 22;
-	else
-		y = rt->height();
-
-	y += lv->itemMargin() * 2;
-
-	// ensure an even number
-	if(y & 1)
-		++y;
-
-	setHeight(y);
-}
-
-void HistoryViewItem::paintCell(QPainter *p, const QColorGroup & cg, int column, int width, int alignment)
-{
-	QColorGroup mycg = cg;
-	if(e->originLocal())
-		mycg.setColor(QColorGroup::Text, Qt::red);
-	else
-		mycg.setColor(QColorGroup::Text, Qt::blue);
-
-	if(column == 3) {
-		QBrush br;
-		if(isSelected()) {
-			mycg.setColor(QColorGroup::Text, mycg.highlightedText());
-			br = cg.brush(QColorGroup::Highlight);
-		}
-		else {
-			br = cg.brush(QColorGroup::Base);
-		}
-
-		int h = height();
-		if(rt) {
-			Q3SimpleRichText tmp(QString("<qt><font color=\"%1\">" + text + "</font></qt>").arg(mycg.text().name()), listView()->font());
-			tmp.setWidth(rt->width());
-			tmp.draw(p, 0, 0, QRect(0, 0, width, h), mycg, &br);
-		}
-	}
-	else {
-		alignment = Qt::AlignTop;
-
-		Q3ListViewItem::paintCell(p, mycg, column, width, alignment);
-	}
-}
-
-int HistoryViewItem::compare(Q3ListViewItem *xi, int, bool) const
-{
-	HistoryViewItem *i = (HistoryViewItem *)xi;
-	return id - i->id;
-}
-
-int HistoryViewItem::rtti() const
-{
-	return 7105;
-}
 

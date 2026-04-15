@@ -21,41 +21,33 @@
 #ifndef HISTORYDLG_H
 #define HISTORYDLG_H
 
-#include <q3listview.h>
+#include <QTreeWidget>
 
 class PsiEvent;
 class PsiAccount;
 class EDBItem;
 class EDBResult;
-class Q3SimpleRichText;
 namespace XMPP {
 	class Jid;
 }
 
-class HistoryViewItem : public Q3ListViewItem
+class HistoryViewItem : public QTreeWidgetItem
 {
 public:
-	HistoryViewItem(PsiEvent *, const QString &, int id, Q3ListView *);
+	HistoryViewItem(PsiEvent *, const QString &, int id, QTreeWidget *);
 	~HistoryViewItem();
 
-	Q3SimpleRichText *rt;
 	QString text;
 	int id;
 	PsiEvent *e;
 	QString eventId;
-
-	// reimplemented
-	int rtti() const;
-	void paintCell(QPainter *p, const QColorGroup & cg, int column, int width, int alignment);
-	void setup();
-	int compare(Q3ListViewItem *, int column, bool ascending) const;
 };
 
-class HistoryView : public Q3ListView
+class HistoryView : public QTreeWidget
 {
 	Q_OBJECT
 public:
-	HistoryView(QWidget *parent=0, const char *name=0);
+	HistoryView(QWidget *parent=0);
 
 	void doResize();
 	void addEvent(PsiEvent *, const QString &);
@@ -70,8 +62,8 @@ signals:
 private slots:
 	void doOpenEvent();
 
-	void qlv_doubleclick(Q3ListViewItem *);
-	void qlv_contextPopup(Q3ListViewItem *, const QPoint &, int);
+	void qlv_doubleclick(QTreeWidgetItem *, int);
+	void qlv_contextPopup(const QPoint &);
 
 private:
 	int at_id;
