@@ -1810,15 +1810,12 @@ void ContactProfile::doItemRenamed(ContactViewItem *i, const QString &text)
 
 void ContactProfile::dragDrop(const QString &text, ContactViewItem *i)
 {
-	if(!d->pa->loggedIn())
+	if(!d->pa->loggedIn() || !i)
 		return;
 
-	// get group
-	ContactViewItem *gr;
-	if(i->type() == ContactViewItem::Group)
-		gr = i;
-	else
-		gr = i->parentItem();
+	ContactViewItem *gr = i->dropTargetGroup();
+	if(!gr)
+		return;
 
 	Jid j(text);
 	if(!j.isValid())
@@ -2686,21 +2683,11 @@ QSize ContactView::sizeHint() const
 	int h = border;
 
 	for (Q3ListViewItemIterator it(this); it.current(); ++it) {
-		Q3ListViewItem *current = it.current();
-		if (!current->isVisible())
+		ContactViewItem *current = toContactViewItem(it.current());
+		if (!current || !current->isVisible() || current->hasClosedAncestors())
 			continue;
 
-		// also we need to check whether the group is open or closed
-		bool show = true;
-		for (ContactViewItem *item = static_cast<ContactViewItem *>(current)->parentItem(); item; item = item->parentItem()) {
-			if (!item->isOpen()) {
-				show = false;
-				break;
-			}
-		}
-
-		if (show)
-			h += current->height();
+		h += current->height();
 	}
 
 	QWidget *topParent = window();
@@ -3154,6 +3141,25 @@ ContactViewItem *ContactViewItem::nextSiblingItem() const
 bool ContactViewItem::hasChildrenItems() const
 {
 	return childCount() > 0;
+}
+
+bool ContactViewItem::hasClosedAncestors() const
+{
+	for (ContactViewItem *item = parentItem(); item; item = item->parentItem()) {
+		if (!item->isOpen())
+			return true;
+	}
+
+	return false;
+}
+
+ContactViewItem *ContactViewItem::dropTargetGroup() const
+{
+	if (type_ == Group)
+		return const_cast<ContactViewItem *>(this);
+	if (type_ == Contact)
+		return parentItem();
+	return 0;
 }
 
 QString ContactViewItem::toolTipText() const
@@ -3695,23 +3701,17 @@ bool ContactViewItem::acceptDrop(const QMimeSource *m) const
 
 bool ContactViewItem::canAcceptDropTarget() const
 {
-	if ( type_ == Profile )
+	if (type_ == Profile)
 		return false;
-	else if ( type_ == Group ) {
-		if(d->groupType != gGeneral && d->groupType != gUser)
-			return false;
-	}
-	else if ( type_ == Contact ) {
-		if ( d->u && d->u->isSelf() )
-			return false;
-		ContactViewItem *par = parentItem();
-		if(!par)
-			return false;
-		if(par->groupType() != gGeneral && par->groupType() != gUser)
-			return false;
-	}
 
-	return true;
+	ContactViewItem *group = dropTargetGroup();
+	if(!group)
+		return false;
+
+	if(type_ == Contact && d->u && d->u->isSelf())
+		return false;
+
+	return group->groupType() == gGeneral || group->groupType() == gUser;
 }
 
 void ContactViewItem::dragEntered()

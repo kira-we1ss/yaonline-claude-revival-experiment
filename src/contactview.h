@@ -368,6 +368,8 @@ public:
 	ContactViewItem *firstChildItem() const;
 	ContactViewItem *nextSiblingItem() const;
 	bool hasChildrenItems() const;
+	bool hasClosedAncestors() const;
+	ContactViewItem *dropTargetGroup() const;
 	QString toolTipText() const;
 
 	void setContact(UserListItem *);
