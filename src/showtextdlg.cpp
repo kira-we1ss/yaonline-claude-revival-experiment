@@ -43,15 +43,17 @@ ShowTextDlg::ShowTextDlg(const QString &fname, bool rich, QWidget *parent)
 		f.close();
 	}
 
-	QVBoxLayout *vb1 = new QVBoxLayout(this, 8);
+	QVBoxLayout *vb1 = new QVBoxLayout(this);
+	vb1->setContentsMargins(8, 8, 8, 8);
 	QTextEdit *te = new QTextEdit(this);
-	te->setReadOnly(TRUE);
-	te->setTextFormat(rich ? Qt::RichText : Qt::PlainText);
+	te->setReadOnly(true);
+	te->setAcceptRichText(rich);
 	te->setText(text);
 
 	vb1->addWidget(te);
 
-	QHBoxLayout *hb1 = new QHBoxLayout(vb1);
+	QHBoxLayout *hb1 = new QHBoxLayout;
+	vb1->addLayout(hb1);
 	hb1->addStretch(1);
 	QPushButton *pb = new QPushButton(tr("&OK"), this);
 	connect(pb, SIGNAL(clicked()), SLOT(accept()));

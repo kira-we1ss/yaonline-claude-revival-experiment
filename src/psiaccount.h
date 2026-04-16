@@ -27,6 +27,7 @@
 #define PSIACCOUNT_H
 
 #include <QList>
+#include <QObject>
 
 #include "xmpp_rosterx.h"
 #include "xmpp_status.h"

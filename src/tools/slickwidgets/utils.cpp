@@ -100,8 +100,8 @@ namespace Ya {
 		QLinearGradient linearGrad(
 			QPointF(rect.width() / 2, rect.top()), QPointF(rect.width() / 2, rect.bottom())
 		);
-		linearGrad.setColorAt(0, palette().light());
-		linearGrad.setColorAt(1, palette().base());
+		linearGrad.setColorAt(0, palette().light().color());
+		linearGrad.setColorAt(1, palette().base().color());
 		return QBrush(linearGrad);
 	}
 

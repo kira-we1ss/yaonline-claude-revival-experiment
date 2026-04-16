@@ -150,13 +150,13 @@ class PsiConObject : public QObject
 	Q_OBJECT
 public:
 	PsiConObject(QObject *parent)
-	: QObject(parent, "PsiConObject")
+	: QObject(parent)
 	{
 		QDir p(ApplicationInfo::homeDir());
 		QDir v(ApplicationInfo::homeDir() + "/tmp-sounds");
 		if(!v.exists())
 			p.mkdir("tmp-sounds");
-		Iconset::setSoundPrefs(v.absPath(), this, SLOT(playSound(QString)));
+		Iconset::setSoundPrefs(v.absolutePath(), this, SLOT(playSound(QString)));
 		connect(URLObject::getInstance(), SIGNAL(openURL(QString)), SLOT(openURL(QString)));
 	}
 
@@ -202,7 +202,7 @@ private:
 			QFileInfo info(d, *it);
 			if(info.isDir()) {
 				if(!folderRemove(QDir(info.filePath())))
-					return FALSE;
+					return false;
 			}
 			else {
 				//printf("deleting [%s]\n", info.filePath().toLatin1().constData());
@@ -211,11 +211,11 @@ private:
 		}
 		QString name = d.dirName();
 		if(!d.cdUp())
-			return FALSE;
+			return false;
 		//printf("removing folder [%s]\n", d.filePath(name).toLatin1().constData());
 		d.rmdir(name);
 
-		return TRUE;
+		return true;
 	}
 
 #ifdef YAPSI
@@ -1136,7 +1136,7 @@ void PsiCon::dialogRegister(QWidget *w)
 {
 	item_dialog *i = new item_dialog;
 	i->widget = w;
-	i->className = w->className();
+	i->className = w->metaObject()->className();
 	d->dialogList.append(i);
 }
 
@@ -1722,7 +1722,7 @@ void PsiCon::recentGCAdd(const QString &str)
 	// remove it if we have it
 	for(QStringList::Iterator it = d->recentGCList.begin(); it != d->recentGCList.end(); ++it) {
 		if(*it == str) {
-			d->recentGCList.remove(it);
+			d->recentGCList.erase(it);
 			break;
 		}
 	}
@@ -1732,7 +1732,7 @@ void PsiCon::recentGCAdd(const QString &str)
 
 	// trim the list if bigger than 10
 	while(d->recentGCList.count() > PsiOptions::instance()->getOption("options.muc.recent-joins.maximum").toInt())
-		d->recentGCList.remove(d->recentGCList.fromLast());
+		d->recentGCList.removeLast();
 }
 
 const QStringList & PsiCon::recentBrowseList() const
@@ -1745,7 +1745,7 @@ void PsiCon::recentBrowseAdd(const QString &str)
 	// remove it if we have it
 	for(QStringList::Iterator it = d->recentBrowseList.begin(); it != d->recentBrowseList.end(); ++it) {
 		if(*it == str) {
-			d->recentBrowseList.remove(it);
+			d->recentBrowseList.erase(it);
 			break;
 		}
 	}
@@ -1755,7 +1755,7 @@ void PsiCon::recentBrowseAdd(const QString &str)
 
 	// trim the list if bigger than 10
 	while(d->recentBrowseList.count() > 10)
-		d->recentBrowseList.remove(d->recentBrowseList.fromLast());
+		d->recentBrowseList.removeLast();
 }
 
 const QStringList & PsiCon::recentNodeList() const
@@ -1768,7 +1768,7 @@ void PsiCon::recentNodeAdd(const QString &str)
 	// remove it if we have it
 	for(QStringList::Iterator it = d->recentNodeList.begin(); it != d->recentNodeList.end(); ++it) {
 		if(*it == str) {
-			d->recentNodeList.remove(it);
+			d->recentNodeList.erase(it);
 			break;
 		}
 	}
@@ -1778,7 +1778,7 @@ void PsiCon::recentNodeAdd(const QString &str)
 
 	// trim the list if bigger than 10
 	while(d->recentNodeList.count() > 10)
-		d->recentNodeList.remove(d->recentNodeList.fromLast());
+		d->recentNodeList.removeLast();
 }
 
 void PsiCon::proxy_settingsChanged()

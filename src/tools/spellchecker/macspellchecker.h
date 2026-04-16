@@ -32,8 +32,6 @@
 
 #include "spellchecker.h"
 
-class QtMacCocoaAutoReleasePool;
-
 class MacSpellChecker : public SpellChecker
 {
 public:
@@ -50,7 +48,6 @@ public:
 	virtual QList<QtTextRange> spellingErrorIndexes(const QString& text, SyntaxHighlighter* highlighter, int cursorPositionInCurrentBlock, bool* needRehighlight, int blockCount);
 
 private:
-	QtMacCocoaAutoReleasePool pool_;
 };
 
 #endif

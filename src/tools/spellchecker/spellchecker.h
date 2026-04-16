@@ -34,13 +34,13 @@
 class SyntaxHighlighter;
 class PsiCon;
 
-#ifdef Q_WS_MAC
+#if defined(Q_OS_MAC) || defined(Q_OS_MACOS)
 #include "privateqt_mac.h"
 #endif
 
 struct QtTextRange
 {
-#ifdef Q_WS_MAC
+#if defined(Q_OS_MAC) || defined(Q_OS_MACOS)
 	QtTextRange(const NSRange &nsrange);
 #endif
 	QtTextRange(int index, int length);

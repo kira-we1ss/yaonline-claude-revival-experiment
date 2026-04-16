@@ -1208,7 +1208,7 @@ public slots:
 	{
 		reconnectData_++;
 		Q_ASSERT(::reconnectData().count());
-		Q_ASSERT(reconnectData >= 0);
+		Q_ASSERT(reconnectData_ >= 0);
 		reconnectData_ = qMax(0, qMin(reconnectData_, ::reconnectData().count() - 1));
 		ReconnectData data = ::reconnectData()[reconnectData_];
 
@@ -1319,7 +1319,6 @@ PsiAccount::PsiAccount(const UserAccount &acc, PsiContactList *parent, CapsRegis
 	connect(d->eventQueue, SIGNAL(queueChanged()), SIGNAL(queueChanged()));
 	connect(d->eventQueue, SIGNAL(queueChanged()), d, SLOT(queueChanged()));
 	connect(d->eventQueue, SIGNAL(eventFromXml(PsiEvent *)), SLOT(eventFromXml(PsiEvent *)));
-	d->userList.setAutoDelete(true);
 	d->self = UserListItem(true);
 	d->self.setSubscription(Subscription::Both);
 	d->nickFromVCard = false;
@@ -2177,11 +2176,13 @@ void PsiAccount::continueLogin()
 			p.setSocks(pi.settings.host, pi.settings.port);
 		else if(pi.type == "poll") { // HTTP Poll
 			QUrl u = pi.settings.url;
-			if(u.queryItems().isEmpty()) {
+			if(QUrlQuery(u).queryItems().isEmpty()) {
+				QUrlQuery q(u);
 				if (useHost)
-					u.addQueryItem("server",host + ':' + QString::number(port));
+					q.addQueryItem("server", host + ':' + QString::number(port));
 				else
-					u.addQueryItem("server",d->jid.host());
+					q.addQueryItem("server", d->jid.host());
+				u.setQuery(q);
 			}
 			p.setHttpPoll(pi.settings.host, pi.settings.port, u.toString());
 			p.setPollInterval(2);
@@ -2552,7 +2553,7 @@ void PsiAccount::cs_warning(int w)
 	}
 
 	if (showNoTlsWarning) {
-		QMessageBox* m = new QMessageBox(QMessageBox::Critical, (d->psi->contactList()->enabledAccounts().count() > 1 ? QString("%1: ").arg(name()) : "") + tr("Server Error"), tr("The server does not support TLS encryption."), QMessageBox::Ok, 0, Qt::WDestructiveClose);
+		QMessageBox* m = new QMessageBox(QMessageBox::Critical, (d->psi->contactList()->enabledAccounts().count() > 1 ? QString("%1: ").arg(name()) : "") + tr("Server Error"), tr("The server does not support TLS encryption."), QMessageBox::Ok, 0);
 		m->setModal(true);
 		m->show();
 	}
@@ -2874,7 +2875,7 @@ void PsiAccount::cs_error(int err)
 	QMessageBox* m = new QMessageBox(QMessageBox::Critical,
 	                                 (printAccountName ? QString("%1: ").arg(name()) : "") + tr("Server Error"),
 	                                 tr("There was an error communicating with the server.\nDetails: %1").arg(str),
-	                                 QMessageBox::Ok, 0, Qt::WDestructiveClose);
+	                                 QMessageBox::Ok, 0);
 	m->setModal(true);
 	m->show();
 #endif
@@ -2916,7 +2917,7 @@ void PsiAccount::client_rosterRequestFinished(bool success, int, const QString &
 				updateReadNext(u->jid());
 
 				d->removeEntry(u->jid());
-				d->userList.removeRef(u);
+				d->userList.removeAll(u);
 			}
 			else
 				++it;
@@ -3123,7 +3124,7 @@ void PsiAccount::client_rosterItemRemoved(const RosterItem &r)
 	// else remove them for good!
 	else {
 		d->removeEntry(u->jid());
-		d->userList.removeRef(u);
+		d->userList.removeAll(u);
 	}
 }
 
@@ -3296,7 +3297,7 @@ void PsiAccount::client_resourceUnavailable(const Jid &j, const Resource &r)
 		bool found = (rit == u->userResourceList().end()) ? false: true;
 		if(found) {
 			u->setLastUnavailableStatus(r.status());
-			u->userResourceList().remove(rit);
+			u->userResourceList().erase(rit);
 
 			if(!u->isAvailable())
 				u->setLastAvailable(QDateTime::currentDateTime());
@@ -4829,7 +4830,7 @@ void PsiAccount::actionSetAvatar()
 {
 	while(1) {
 		if(option.lastPath.isEmpty())
-			option.lastPath = QDir::homeDirPath();
+			option.lastPath = QDir::homePath();
 		QString str = QFileDialog::getOpenFileName(0,tr("Choose a file"),option.lastPath, tr("Images (*.png *.xpm *.jpg *.PNG *.XPM *.JPG)"));
 		if(!str.isEmpty()) {
 			QFileInfo fi(str);
@@ -4837,7 +4838,7 @@ void PsiAccount::actionSetAvatar()
 				QMessageBox::critical(0, tr("Error"), tr("The file specified does not exist."));
 				continue;
 			}
-			option.lastPath = fi.dirPath();
+			option.lastPath = fi.dir().path();
 			avatarFactory()->setSelfAvatar(str);
 		}
 		break;
@@ -5516,7 +5517,7 @@ void PsiAccount::dj_remove(const Jid &j)
 	if(!u->inList()) {
 		XMPP::Jid j = u->jid();
 		d->removeEntry(j);
-		d->userList.removeRef(u);
+		d->userList.removeAll(u);
 
 		psi()->contactUpdatesManager()->contactRemoveFinished(this, j);
 	}
@@ -6441,7 +6442,7 @@ void PsiAccount::groupChatSetStatus(const QString &host, const QString &room, co
 
 void PsiAccount::groupChatLeave(const QString &host, const QString &room)
 {
-	d->groupchats.remove(room + '@' + host);
+	d->groupchats.removeAll(room + '@' + host);
 	d->client->groupChatLeave(host, room);
 }
 
@@ -6934,7 +6935,7 @@ void PsiAccount::processMessageQueue()
 #endif
 
 		processIncomingMessage(*mp);
-		d->messageQueue.remove(mp);
+		d->messageQueue.removeAll(mp);
 		delete mp;
 	}
 }
@@ -7042,7 +7043,7 @@ void PsiAccount::invokeGCMessage(const Jid &j)
 
 	d->userList.append(u);
 	actionSendMessage(j);
-	d->userList.remove(u);
+	d->userList.removeAll(u);
 }
 
 void PsiAccount::invokeGCChat(const Jid &j)

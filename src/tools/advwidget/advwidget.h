@@ -22,6 +22,7 @@
 #define ADVWIDGET_H
 
 #include <QWidget>
+#include <QEvent>
 
 class GAdvancedWidget : public QObject
 {
@@ -237,12 +238,19 @@ protected:
 	}
 
 protected:
-	void windowActivationChange( bool oldstate )
+	// windowActivationChange removed in Qt5; use QEvent::WindowActivate/Deactivate instead
+	void changeEvent(QEvent *e) override
 	{
-		if (gAdvWidget)
-			gAdvWidget->windowActivationChange( oldstate );
-		BaseClass::windowActivationChange( oldstate );
+		if (e->type() == QEvent::WindowActivate || e->type() == QEvent::WindowDeactivate) {
+			if (gAdvWidget)
+				gAdvWidget->windowActivationChange(e->type() == QEvent::WindowDeactivate);
+		}
+		BaseClass::changeEvent(e);
 	}
+
+	// Legacy shim for internal use
+	virtual void windowActivationChange(bool /*oldstate*/) {}
+
 };
 
 #endif
