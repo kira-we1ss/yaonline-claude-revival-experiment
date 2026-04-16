@@ -22,7 +22,7 @@
 #include <QPixmap>
 #include <QList>
 #include <QtCrypto>
-#include <QTextDocument> // for Qt::escape()
+#include <algorithm>
 
 #include "userlist.h"
 #include "avatars.h"
@@ -247,7 +247,7 @@ UserResourceList::ConstIterator UserResourceList::priority() const
 
 void UserResourceList::sort()
 {
-	qSort(*this);
+	std::sort(begin(), end());
 }
 
 
@@ -321,7 +321,7 @@ void UserListItem::setJid(const Jid &j)
 {
 	LiveRosterItem::setJid(j);
 
-	int n = jid().full().find('@');
+	int n = jid().full().indexOf(QLatin1Char('@'));
 	if(n == -1)
 		v_isTransport = true;
 	else
@@ -440,9 +440,9 @@ QString UserListItem::makeBareTip(bool trim, bool doLinkify) const
 
 	QString nick = JIDUtil::nickOrJid(name(), jid().full());
 	if(jid().full() != nick)
-		str += QString("<div style='white-space:pre'>%1 &lt;%2&gt;</div>").arg(Qt::escape(nick)).arg(Qt::escape(JIDUtil::toString(jid(),true)));
+		str += QString("<div style='white-space:pre'>%1 &lt;%2&gt;</div>").arg(TextUtil::escape(nick)).arg(TextUtil::escape(JIDUtil::toString(jid(),true)));
 	else
-		str += QString("<div style='white-space:pre'>%1</div>").arg(Qt::escape(nick));
+		str += QString("<div style='white-space:pre'>%1</div>").arg(TextUtil::escape(nick));
 
 	// subscription
 	if(!v_self && subscription().type() != Subscription::Both)
@@ -503,7 +503,7 @@ QString UserListItem::makeBareTip(bool trim, bool doLinkify) const
 			QString secstr;
 			if(isSecure(r.name()) && PsiOptions::instance()->getOption("options.ui.contactlist.tooltip.pgp").toBool())
 				secstr += QString(" <%1=\"psi/cryptoYes\">").arg(imgTag);
-			str += QString("<div style='white-space:pre'>") + QString("<%1=\"%2\"> ").arg(imgTag).arg(istr) + QString("<b>%1</b> ").arg(Qt::escape(name)) + QString("(%1)").arg(r.priority()) + secstr + "</div>";
+			str += QString("<div style='white-space:pre'>") + QString("<%1=\"%2\"> ").arg(imgTag).arg(istr) + QString("<b>%1</b> ").arg(TextUtil::escape(name)) + QString("(%1)").arg(r.priority()) + secstr + "</div>";
 
 			if(!r.publicKeyID().isEmpty() && PsiOptions::instance()->getOption("options.ui.contactlist.tooltip.pgp").toBool()) {
 				int v = r.pgpVerifyStatus();
@@ -546,7 +546,7 @@ QString UserListItem::makeBareTip(bool trim, bool doLinkify) const
 				QString s = r.status().songTitle();
 				if(trim)
 					s = dot_truncate(s, 80);
-				s = Qt::escape(s);
+				s = TextUtil::escape(s);
 				str += QString("<div style='white-space:pre'>") + QObject::tr("Listening to") + QString(": %1").arg(s) + "</div>";
 			}
 			
@@ -567,7 +567,7 @@ QString UserListItem::makeBareTip(bool trim, bool doLinkify) const
 				QString ver = r.versionString();
 				if(trim)
 					ver = dot_truncate(ver, 80);
-				ver = Qt::escape(ver);
+				ver = TextUtil::escape(ver);
 				str += QString("<div style='white-space:pre'>") + QObject::tr("Using") + QString(": %1").arg(ver) + "</div>";
 			}
 
@@ -599,7 +599,7 @@ QString UserListItem::makeBareTip(bool trim, bool doLinkify) const
 		// presence error
 		if(!v_perr.isEmpty()) {
 			QStringList err = v_perr.split('\n');
-			str += QString("<div style='white-space:pre'>") + QObject::tr("Presence Error") + QString(": %1").arg(Qt::escape(err[0])) + "</div>";
+			str += QString("<div style='white-space:pre'>") + QObject::tr("Presence Error") + QString(": %1").arg(TextUtil::escape(err[0])) + "</div>";
 			err.pop_front();
 			foreach (QString line, err)
 				str += "<div>" + line + "</div>";
@@ -657,7 +657,7 @@ void UserListItem::setSecure(const QString &rname, bool b)
 	for(QStringList::Iterator it = secList.begin(); it != secList.end(); ++it) {
 		if(*it == rname) {
 			if(!b)
-				secList.remove(it);
+				secList.erase(it);
 			return;
 		}
 	}

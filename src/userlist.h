@@ -160,15 +160,38 @@ private:
 	AvatarFactory* v_avatarFactory;
 };
 
-typedef QList<UserListItem*>::iterator UserListIt;
-
-class UserList : public QList<UserListItem>
+class UserList : public QList<UserListItem*>
 {
 public:
 	UserList();
 	~UserList();
 
 	UserListItem *find(const XMPP::Jid &);
+};
+
+class UserListIt
+{
+public:
+	explicit UserListIt(QList<UserListItem*> &list)
+	: it_(list.begin()), end_(list.end())
+	{
+	}
+
+	UserListItem *current() const
+	{
+		return (it_ != end_) ? *it_ : 0;
+	}
+
+	UserListIt &operator++()
+	{
+		if (it_ != end_)
+			++it_;
+		return *this;
+	}
+
+private:
+	QList<UserListItem*>::iterator it_;
+	QList<UserListItem*>::iterator end_;
 };
 
 #endif

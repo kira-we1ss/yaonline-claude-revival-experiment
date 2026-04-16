@@ -271,11 +271,12 @@ QDomElement UserAccount::toXml(QDomDocument &doc, const QString &tagName)
 	a.appendChild(gs);
 	git = groupState.begin();
 	for ( ; git != groupState.end(); ++git) {
-		//if ( !git.value()().open || git.value()().rank ) { // don't save unnecessary entries (the default is 'true' to open, and '0' to rank)
+		const GroupData &groupData = git.value();
+		//if ( !groupData.open || groupData.rank ) { // don't save unnecessary entries (the default is 'true' to open, and '0' to rank)
 			QDomElement group = doc.createElement("group");
 			group.setAttribute("name", git.key());
-			group.setAttribute("open", git.value()().open ? "true" : "false");
-			group.setAttribute("rank", QString::number(git.value()().rank));
+			group.setAttribute("open", groupData.open ? "true" : "false");
+			group.setAttribute("rank", QString::number(groupData.rank));
 			gs.appendChild(group);
 		//}
 	}
@@ -1178,7 +1179,7 @@ bool UserProfile::toFile(const QString &fname)
 
 		QMap< QString, QList<Options::ToolbarPrefs> >::Iterator itBars = prefs.toolbars.begin();
 		for ( ; itBars != prefs.toolbars.end(); ++itBars ) {
-			QList<Options::ToolbarPrefs> toolbars = itBars.data();
+			QList<Options::ToolbarPrefs> toolbars = itBars.value();
 			QDomElement p_bars = doc.createElement( itBars.key() );
 			p_toolbars.appendChild( p_bars );
 
@@ -1299,7 +1300,7 @@ bool UserProfile::toFile(const QString &fname)
 				roster_service.appendChild(item);
 
 				item.setAttribute("service", it.key());
-				item.setAttribute("iconset", it.value()());
+				item.setAttribute("iconset", it.value());
 			}
 		}
 
@@ -1314,7 +1315,7 @@ bool UserProfile::toFile(const QString &fname)
 				roster_custom.appendChild(item);
 
 				item.setAttribute("regExp", it.key());
-				item.setAttribute("iconset", it.value()());
+				item.setAttribute("iconset", it.value());
 			}
 		}
 
