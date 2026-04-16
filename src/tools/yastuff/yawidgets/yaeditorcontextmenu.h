@@ -29,7 +29,7 @@ class QTextEdit;
 class QLabel;
 class QLineEdit;
 class QContextMenuEvent;
-class QTextControl;
+class QWidgetTextControl;
 class QMimeData;
 
 class YaEditorContextMenu : public QObject
@@ -62,7 +62,7 @@ private:
 
 	QTextEdit* textEdit() const;
 	QLineEdit* lineEdit() const;
-	QTextControl* textControl() const;
+	QWidgetTextControl* textControl() const;
 };
 
 #endif

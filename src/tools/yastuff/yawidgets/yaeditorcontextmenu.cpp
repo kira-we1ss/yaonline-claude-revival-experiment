@@ -27,7 +27,7 @@
 #include <QTextEdit>
 #include <QLabel>
 #include <QLineEdit>
-#include <private/qtextcontrol_p.h>
+#include <private/qwidgettextcontrol_p.h>
 
 YaEditorContextMenu::YaEditorContextMenu(QObject* parent)
 	: QObject(parent)
@@ -89,10 +89,10 @@ QLineEdit* YaEditorContextMenu::lineEdit() const
 	return dynamic_cast<QLineEdit*>(widget_);
 }
 
-QTextControl* YaEditorContextMenu::textControl() const
+QWidgetTextControl* YaEditorContextMenu::textControl() const
 {
 	Q_ASSERT(widget_);
-	QTextControl* result = widget_->findChild<QTextControl*>();
+	QWidgetTextControl* result = widget_->findChild<QWidgetTextControl*>();
 	// Q_ASSERT(result);
 	return result;
 }
