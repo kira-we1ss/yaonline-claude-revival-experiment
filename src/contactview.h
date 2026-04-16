@@ -61,7 +61,7 @@ public:
 	ContactProfile(PsiAccount *, const QString &name, ContactView *, bool unique=false);
 	~ContactProfile();
 
-	void setEnabled(bool e=TRUE);
+	void setEnabled(bool e=true);
 
 	const QString & name() const;
 	void setName(const QString &name);
@@ -200,7 +200,7 @@ class ContactView : public Q3ListView
 {
 	Q_OBJECT
 public:
-	ContactView(QWidget *parent=0, const char *name=0);
+	ContactView(QWidget *parent=nullptr, const char *name=nullptr);
 	~ContactView();
 
 	bool isShowOffline() const { return v_showOffline; }

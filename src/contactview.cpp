@@ -35,13 +35,12 @@
 #include <QKeyEvent>
 #include <QEvent>
 #include <QHelpEvent>
-#include <QList>
 #include <QMimeData>
 #include <QDropEvent>
 #include <QPixmap>
 #include <QUrl>
 #include <QDesktopWidget>
-#include <QtAlgorithms>
+#include <algorithm>
 #include <stdlib.h>
 #include "common.h"
 #include "userlist.h"
@@ -117,6 +116,17 @@ static bool decodeDropText(const QMimeData *mimeData, QString *text)
 	if (text)
 		*text = dropText;
 	return true;
+}
+
+static Q3DragObject *createContactTextDrag(const QString &text, QWidget *source, const QPixmap &pixmap)
+{
+	static const char kPlainTextMimeType[] = "text/plain";
+
+	Q3StoredDrag *drag = new Q3StoredDrag(kPlainTextMimeType, source);
+	drag->setEncodedData(text.toUtf8());
+	if (!pixmap.isNull())
+		drag->setPixmap(pixmap, QPoint(8, 8));
+	return drag;
 }
 
 //----------------------------------------------------------------------------
@@ -1136,7 +1146,7 @@ void ContactProfile::doContextMenu(ContactViewItem *i, const QPoint &pos)
 		}
 
 		QStringList gl = groupList();
-		qSort(gl.begin(), gl.end(), caseInsensitiveLessThan);
+		std::sort(gl.begin(), gl.end(), caseInsensitiveLessThan);
 
 		bool inList = e ? e->u.inList() : false;
 		bool isPrivate = e ? e->u.isPrivate(): false;
@@ -1911,7 +1921,7 @@ public slots:
 					topParent->move( topParent->x(), newy );
 				}
 
-				QTimer::singleShot( 0, this, SLOT( resetAutoRosterResize() ) );
+				QTimer::singleShot(0, this, [this]() { resetAutoRosterResize(); });
 
 				topParent->layout()->setEnabled( true );
 			}
@@ -2634,9 +2644,10 @@ Q3DragObject *ContactView::dragObject()
 	if(i->type() != ContactViewItem::Contact)
 		return 0;
 
-	Q3DragObject *d = new Q3TextDrag(i->u()->jid().full(), this);
-	d->setPixmap(IconsetFactory::iconPixmap("status/online"), QPoint(8,8));
-	return d;
+	// Q3ListView still asks for a Q3DragObject, but keep the actual payload
+	// creation explicit and Qt5-friendly: plain UTF-8 text instead of Q3TextDrag.
+	return createContactTextDrag(i->u()->jid().full(), this,
+		IconsetFactory::iconPixmap("status/online"));
 }
 
 bool ContactView::allowResize() const
@@ -3537,7 +3548,7 @@ void ContactViewItem::setIcon(const PsiIcon *icon, bool alert)
 			d->icon = new AlertIcon(icon);
 
 		if (!PsiOptions::instance()->getOption("options.ui.contactlist.temp-no-roster-animation").toBool()) {
-			connect(d->icon, SIGNAL(pixmapChanged()), SLOT(iconUpdated()));
+			connect(d->icon, &PsiIcon::pixmapChanged, this, &ContactViewItem::iconUpdated);
 		}
 		d->icon->activated();
 
@@ -3566,7 +3577,7 @@ void ContactViewItem::stopAnimateNick()
 	if ( !d->animatingNick )
 		return;
 
-	disconnect(contactView()->animTimer(), SIGNAL(timeout()), this, SLOT(animateNick()));
+	disconnect(contactView()->animTimer(), &QTimer::timeout, this, &ContactViewItem::animateNick);
 
 	d->animatingNick = false;
 	repaint();
@@ -3576,7 +3587,7 @@ void ContactViewItem::setAnimateNick()
 {
 	stopAnimateNick();
 
-	connect(contactView()->animTimer(), SIGNAL(timeout()), SLOT(animateNick()));
+	connect(contactView()->animTimer(), &QTimer::timeout, this, &ContactViewItem::animateNick);
 
 	d->animatingNick = true;
 	d->animateNickX = 0;
