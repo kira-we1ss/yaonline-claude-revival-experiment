@@ -125,14 +125,14 @@ HEADERS += \
 	$$PWD/psievent.h \
 	$$PWD/globaleventqueue.h \
 	$$PWD/xmlconsole.h \
-#	$$PWD/contactview.h \
+	$$PWD/contactview.h \
 	$$PWD/psiiconset.h \
 	$$PWD/applicationinfo.h \
-#	$$PWD/pgptransaction.h \
+	$$PWD/pgptransaction.h \
 	$$PWD/userlist.h \
-#	$$PWD/mainwin.h \
-#	$$PWD/mainwin_p.h \
-#	$$PWD/psitrayicon.h \
+	$$PWD/mainwin.h \
+	$$PWD/mainwin_p.h \
+	$$PWD/psitrayicon.h \
 	$$PWD/rtparse.h \
 	$$PWD/systeminfo.h \
 	$$PWD/common.h \
@@ -238,15 +238,15 @@ SOURCES += \
 	$$PWD/psievent.cpp \
 	$$PWD/globaleventqueue.cpp \
 	$$PWD/xmlconsole.cpp \
-#	$$PWD/contactview.cpp \
+	$$PWD/contactview.cpp \
 	$$PWD/psiiconset.cpp \
 	$$PWD/applicationinfo.cpp \
-#	$$PWD/pgptransaction.cpp \
+	$$PWD/pgptransaction.cpp \
 	$$PWD/serverinfomanager.cpp \
 	$$PWD/userlist.cpp \
-#	$$PWD/mainwin.cpp \
-#	$$PWD/mainwin_p.cpp \
-#	$$PWD/psitrayicon.cpp \
+	$$PWD/mainwin.cpp \
+	$$PWD/mainwin_p.cpp \
+	$$PWD/psitrayicon.cpp \
 	$$PWD/rtparse.cpp \
 	$$PWD/systeminfo.cpp \
 	$$PWD/common.cpp \

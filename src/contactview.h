@@ -22,7 +22,8 @@
 #define CONTACTVIEW_H
 
 #include <QObject>
-#include <Q3ListView>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
 #include <QList>
 #include <QPoint>
 #include <QSize>
@@ -36,13 +37,12 @@ class ContactView;
 class ContactViewItem;
 class PsiAccount;
 class PsiIcon;
-class Q3DragObject;
-class QColorGroup;
 class QDropEvent;
 class QKeyEvent;
-class QMimeSource;
 class QPainter;
+class QPalette;
 class QPixmap;
+class QStyleOptionViewItem;
 class QTimer;
 class QEvent;
 namespace XMPP {
@@ -196,7 +196,7 @@ private:
 };
 
 // ContactView: the actual widget
-class ContactView : public Q3ListView
+class ContactView : public QTreeWidget
 {
 	Q_OBJECT
 public:
@@ -240,7 +240,13 @@ protected:
 	// reimplemented
 	void keyPressEvent(QKeyEvent *);
 	bool eventFilter( QObject *, QEvent * );
-	Q3DragObject *dragObject();
+	void mousePressEvent(QMouseEvent *e);
+	void mouseMoveEvent(QMouseEvent *e);
+	void startDrag(Qt::DropActions supportedActions);
+	void contextMenuEvent(QContextMenuEvent *e);
+	void dragEnterEvent(QDragEnterEvent *e);
+	void dragMoveEvent(QDragMoveEvent *e);
+	void dropEvent(QDropEvent *e);
 
 signals:
 	void showOffline(bool);
@@ -262,11 +268,7 @@ public slots:
 	void recalculateSize();
 
 private slots:
-	void qlv_singleclick(int, Q3ListViewItem *, const QPoint &, int);
-	void qlv_doubleclick(Q3ListViewItem *);
-	void qlv_contextPopup(Q3ListViewItem *, const QPoint &, int);
-	void qlv_contextMenuRequested(Q3ListViewItem *, const QPoint &, int);
-	void qlv_itemRenamed(Q3ListViewItem *, int, const QString &);
+	void qlv_itemDoubleClicked(QTreeWidgetItem *, int);
 	void leftClickTimeOut();
 
 	void doRecvEvent();
@@ -286,17 +288,20 @@ private slots:
 	void doAssignAvatar();
 	void doClearAvatar();
 
+	void onItemExpanded(QTreeWidgetItem *item);
+	void onItemCollapsed(QTreeWidgetItem *item);
+
 public:
 	class Private;
 	friend class Private;
 private:
 	Private *d;
 
-	QPoint mousePressPos; // store pressed position, idea taken from Licq
+	QPoint mousePressPos;
 	bool v_showOffline, v_showAgents, v_showAway, v_showHidden, v_showSelf, v_showStatusMsg;
-	bool lcto_active; // double click active?
+	bool lcto_active;
 	QPoint lcto_pos;
-	Q3ListViewItem *lcto_item;
+	QTreeWidgetItem *lcto_item;
 	QSize lastSize;
 	QString filterString_;
 
@@ -305,7 +310,13 @@ private:
 	void unlink(ContactProfile *);
 	bool allowResize() const;
 
-	static ContactViewItem *toContactViewItem(Q3ListViewItem *item);
+	static ContactViewItem *toContactViewItem(QTreeWidgetItem *item);
+
+	// internal click handling
+	void qlv_contextPopup(ContactViewItem *i, const QPoint &pos);
+	void qlv_singleclick(Qt::MouseButton button, ContactViewItem *item, const QPoint &pos);
+	void qlv_doubleclick(ContactViewItem *item);
+	void qlv_itemRenamed(ContactViewItem *i, const QString &text);
 };
 
 
@@ -315,27 +326,40 @@ private:
 //------------------------------------------------------------------------------
 
 class QTextDocument;
-class RichListViewItem : public Q3ListViewItem
+class RichListViewItem : public QTreeWidgetItem
 {
 public:
-	RichListViewItem( Q3ListView * parent );
-	RichListViewItem( Q3ListViewItem * parent );
+	RichListViewItem( QTreeWidget * parent );
+	RichListViewItem( QTreeWidgetItem * parent );
 	virtual void setText(int column, const QString& text);
 	virtual void setup();
 	virtual ~RichListViewItem();
 	int widthUsed() const;
 
-protected:
-	Q3ListView *contactListView() const;
+	// Qt5 compat: replicate Q3ListViewItem pixmap API with stored pixmap
+	void setPixmap(int column, const QPixmap &px);
+	const QPixmap *pixmap(int column) const;
+
+	// Custom height management (used by delegate for sizeHint)
+	void setItemHeight(int h);
+	int itemHeight() const;
+
+	// Paint helper called by ContactViewDelegate
+	virtual void doPaint(QPainter *p, const QPalette &pal, bool selected, bool active,
+	                     int width, int height);
+
+	QTreeWidget *contactListView() const;
+	int depth() const; // walk up parent chain
 	int contentLeftOffset(int column) const;
 	int availableTextWidth(int column) const;
-	virtual void paintCell( QPainter * p, const QColorGroup & cg, int column
-, int width, int align );
-private:
+
+protected:
 	int v_widthUsed;
 	bool v_selected, v_active;
 	bool v_rich;
 	QTextDocument* v_rt;
+	QPixmap v_pixmap;   // stored pixmap for column 0
+	int v_height;       // stored item height (0 = default)
 };
 
 // ContactViewItem: an entry in the ContactView (profile, group, or contact)
@@ -384,22 +408,27 @@ public:
 	void setIcon(const PsiIcon *, bool alert = false);
 
 	void resetStatus();
-	void resetName(bool forceNoStatusMsg = false); // use this to cancel a rename
+	void resetName(bool forceNoStatusMsg = false);
 	void resetGroupName();
 
 	void updatePosition();
 	void optionsUpdate();
+	void repaintItem();
+
+	// Paint helper called by ContactViewDelegate
+	void doPaint(QPainter *p, const QPalette &pal, bool selected, bool active,
+	             int width, int height) override;
 
 	// reimplemented functions
 	int rtti() const;
-	void paintFocus(QPainter *, const QColorGroup &, const QRect &);
-	void paintBranches(QPainter *, const QColorGroup &, int, int, int);
-	void paintCell(QPainter *, const QColorGroup & cg, int column, int width, int alignment);
-	void setOpen(bool o);
-	void insertItem(Q3ListViewItem * newChild);
-	void takeItem(Q3ListViewItem * item);
-	int compare(Q3ListViewItem *, int, bool) const;
-	bool acceptDrop(const QMimeSource *) const;
+	void setOpen(bool o);  // saves state, calls setExpanded
+	int compareTo(ContactViewItem *other) const;
+
+	// For tree manipulation with icon updates
+	void insertChildItem(ContactViewItem *child);
+	void removeChildItem(ContactViewItem *child);
+
+	bool canAcceptDrop() const;
 
 public slots:
 	void resetAnim();
@@ -407,11 +436,9 @@ public slots:
 	void animateNick();
 	void stopAnimateNick();
 
-protected:
-	void dragEntered();
-	void dragLeft();
-	void dropped(QDropEvent *);
-	void cancelRename(int);
+	// Called from ContactView on expand/collapse events
+	void onExpanded();
+	void onCollapsed();
 
 private:
 	int type_;
