@@ -1,5 +1,6 @@
 #include <QApplication>
 #include <QFile>
+#include <QByteArray>
 #include "bconsole.h"
 #include <QtCrypto>
 #include "xmpp.h"
@@ -25,7 +26,7 @@ QPtrList<QCA::Cert> getRootCerts(const QString &store)
 	// open the Psi rootcerts file
 	QFile f(store);
 	if(!f.open(QIODevice::ReadOnly)) {
-		printf("unable to open %s\n", f.name().latin1());
+		printf("unable to open %s\n", qPrintable(f.name()));
 		return list;
 	}
 	QDomDocument doc;
@@ -34,12 +35,12 @@ QPtrList<QCA::Cert> getRootCerts(const QString &store)
 
 	QDomElement base = doc.documentElement();
 	if(base.tagName() != "store") {
-		printf("wrong format of %s\n", f.name().latin1());
+		printf("wrong format of %s\n", qPrintable(f.name()));
 		return list;
 	}
 	QDomNodeList cl = base.elementsByTagName("certificate");
 	if(cl.count() == 0) {
-		printf("no certs found in %s\n", f.name().latin1());
+		printf("no certs found in %s\n", qPrintable(f.name()));
 		return list;
 	}
 
@@ -62,12 +63,13 @@ QPtrList<QCA::Cert> getRootCerts(const QString &store)
 
 static QString prompt(const QString &s)
 {
-	printf("* %s ", s.latin1());
+	printf("* %s ", qPrintable(s));
 	fflush(stdout);
 	char line[256];
-	fgets(line, 255, stdin);
-	QString result = line;
-	if(result[result.length()-1] == '\n')
+	if(!fgets(line, sizeof(line), stdin))
+		return QString();
+	QString result = QString::fromLocal8Bit(line);
+	if(!result.isEmpty() && result[result.length()-1] == '\n')
 		result.truncate(result.length()-1);
 	return result;
 }
@@ -75,11 +77,11 @@ static QString prompt(const QString &s)
 static void showCertInfo(const QCA::Cert &cert)
 {
 	fprintf(stderr, "-- Cert --\n");
-	fprintf(stderr, " CN: %s\n", cert.subject()["CN"].latin1());
+	fprintf(stderr, " CN: %s\n", qPrintable(cert.subject()["CN"]));
 	fprintf(stderr, " Valid from: %s, until %s\n",
-		cert.notBefore().toString().latin1(),
-		cert.notAfter().toString().latin1());
-	fprintf(stderr, " PEM:\n%s\n", cert.toPEM().latin1());
+		qPrintable(cert.notBefore().toString()),
+		qPrintable(cert.notAfter().toString()));
+	fprintf(stderr, " PEM:\n%s\n", qPrintable(cert.toPEM()));
 }
 
 static QString resultToString(int result)
@@ -207,7 +209,7 @@ private slots:
 		if(vr == QCA::TLS::Valid)
 			fprintf(stderr, "conntest: Valid certificate.\n");
 		else
-			fprintf(stderr, "conntest: Invalid certificate: %s\n", resultToString(vr).latin1());
+			fprintf(stderr, "conntest: Invalid certificate: %s\n", qPrintable(resultToString(vr)));
 
 		tlsHandler->continueAfterHandshake();
 	}
@@ -307,7 +309,7 @@ private slots:
 				s = "server out of resources";
 			else if(x == XMPP::ClientStream::SystemShutdown)
 				s = "system is shutting down NOW";
-			fprintf(stderr, "conntest: XMPP stream error: %s\n", s.latin1());
+			fprintf(stderr, "conntest: XMPP stream error: %s\n", qPrintable(s));
 		}
 		else if(err == XMPP::ClientStream::ErrConnection) {
 			int x = conn->errorCode();
@@ -324,7 +326,7 @@ private slots:
 				s = "proxy authorization";
 			else if(x == XMPP::AdvancedConnector::ErrStream)
 				s = "stream error";
-			fprintf(stderr, "conntest: connection error: %s\n", s.latin1());
+			fprintf(stderr, "conntest: connection error: %s\n", qPrintable(s));
 		}
 		else if(err == XMPP::ClientStream::ErrNeg) {
 			int x = stream->errorCondition();
@@ -339,7 +341,7 @@ private slots:
 				s = QString("see other host: [%1]").arg(stream->errorText());
 			else if(x == XMPP::ClientStream::UnsupportedVersion)
 				s = "server does not support proper xmpp version";
-			fprintf(stderr, "conntest: stream negotiation error: %s\n", s.latin1());
+			fprintf(stderr, "conntest: stream negotiation error: %s\n", qPrintable(s));
 		}
 		else if(err == XMPP::ClientStream::ErrTLS) {
 			int x = stream->errorCondition();
@@ -353,7 +355,7 @@ private slots:
 				else
 					s = "broken security layer (TLS)";
 			}
-			fprintf(stderr, "conntest: %s\n", s.latin1());
+			fprintf(stderr, "conntest: %s\n", qPrintable(s));
 		}
 		else if(err == XMPP::ClientStream::ErrAuth) {
 			int x = stream->errorCondition();
@@ -380,7 +382,7 @@ private slots:
 				s = "not authorized";
 			else if(x == XMPP::ClientStream::TemporaryAuthFailure)
 				s = "temporary auth failure";
-			fprintf(stderr, "conntest: auth error: %s\n", s.latin1());
+			fprintf(stderr, "conntest: auth error: %s\n", qPrintable(s));
 		}
 		else if(err == XMPP::ClientStream::ErrSecurityLayer)
 			fprintf(stderr, "conntest: broken security layer (SASL)\n");
@@ -458,7 +460,7 @@ int main(int argc, char **argv)
 				int proxy_port = 0;
 				QString type = args[0];
 				QString s = args[1];
-				int n = s.find(':');
+				int n = s.indexOf(':');
 				if(n == -1) {
 					if(type != "poll") {
 						printf("Invalid host:port for proxy\n");
@@ -486,7 +488,7 @@ int main(int argc, char **argv)
 					proxy.setSocks(proxy_host, proxy_port);
 				}
 				else {
-					printf("No such proxy type '%s'\n", type.latin1());
+					printf("No such proxy type '%s'\n", qPrintable(type));
 					return 0;
 				}
 			}
@@ -495,7 +497,7 @@ int main(int argc, char **argv)
 			}
 			else if(name == "host") {
 				QString s = args[0];
-				int n = s.find(':');
+				int n = s.indexOf(':');
 				if(n == -1) {
 					printf("Invalid host:port for host\n");
 					return 0;
@@ -506,7 +508,7 @@ int main(int argc, char **argv)
 			}
 			else if(name == "sslhost") {
 				QString s = args[0];
-				int n = s.find(':');
+				int n = s.indexOf(':');
 				if(n == -1) {
 					printf("Invalid host:port for host\n");
 					return 0;
@@ -520,7 +522,7 @@ int main(int argc, char **argv)
 				opt_probe = true;
 			}
 			else {
-				printf("Unknown option '%s'\n", name.latin1());
+				printf("Unknown option '%s'\n", qPrintable(name));
 				return 0;
 			}
 		}
@@ -537,24 +539,24 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	printf("JID: %s\n", jid.full().latin1());
+	printf("JID: %s\n", qPrintable(jid.full()));
 	if(proxy.type() != XMPP::AdvancedConnector::Proxy::None) {
 		printf("Proxy: ");
 		if(proxy.type() == XMPP::AdvancedConnector::Proxy::HttpConnect)
-			printf("HttpConnect (%s:%d)", proxy.host().latin1(), proxy.port());
+			printf("HttpConnect (%s:%d)", qPrintable(proxy.host()), proxy.port());
 		else if(proxy.type() == XMPP::AdvancedConnector::Proxy::HttpPoll) {
-			printf("HttpPoll {%s}", proxy.url().latin1());
+			printf("HttpPoll {%s}", qPrintable(proxy.url()));
 			if(!proxy.host().isEmpty()) {
-				printf(" (%s:%d)", proxy.host().latin1(), proxy.port());
+				printf(" (%s:%d)", qPrintable(proxy.host()), proxy.port());
 			}
 		}
 		else if(proxy.type() == XMPP::AdvancedConnector::Proxy::Socks)
-			printf("Socks (%s:%d)", proxy.host().latin1(), proxy.port());
+			printf("Socks (%s:%d)", qPrintable(proxy.host()), proxy.port());
 		printf("\n");
 	}
 	if(proxy.type() != XMPP::AdvancedConnector::Proxy::HttpPoll) {
 		if(!host.isEmpty()) {
-			printf("Host: %s:%d", host.latin1(), port);
+			printf("Host: %s:%d", qPrintable(host), port);
 			if(opt_ssl)
 				printf(" (ssl)");
 			printf("\n");
