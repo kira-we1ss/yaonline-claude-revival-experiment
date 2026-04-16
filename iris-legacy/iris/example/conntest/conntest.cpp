@@ -1,4 +1,5 @@
-#include <qapplication.h>
+#include <QApplication>
+#include <QFile>
 #include "bconsole.h"
 #include <QtCrypto>
 #include "xmpp.h"
@@ -23,7 +24,7 @@ QPtrList<QCA::Cert> getRootCerts(const QString &store)
 
 	// open the Psi rootcerts file
 	QFile f(store);
-	if(!f.open(IO_ReadOnly)) {
+	if(!f.open(QIODevice::ReadOnly)) {
 		printf("unable to open %s\n", f.name().latin1());
 		return list;
 	}
@@ -395,12 +396,8 @@ private slots:
 
 	void con_readyRead()
 	{
-		QByteArray a = c->read();
-		QCString cs;
-		cs.resize(a.size()+1);
-		memcpy(cs.data(), a.data(), a.size());
-		QString s = QString::fromLocal8Bit(cs);
-		stream->writeDirect(s);
+		const QByteArray a = c->read();
+		stream->writeDirect(QString::fromLocal8Bit(a.constData(), a.size()));
 	}
 };
 
@@ -435,14 +432,14 @@ int main(int argc, char **argv)
 		QString s = argv[at];
 
 		// is it an option?
-		if(s.left(2) == "--") {
+		if(s.startsWith("--")) {
 			QString name;
 			QStringList args;
-			int n = s.find('=', 2);
+			int n = s.indexOf('=', 2);
 			if(n != -1) {
 				name = s.mid(2, n-2);
 				++n;
-				args = QStringList::split(',', s.mid(n), true);
+				args = s.mid(n).split(',', Qt::KeepEmptyParts);
 			}
 			else {
 				name = s.mid(2);
