@@ -58,10 +58,16 @@
 
 #include <QApplication>
 // Qt3Support-free replacement for Q3Shared
+// NOTE: count starts at 1 (not 0) to match the implicit-sharing invariant used
+// throughout PsiIcon and Iconset: a freshly constructed object is the sole owner
+// (count==1), without needing an explicit ref() call at the construction site.
+// Starting at 0 caused detach() to see count!=1 on a brand-new PsiIcon and trigger
+// a spurious copy(), which then called operator=() and deref()'d count below zero —
+// corrupting memory and leading to a SIGSEGV null-dereference in setText().
 class Q3Shared {
 public:
-    Q3Shared() : count(0) {}
-    Q3Shared(const Q3Shared &) : count(0) {}
+    Q3Shared() : count(1) {}
+    Q3Shared(const Q3Shared &) : count(1) {}
     inline void ref() { ++count; }
     inline bool deref() { return !--count; }
     int count;
