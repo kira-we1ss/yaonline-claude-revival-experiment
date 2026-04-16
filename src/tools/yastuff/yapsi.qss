@@ -1,3 +1,12 @@
+/* Qt5/macOS: ensure labels on white backgrounds are visible */
+YaLoginPage QLabel {
+    color: #333333;
+}
+YaLoginPage QLineEdit {
+    color: #000000;
+    background-color: #ffffff;
+}
+
 QHeaderView::section {
 	background-color: lightgray;
 	color: black;
