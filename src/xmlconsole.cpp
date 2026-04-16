@@ -22,7 +22,10 @@
 #include <QPushButton>
 #include <QCheckBox>
 #include <QVBoxLayout>
+#include <QTextCursor>
+#include <QTextDocument>
 #include <QTextEdit>
+#include <QTextFrame>
 #include <QHBoxLayout>
 #include <QMessageBox>
 
@@ -59,7 +62,7 @@ XmlConsole::XmlConsole(PsiAccount *_pa)
 
 	ui_.te->setUndoRedoEnabled(false);
 	ui_.te->setReadOnly(true);
-	ui_.te->setTextFormat(Qt::PlainText);
+	ui_.te->setAcceptRichText(false);
 
 	QTextFrameFormat f = ui_.te->document()->rootFrame()->frameFormat();
 	f.setBackground(QBrush(Qt::black));
@@ -163,8 +166,10 @@ void XmlConsole::dumpXml(const QDateTime& dateTime, const QString& xml, bool inc
 	QString stamp = QString("<!-- %1 TS:%2 -->")
 	                .arg(!incoming ? "outgoing" : "incoming")
 	                .arg(dateTime.toString(Qt::ISODate));
-	ui_.te->setColor(incoming ? Qt::yellow : Qt::red);
-	ui_.te->append(stamp + xml + '\n');
+	ui_.te->moveCursor(QTextCursor::End);
+	ui_.te->setTextColor(incoming ? Qt::yellow : Qt::red);
+	ui_.te->insertPlainText(stamp + xml + '\n');
+	ui_.te->moveCursor(QTextCursor::End);
 }
 
 void XmlConsole::insertXml()
@@ -188,25 +193,30 @@ void XmlConsole::xml_textReady(const QString &str)
 // XmlPrompt
 //----------------------------------------------------------------------------
 XmlPrompt::XmlPrompt(QWidget *parent, const char *name)
-	: QDialog(parent, name, false)
+	: QDialog(parent)
 {
+	if (name)
+		setObjectName(QLatin1String(name));
+	setModal(false);
 #ifdef YAPSI
 	setStyle(YaStyle::defaultStyle());
 #endif
 	setAttribute(Qt::WA_DeleteOnClose);
 	setWindowTitle(tr("XML Input"));
 
-	QVBoxLayout *vb1 = new QVBoxLayout(this, 8);
+	QVBoxLayout *vb1 = new QVBoxLayout(this);
+	vb1->setContentsMargins(8, 8, 8, 8);
 
 	te = new QTextEdit(this);
 	te->setAcceptRichText(false);
 	vb1->addWidget(te);
 
-	QHBoxLayout *hb1 = new QHBoxLayout(vb1);
+	QHBoxLayout *hb1 = new QHBoxLayout();
+	vb1->addLayout(hb1);
 	QPushButton *pb;
 
 	pb = new QPushButton(tr("&Transmit"), this);
-	pb->setDefault(TRUE);
+	pb->setDefault(true);
 	connect(pb, SIGNAL(clicked()), SLOT(doTransmit()));
 	hb1->addWidget(pb);
 	hb1->addStretch(1);
@@ -228,7 +238,7 @@ XmlPrompt::~XmlPrompt()
 
 void XmlPrompt::doTransmit()
 {
-	QString str = te->text();
+	QString str = te->toPlainText();
 
 	// Validate input
 	QDomDocument doc;
