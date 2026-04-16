@@ -88,7 +88,7 @@ InfoDlg::InfoDlg(int type, const Jid &j, const VCard &vcard, PsiAccount *pa, QWi
 	d->cacheVCard = cacheVCard;
 	d->busy = ui_.busy;
 
-	ui_.te_desc->setTextFormat(Qt::PlainText);
+	ui_.te_desc->setAcceptRichText(false);
 
 	setWindowTitle(d->jid.full());
 #ifndef YAPSI
@@ -120,7 +120,7 @@ InfoDlg::InfoDlg(int type, const Jid &j, const VCard &vcard, PsiAccount *pa, QWi
 	connect(d->pa->client(), SIGNAL(resourceUnavailable(const Jid &, const Resource &)), SLOT(contactUnavailable(const Jid &, const Resource &)));
 	connect(d->pa,SIGNAL(updateContact(const Jid&)),SLOT(contactUpdated(const Jid&)));
 	ui_.te_status->setReadOnly(true);
-	ui_.te_status->setTextFormat(Qt::RichText);
+	ui_.te_status->setAcceptRichText(true);
 	PsiRichText::install(ui_.te_status->document());
 	updateStatus();
 	foreach(UserListItem* u, d->pa->findRelevant(j)) {
@@ -283,7 +283,7 @@ void InfoDlg::updatePhoto()
 	else {
 		img_scaled = img;
 	}
-	ui_.label_photo->setPixmap(QPixmap(img_scaled));
+	ui_.label_photo->setPixmap(QPixmap::fromImage(img_scaled));
 }
 
 void InfoDlg::fieldsEnable(bool x)
@@ -315,49 +315,15 @@ void InfoDlg::fieldsEnable(bool x)
 
 void InfoDlg::setEdited(bool x)
 {
-	ui_.le_fullname->setEdited(x);
-	ui_.le_nickname->setEdited(x);
-	ui_.le_bday->setEdited(x);
-	ui_.le_email->setEdited(x);
-	ui_.le_homepage->setEdited(x);
-	ui_.le_phone->setEdited(x);
-	ui_.le_street->setEdited(x);
-	ui_.le_ext->setEdited(x);
-	ui_.le_city->setEdited(x);
-	ui_.le_state->setEdited(x);
-	ui_.le_pcode->setEdited(x);
-	ui_.le_country->setEdited(x);
-	ui_.le_orgName->setEdited(x);
-	ui_.le_orgUnit->setEdited(x);
-	ui_.le_title->setEdited(x);
-	ui_.le_role->setEdited(x);
-
+	// QLineEdit::setEdited() was removed in Qt5 - track state only via te_edited
 	d->te_edited = x;
+	Q_UNUSED(x);
 }
 
 bool InfoDlg::edited()
 {
-	bool x = false;
-
-	if(ui_.le_fullname->edited()) x = true;
-	if(ui_.le_nickname->edited()) x = true;
-	if(ui_.le_bday->edited()) x = true;
-	if(ui_.le_email->edited()) x = true;
-	if(ui_.le_homepage->edited()) x = true;
-	if(ui_.le_phone->edited()) x = true;
-	if(ui_.le_street->edited()) x = true;
-	if(ui_.le_ext->edited()) x = true;
-	if(ui_.le_city->edited()) x = true;
-	if(ui_.le_state->edited()) x = true;
-	if(ui_.le_pcode->edited()) x = true;
-	if(ui_.le_country->edited()) x = true;
-	if(ui_.le_orgName->edited()) x = true;
-	if(ui_.le_orgUnit->edited()) x = true;
-	if(ui_.le_title->edited()) x = true;
-	if(ui_.le_role->edited()) x = true;
-	if(d->te_edited) x = true;
-
-	return x;
+	// QLineEdit::edited() was removed in Qt5 - use d->te_edited only
+	return d->te_edited;
 }
 
 void InfoDlg::setReadOnly(bool x)
@@ -490,7 +456,7 @@ VCard InfoDlg::makeVCard()
 
 	v.setTitle( ui_.le_title->text() );
 	v.setRole( ui_.le_role->text() );
-	v.setDesc( ui_.te_desc->text() );
+	v.setDesc( ui_.te_desc->toPlainText() );
 
 	return v;
 }
@@ -508,7 +474,7 @@ void InfoDlg::selectPhoto()
 {
 	while(1) {
 		if(option.lastPath.isEmpty())
-			option.lastPath = QDir::homeDirPath();
+			option.lastPath = QDir::homePath();
 		QString str = QFileDialog::getOpenFileName(this, tr("Choose a file"), option.lastPath, tr("Images (*.png *.xpm *.jpg *.PNG *.XPM *.JPG)"));
 		if(!str.isEmpty()) {
 			QFileInfo fi(str);
@@ -516,7 +482,7 @@ void InfoDlg::selectPhoto()
 				QMessageBox::information(this, tr("Error"), tr("The file specified does not exist."));
 				continue;
 			}
-			option.lastPath = fi.dirPath();
+			option.lastPath = fi.dir().path();
 			//printf(QDir::convertSeparators(fi.filePath()));
 			
 			// put the image in the preview box
@@ -647,7 +613,7 @@ void InfoDlg::contactAvailable(const Jid &j, const Resource &r)
 void InfoDlg::contactUnavailable(const Jid &j, const Resource &r)
 {
 	if (d->jid.compare(j,false)) {
-		d->infoRequested.remove(j.withResource(r.name()).full());
+		d->infoRequested.removeAll(j.withResource(r.name()).full());
 	}
 }
 

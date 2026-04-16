@@ -297,7 +297,7 @@ void PsiApplication::appExiting(int code)
 bool PsiApplication::event(QEvent* event)
 {
 	if(event->type() == QEvent::Close) {
-		emit aboutToQuit();
+		appAboutToQuit();  // QCoreApplication::aboutToQuit has QPrivateSignal, call slot directly
 	}
 
 	return QApplication::event(event);

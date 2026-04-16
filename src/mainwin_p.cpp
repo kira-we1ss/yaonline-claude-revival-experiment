@@ -68,8 +68,9 @@ private:
 };
 
 PopupActionButton::PopupActionButton(QWidget *parent, const char *name)
-: QPushButton(parent, name), hasToolTip(false), icon(0), showText(true)
+: QPushButton(parent), hasToolTip(false), icon(0), showText(true)
 {
+	if (name) setObjectName(QString::fromLatin1(name));
 }
 
 PopupActionButton::~PopupActionButton()
@@ -140,10 +141,10 @@ void PopupActionButton::paintEvent(QPaintEvent *p)
 		style_option.init(this);
 		QRect r = style()->subElementRect(QStyle::SE_PushButtonContents, &style_option, this);
 
-		if(isMenuButton())
+		if(menu())
 			r.setWidth(r.width() - style()->pixelMetric(QStyle::PM_MenuButtonIndicator, &style_option, this));
-		if(iconSet() && !iconSet()->isNull())
-			r.setWidth(r.width() - (iconSet()->pixmap(QIcon::Small, QIcon::Normal, QIcon::Off).width()));
+		if(!QPushButton::icon().isNull())
+			r.setWidth(r.width() - QPushButton::icon().pixmap(16, 16).width());
 
 		// font metrics
 		QFontMetrics fm(font());
@@ -159,16 +160,16 @@ void PopupActionButton::paintEvent(QPaintEvent *p)
 		if(w1 > w2) {
 			if( !hasToolTip ) {
 				setToolTip(label);
-				hasToolTip = TRUE;
+				hasToolTip = true;
 			}
 
 			// make a string that fits
-			bool found = FALSE;
+			bool found = false;
 			QString newtext;
 			int n;
 			for(n = oldtext.length(); n > 0; --n) {
 				if(fm.width(oldtext, n) < w2) {
-					found = TRUE;
+					found = true;
 					break;
 				}
 			}
@@ -288,7 +289,7 @@ void PopupAction::setText (const QString &text)
 bool PopupAction::addTo (QWidget *w)
 {
 	if ( w->inherits("QToolBar") ) {
-		QByteArray bname((const char*) (QString(name()) + QString("_action_button")));
+		QByteArray bname((objectName() + QString("_action_button")).toLatin1());
 		PopupActionButton *btn = new PopupActionButton ( w, bname );
 		d->buttons.append ( btn );
 		btn->setMenu ( menu() );
@@ -321,7 +322,7 @@ void PopupAction::setEnabled (bool e)
 
 IconAction *PopupAction::copy() const
 {
-	PopupAction *act = new PopupAction(text(), menu(), 0, name());
+	PopupAction *act = new PopupAction(text(), menu(), 0, nullptr);
 
 	*act = *this;
 
@@ -344,8 +345,9 @@ PopupAction &PopupAction::operator=( const PopupAction &from )
 //----------------------------------------------------------------------------
 
 MLabel::MLabel(QWidget *parent, const char *name)
-:QLabel(parent, name)
+:QLabel(parent)
 {
+	if (name) setObjectName(QString::fromLatin1(name));
 	setMinimumWidth(48);
 	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 	setFrameStyle(QFrame::Panel | QFrame::Sunken);
@@ -382,7 +384,7 @@ public:
 	{
 		id = _id;
 		psi = _psi;
-		sm = new QSignalMapper(this, "MAction::Private::SignalMapper");
+		sm = new QSignalMapper(this);
 	}
 
 	QMenu *subMenu(QWidget *p)
@@ -443,12 +445,12 @@ bool MAction::addTo(QWidget *w)
 	{
 		QMenu *menu = (QMenu*)w;
 		if ( d->psi->contactList()->enabledAccounts().count() < 2 ) {
-			QAction *act = menu->addAction(icon(), menuText());
+			QAction *act = menu->addAction(icon(), text());
 			act->setEnabled(isEnabled());
 			connect(act, &QAction::triggered, [this]() { itemActivated(0); });
 		}
 		else
-			menu->addMenu(d->subMenu(w))->setText(menuText());
+			menu->addMenu(d->subMenu(w))->setText(text());
 	}
 	else
 		return IconAction::addTo(w);
@@ -512,7 +514,7 @@ SpacerAction::SpacerAction(QObject *parent, const char *name)
 : IconAction(parent, name)
 {
 	setText(tr("<Spacer>"));
-	setMenuText(tr("<Spacer>"));
+	setText(tr("<Spacer>"));
 	setWhatsThis(tr("Spacer provides spacing to separate actions"));
 }
 
@@ -580,7 +582,7 @@ EventNotifierAction::EventNotifierAction(QObject *parent, const char *name)
 : IconAction(parent, name)
 {
 	d = new Private;
-	setMenuText(tr("<Event notifier>"));
+	setText(tr("<Event notifier>"));
 	d->hide = true;
 }
 
