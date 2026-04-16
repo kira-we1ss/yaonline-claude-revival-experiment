@@ -29,6 +29,8 @@
 #include "psilogger.h"
 #include "desktoputil.h"
 #include "yacommon.h"
+#include "registrationdlg.h"
+#include <QInputDialog>
 #include "yapddmanager.h"
 
 YaLoginPage::YaLoginPage()
@@ -142,9 +144,8 @@ void YaLoginPage::setShouldBeVisible(bool shouldBeVisible)
 			account = getAccount();
 		if (account) {
 			UserAccount acc = account->userAccount();
-			QString jid = Ya::stripYaRuDomain(acc.jid);
-
-			ui_.login->setText(jid);
+			// Show full JID — no domain stripping
+			ui_.login->setText(acc.jid);
 			ui_.password->setText(acc.pass);
 
 			if (account->isActive())
@@ -247,17 +248,8 @@ void YaLoginPage::checkPdd()
 
 void YaLoginPage::checkPddFinished()
 {
-#if 0
-	bool isPddEnabled = false;
-	if (contactList_->yaPddManager()->knownDomain(domain())) {
-		YaPddManager::DomainData data = contactList_->yaPddManager()->domainData(domain());
-		isPddEnabled = data.state == YaPddManager::State_ThirdParty;
-	}
-
-	bool showYaRuDomain = Ya::isYaRuDomain(domain()) || !isPddEnabled;
-	ui_.defaultDomainLabel->setVisible(showYaRuDomain);
-#endif
-	ui_.defaultDomainLabel->setVisible(!ui_.login->text().trimmed().contains("@"));
+	// @domain label removed — generic XMPP client accepts any JID
+	ui_.defaultDomainLabel->setVisible(false);
 }
 
 void YaLoginPage::updateFocus()
@@ -278,18 +270,13 @@ void YaLoginPage::updateFocus()
 
 QString YaLoginPage::login() const
 {
-	QString result = ui_.login->text().trimmed();
-	if (!result.isEmpty() && !result.contains("@"))
-		result += "@ya.ru";
-	return result;
+	// Return the JID as-is; user must enter a full JID (user@domain)
+	return ui_.login->text().trimmed();
 }
 
 QString YaLoginPage::domain() const
 {
-	QString result = ui_.login->text().trimmed();
-	if (!result.isEmpty() && !result.contains("@"))
-		return "ya.ru";
-	XMPP::Jid jid(result);
+	XMPP::Jid jid(ui_.login->text().trimmed());
 	return jid.domain();
 }
 
@@ -329,7 +316,35 @@ PsiAccount* YaLoginPage::getAccount() const
 
 void YaLoginPage::registerAccount()
 {
-	DesktopUtil::openYaUrl("http://passport.yandex.ru/passport?mode=register");
+	// Ask for the XMPP server to register on
+	bool ok = false;
+	QString server = QInputDialog::getText(this,
+		tr("Register"),
+		tr("Enter XMPP server (e.g. jabber.org):"),
+		QLineEdit::Normal,
+		// Pre-fill with domain from current JID field if present
+		domain().isEmpty() ? QString() : domain(),
+		&ok);
+	if (!ok || server.trimmed().isEmpty())
+		return;
+
+	server = server.trimmed();
+
+	// Use an existing account or create a minimal one for the registration connection
+	PsiAccount* account = nullptr;
+	if (!contactList_->accounts().isEmpty())
+		account = contactList_->accounts().first();
+	if (!account) {
+		// Create a temporary account pointing at this server
+		account = contactList_->createAccount(server, Jid(), QString(),
+		                                       true, server, 5222);
+	}
+	if (!account)
+		return;
+
+	RegistrationDlg* dlg = new RegistrationDlg(Jid(server), account);
+	dlg->setAttribute(Qt::WA_DeleteOnClose);
+	dlg->show();
 }
 
 void YaLoginPage::paintEvent(QPaintEvent*)
