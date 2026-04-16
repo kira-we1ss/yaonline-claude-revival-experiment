@@ -47,7 +47,7 @@ public:
 	bool optionsChanged(const Options *old); // returns 'true' if Psi needs to be restarted
 
 	QHash<QString, Iconset*> roster;
-	QList<Iconset> emoticons;
+	QList<Iconset*> emoticons;
 	const Iconset &system() const;
 	void stripFirstAnimFrame(Iconset *);
 	static void removeAnimation(Iconset *);

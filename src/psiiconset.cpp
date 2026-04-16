@@ -28,6 +28,7 @@
 #include <QFileInfo>
 #include <QHash>
 #include <QCoreApplication>
+#include <QtAlgorithms>
 
 using namespace XMPP;
 
@@ -44,8 +45,6 @@ public:
 
 	Private(PsiIconset *_psi) {
 		psi = _psi;
-		psi->emoticons.setAutoDelete(true);
-		psi->roster.setAutoDelete(true);
 	}
 
 	~Private() {
@@ -67,7 +66,7 @@ public:
 				return fileName;
 		}
 
-		return QString::null;
+		return QString();
 	}
 
 	void stripFirstAnimFrame(Iconset &is) {
@@ -134,12 +133,12 @@ public:
 
 			QMap<QString, QRegExp>::Iterator it = services.begin();
 			for ( ; it != services.end(); ++it) {
-				QRegExp rx = it.data();
-				if ( rx.search(jid.host()) != -1 ) {
+				QRegExp rx = it.value();
+				if ( rx.indexIn(jid.host()) != -1 ) {
 					// get the iconset name of the current service
 					QMap<QString, QString>::Iterator it2 = option.serviceRosterIconset.find(it.key());
 					if ( it2 != option.serviceRosterIconset.end() ) {
-						Iconset *is = psi->roster.find(it2.data());
+						Iconset *is = psi->roster.value(it2.value());
 						if ( is ) {
 							PsiIcon *i = (PsiIcon *)is->icon(iconName);
 							if ( i ) {
@@ -154,7 +153,7 @@ public:
 
 			// let's try the default transport iconset then...
 			if ( !found && jid.user().isEmpty() ) {
-				Iconset *is = psi->roster.find(option.serviceRosterIconset["transport"]);
+				Iconset *is = psi->roster.value(option.serviceRosterIconset.value("transport"));
 				if ( is ) {
 					PsiIcon *i = (PsiIcon *)is->icon(iconName);
 					if ( i )
@@ -167,8 +166,8 @@ public:
 		QMap<QString, QString>::Iterator it = option.customRosterIconset.begin();
 		for ( ; it != option.customRosterIconset.end(); ++it) {
 			QRegExp rx = QRegExp(it.key());
-			if ( rx.search(jid.userHost()) != -1 ) {
-				Iconset *is = psi->roster.find(it.data());
+			if ( rx.indexIn(jid.userHost()) != -1 ) {
+				Iconset *is = psi->roster.value(it.value());
 				if ( is ) {
 					PsiIcon *i = (PsiIcon *)is->icon(iconName);
 					if ( i )
@@ -214,9 +213,9 @@ public:
 		return def;
 	}
 
-	QList<Iconset> emoticons()
+	QList<Iconset*> emoticons()
 	{
-		QList<Iconset> emo;
+		QList<Iconset*> emo;
 
 		foreach(QString name, option.emoticons) {
 			Iconset *is = new Iconset;
@@ -241,6 +240,10 @@ PsiIconset::PsiIconset()
 
 PsiIconset::~PsiIconset()
 {
+	qDeleteAll(roster);
+	roster.clear();
+	qDeleteAll(emoticons);
+	emoticons.clear();
 	delete d;
 }
 
@@ -267,6 +270,7 @@ bool PsiIconset::loadAll()
 	bool ok;
 
 	// load roster
+	qDeleteAll(roster);
 	roster.clear();
 
 	// default roster iconset
@@ -279,13 +283,13 @@ bool PsiIconset::loadAll()
 
 	QMap<QString, QString>::Iterator it = option.serviceRosterIconset.begin();
 	for ( ; it != option.serviceRosterIconset.end(); ++it)
-		if ( rosterIconsets.findIndex( it.data() ) == -1 )
-			rosterIconsets << it.data();
+		if ( !rosterIconsets.contains(it.value()) )
+			rosterIconsets << it.value();
 
 	it = option.customRosterIconset.begin();
 	for ( ; it != option.customRosterIconset.end(); ++it)
-		if ( rosterIconsets.findIndex( it.data() ) == -1 )
-			rosterIconsets << it.data();
+		if ( !rosterIconsets.contains(it.value()) )
+			rosterIconsets << it.value();
 
 	QStringList::Iterator it2 = rosterIconsets.begin();
 	for ( ; it2 != rosterIconsets.end(); ++it2) {
@@ -310,6 +314,7 @@ bool PsiIconset::loadAll()
 void PsiIconset::loadEmoticons()
 {
 	// load emoticons
+	qDeleteAll(emoticons);
 	emoticons.clear();
 	emoticons = d->emoticons();
 }
@@ -321,15 +326,16 @@ bool PsiIconset::optionsChanged(const Options *old)
 	// default roster iconset
 	if ( old->defaultRosterIconset != option.defaultRosterIconset ) {
 		Iconset *newDef = d->defaultRosterIconset(&ok);
-		Iconset *oldDef = roster[old->defaultRosterIconset];
-		d->loadIconset( oldDef, newDef );
-
-		roster.setAutoDelete(false);
-		roster.remove(old->defaultRosterIconset);
-		roster.setAutoDelete(true);
-
-		roster.insert (option.defaultRosterIconset, oldDef);
-		delete newDef;
+		Iconset *oldDef = roster.take(old->defaultRosterIconset);
+		if ( oldDef ) {
+			d->loadIconset( oldDef, newDef );
+			roster.insert (option.defaultRosterIconset, oldDef);
+			delete newDef;
+		}
+		else {
+			newDef->addToFactory();
+			roster.insert (option.defaultRosterIconset, newDef);
+		}
 	}
 
 	// service&custom roster iconsets
@@ -338,13 +344,13 @@ bool PsiIconset::optionsChanged(const Options *old)
 
 		QMap<QString, QString>::Iterator it = option.serviceRosterIconset.begin();
 		for ( ; it != option.serviceRosterIconset.end(); ++it)
-			if ( rosterIconsets.findIndex( it.data() ) == -1 )
-				rosterIconsets << it.data();
+			if ( !rosterIconsets.contains(it.value()) )
+				rosterIconsets << it.value();
 
 		it = option.customRosterIconset.begin();
 		for ( ; it != option.customRosterIconset.end(); ++it)
-			if ( rosterIconsets.findIndex( it.data() ) == -1 )
-				rosterIconsets << it.data();
+			if ( !rosterIconsets.contains(it.value()) )
+				rosterIconsets << it.value();
 
 		QStringList::Iterator it2 = rosterIconsets.begin();
 		for ( ; it2 != rosterIconsets.end(); ++it2) {
@@ -354,10 +360,12 @@ bool PsiIconset::optionsChanged(const Options *old)
 			Iconset *is = new Iconset;
 			if ( is->load (d->iconsetPath("roster/" + *it2)) ) {
 				d->stripFirstAnimFrame( *is );
-				Iconset *oldis = roster[*it2];
+				Iconset *oldis = roster.value(*it2);
 
-				if ( oldis )
+				if ( oldis ) {
 					d->loadIconset( oldis, is );
+					delete is;
+				}
 				else {
 					is->addToFactory ();
 					roster.insert (*it2, is);
@@ -379,7 +387,7 @@ bool PsiIconset::optionsChanged(const Options *old)
 				it2 = rosterIconsets.find( name );
 				if ( it2 == rosterIconsets.end() ) {
 					// remove redundant iconset
-					roster.remove( name );
+					delete roster.take(name);
 					clear = false;
 					break;
 				}
@@ -389,6 +397,7 @@ bool PsiIconset::optionsChanged(const Options *old)
 
 	// load emoticons
 	if ( old->emoticons != option.emoticons ) {
+		qDeleteAll(emoticons);
 		emoticons.clear();
 		emoticons = d->emoticons();
 	}
@@ -517,7 +526,7 @@ PsiIcon *PsiIconset::transportStatusPtr(QString name, int s)
 	QMap<QString, QString>::Iterator it = option.serviceRosterIconset.begin();
 	for ( ; it != option.serviceRosterIconset.end(); ++it) {
 		if (name == it.key()) {
-			Iconset *is = roster.find(it.data());
+			Iconset *is = roster.value(it.value());
 			if ( is ) {
 				icon = (PsiIcon *)is->icon(status2name(s));
 				if ( icon )
@@ -644,7 +653,7 @@ PsiIconset* PsiIconset::instance()
 #ifdef YAPSI
 Iconset* PsiIconset::yaEmoticonSelectorIconset() const
 {
-	return !emoticons.isEmpty() ? const_cast<QList<Iconset> *>(&emoticons)->first() : 0;
+	return !emoticons.isEmpty() ? emoticons.first() : 0;
 }
 #endif
 
