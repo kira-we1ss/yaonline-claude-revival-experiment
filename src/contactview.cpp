@@ -3350,23 +3350,21 @@ void ContactViewItem::takeItem(Q3ListViewItem *i)
 
 int ContactViewItem::rankGroup(int groupType) const
 {
-	static int rankgroups[5] = {
+	static const int rankgroups[] = {
 		gGeneral,
 		gUser,
 		gPrivate,
 		gAgents,
 		gNotInList,
 	};
+	static const int rankgroupsCount = sizeof(rankgroups) / sizeof(rankgroups[0]);
 
-	int n;
-	for(n = 0; n < (int)sizeof(rankgroups); ++n) {
-		if(rankgroups[n] == groupType)
-			break;
+	for (int n = 0; n < rankgroupsCount; ++n) {
+		if (rankgroups[n] == groupType)
+			return n;
 	}
-	if(n == sizeof(rankgroups))
-		return sizeof(rankgroups)-1;
 
-	return n;
+	return rankgroupsCount - 1;
 }
 
 int ContactViewItem::compare(Q3ListViewItem *lvi, int, bool) const
