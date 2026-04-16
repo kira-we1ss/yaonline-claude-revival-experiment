@@ -57,7 +57,7 @@ make -j$(sysctl -n hw.ncpu)
 open src/yachat.app
 ```
 
-> ✅ **Layer 3 завершён.** Все исходные файлы компилируются без ошибок. Бинарник `yachat.app` (8.8 МБ) успешно собран. Переходим к Layer 4 (QCA 2.3.x, TLS 1.2+, SCRAM-SHA-256).
+> ✅ **Layer 3 завершён. Приложение запускается.** Три стартовых краша устранены: `Q_WS_*→Q_OS_*` (278 замен), `QCA::KeyStoreTracker` spinEventLoop (Qt5-совместимость), `Q3Shared count(0)→count(1)` в iconset/anim. Приложение показывает UI. Переходим к Layer 4 (QCA 2.3.x, TLS 1.2+, SCRAM-SHA-256).
 
 ---
 
@@ -157,4 +157,4 @@ open src/yachat.app
 
 ---
 
-*Последнее обновление: 2026-04-16 (Claude: **Layer 3 полностью завершён** — `yachat.app` 8.8 МБ собран без ошибок. Все Qt3/Qt4 API портированы: contactview→QTreeWidget, yastuff Qt::escape/QTextControl/QMenuItem, JsonQt C++17, macspellchecker ARC, статические плагины, ресурсы psi.qrc. Следующий шаг: Layer 4 — QCA 2.3.x, TLS 1.2+, SCRAM-SHA-256)*
+*Последнее обновление: 2026-04-16 (Claude: **Приложение запускается!** Устранены стартовые крашэри: `Q_WS_*`→`Q_OS_*` (278 замен/77 файлов), QCA SyncThread void-return для Qt5, `Q3Shared count(0)`→`count(1)` в iconset+anim. Устранены 88 `QAction::activated()`→`triggered()` предупреждений. Следующий шаг: Layer 4 — QCA 2.3.x, TLS 1.2+, SCRAM-SHA-256)*
