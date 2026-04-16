@@ -31,7 +31,7 @@ else {
 	windows: RC_FILE = ../win32/psi_win32.rc
 }
 
-QT += xml network widgets concurrent sql
+QT += xml network widgets widgets-private concurrent sql
 
 #CONFIG += use_crash
 CONFIG += pep
