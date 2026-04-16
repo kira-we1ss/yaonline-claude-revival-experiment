@@ -19,7 +19,7 @@ CLAUDE.md
 .DS_Store
 .AppleDouble
 :2e_*
-
+*.log
 *.app
 *.moc
 *.obj
