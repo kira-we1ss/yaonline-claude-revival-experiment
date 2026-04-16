@@ -37,6 +37,7 @@ class PsiAccount;
 class UserListItem;
 class QDropEvent;
 class QDragEnterEvent;
+class QEvent;
 
 class ChatDlg : public ChatDlgBase
 {
@@ -82,7 +83,7 @@ protected:
 	void resizeEvent(QResizeEvent *);
 	void hideEvent(QHideEvent *);
 	void showEvent(QShowEvent *);
-	void windowActivationChange(bool);
+	void changeEvent(QEvent* event);
 	virtual void dropEvent(QDropEvent* event);
 	void dragEnterEvent(QDragEnterEvent* event);
 

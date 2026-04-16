@@ -47,7 +47,7 @@
 #include <QResizeEvent>
 #include <QMenu>
 #include <QDragEnterEvent>
-#include <QTextDocument> // for Qt::escape()
+#include <QEvent>
 
 #include "profiles.h"
 #include "psiaccount.h"
@@ -264,12 +264,12 @@ void ChatDlg::showEvent(QShowEvent* e)
 	setSelfDestruct(0);
 }
 
-void ChatDlg::windowActivationChange(bool oldstate)
+void ChatDlg::changeEvent(QEvent* event)
 {
-	QWidget::windowActivationChange(oldstate);
+	ChatDlgBase::changeEvent(event);
 
-	// if we're bringing it to the front, get rid of the '*' if necessary
-	if (isActiveTab()) {
+	if (event->type() == QEvent::ActivationChange && isActiveTab()) {
+		// if we're bringing it to the front, get rid of the '*' if necessary
 		activated();
 	}
 }
@@ -428,7 +428,7 @@ void ChatDlg::updateContact(const Jid &j, bool fromPresence)
 			updatePGP();
 
 			if (fromPresence && statusChanged) {
-				QString msg = tr("%1 is %2").arg(Qt::escape(dispNick_)).arg(status2txt(status_));
+				QString msg = tr("%1 is %2").arg(TextUtil::escape(dispNick_)).arg(status2txt(status_));
 				if (!statusString_.isEmpty()) {
 					QString ss = TextUtil::linkify(TextUtil::plain2rich(statusString_));
 					ss = TextUtil::emoticonify(ss);
@@ -617,7 +617,7 @@ bool ChatDlg::doSend()
 
 	Message m(jid());
 	m.setType("chat");
-	m.setBody(chatEdit()->text());
+	m.setBody(chatEdit()->toPlainText());
 	sendMessage(m, true);
 	return true;
 }
@@ -949,7 +949,7 @@ void ChatDlg::setContactChatState(ChatState state)
 	contactChatState_ = state;
 	if (state == XMPP::StateGone) {
 #ifndef YAPSI
-		appendSysMsg(tr("%1 ended the conversation").arg(Qt::escape(dispNick_)));
+		appendSysMsg(tr("%1 ended the conversation").arg(TextUtil::escape(dispNick_)));
 #endif
 	}
 	else {
