@@ -57,7 +57,7 @@ make -j$(sysctl -n hw.ncpu)
 open src/yachat.app
 ```
 
-> ⚠️ **Проект находится в активной разработке.** Сборка на данный момент не гарантируется — Layer 3 (удаление Qt3Support) всё ещё в процессе. `contactview` остаётся главным активным блокером: у него уже переведены drop-side drag/decode на `QMimeData`, source-side text drag больше не зависит от `Q3TextDrag`, подтянуты tooltip/tree helpers и несколько локальных Qt5-safe cleanup-швов, но базовый `Q3ListView`/`Q3ListViewItem`/`Q3DragObject` seam всё ещё жив. При этом рядом уже существенно продвинуты `gcuserview`, `accountmanagedlg`, `psigroupchatdlg`, примеры `conntest`/`xmpptest`, плагин `noughtsandcrosses` и standalone/UI-слой `chess`.
+> ⚠️ **Проект находится в активной разработке.** Layer 3 (удаление Qt3Support) в финальной стадии. Крупные блокеры устранены: `contactview` полностью портирован с `Q3ListView` → `QTreeWidget` + `ContactViewDelegate`, `mainwin`/`infodlg`/`psiaccount`/`psicon` очищены от Qt4 API. Продолжается дочистка оставшихся файлов (yastuff, JsonQt, psiaccount и др.).
 
 ---
 
@@ -94,16 +94,21 @@ open src/yachat.app
 | `conf.pri` | ✅ | `OSSL_097` удалён, добавлены `YANDEX_EXTENSIONS`/`c++17`/`DEPLOYMENT_TARGET` |
 | Расширения Яндекса | ✅ | Весь код `xmpp_yalastmail` обёрнут в `#ifdef YANDEX_EXTENSIONS` |
 
-### Слой 3 — Удаление Qt3Support 🔄 *в процессе*
+### Слой 3 — Удаление Qt3Support 🔄 *в процессе (финальная стадия)*
 
 | Задача | Статус | Описание |
 |---|---|---|
-| Массовая замена (Задача 7) | ✅ | 422 строки `#include <qfoo.h>` → `<QFoo>`, `Q3PtrList`/`Q3PopupMenu`/`Q3TextEdit` заменены, 63 итератора `Q3PtrListIterator` → range-for |
+| Массовая замена (Задача 7) | ✅ | 422 строки `#include <qfoo.h>` → `<QFoo>`, `Q3PtrList`/`Q3PopupMenu`/`Q3TextEdit` заменены, 63 итератора → range-for |
 | `Q3MainWindow` (Задача 8) | ✅ | `mainwin.h/cpp` → `QMainWindow`, `mainwin_p.cpp` Q3ToolBar-зависимости убраны |
 | `Q3ListView` в HistoryDlg (Задача 9) | ✅ | `historydlg.h/cpp` → `QTreeWidget` + `QStyledItemDelegate` |
 | `Q3ListView` в EventDlg (Задача 10) | ✅ | `eventdlg.h/cpp` → `QTreeWidget` + `QTreeWidgetItem` |
-| Остальные Q3* (Задача 11) | 🔄 | `searchdlg`, `discodlg`, `pgpkeydlg`, `proxy`, `iconset`, `tabdlg`, `gcuserview`, `accountmanagedlg` и прилегающий `psigroupchatdlg` уже дочищены как локальные Qt5-clean seams; `xmpptest` переведён с `Q3GroupBox`/`Q3TextEdit` на `QGroupBox`/`QTextEdit` и больше не тянет `qt3support`, `noughtsandcrosses` переведён на `QVector` и обычные layout/widget API с удалением `qt3support` из `.pro`, `conntest` и `chess` получили честные локальные Qt API cleanup-пакеты, но в активном приложении главным незакрытым seam всё ещё остаётся `contactview` с его `Q3ListView`/`Q3ListViewItem`/`Q3DragObject` архитектурой |
-| Контрольная сборка (Задача 12) | 🔲 | Первая полная сборка под Qt 5.15 |
+| **`Q3ListView` в ContactView** | ✅ | `contactview.h/cpp` полностью портирован: `Q3ListView`→`QTreeWidget`, `Q3ListViewItem`→`QTreeWidgetItem`, `Q3DragObject`→`QDrag/QMimeData`, добавлен `ContactViewDelegate` для кастомного рендеринга |
+| Qt4 API: mainwin, infodlg | ✅ | `QMenuBar::insertItem`→`addMenu`, `caption()`→`windowTitle()`, `setEdited`→убрано, `QPixmap(QImage)`→`fromImage`, `QSignalMapper` конструктор, `TRUE/FALSE`→`true/false` |
+| Qt4 API: psiaccount, psicon | ✅ | `QUrl::queryItems`→`QUrlQuery`, `removeRef`→`removeAll`, `absPath`→`absolutePath`, `QDir::homeDirPath`→`homePath`, `className()`→`metaObject()->className()`, `fromLast()`→`removeLast()` |
+| Qt4 API: misc (eventdb, vcardfactory, rc, serverlistquerier и др.) | ✅ | `QString::find`→`indexOf`, `QFile::setName`→`setFileName`, `setEncoding`→`setCodec`, `QHttp`→`QNetworkAccessManager`, `setOn`→`setChecked`, `QStyleOptionViewItemV2`→`QStyleOptionViewItem`, `qVariantCanConvert`→`.canConvert<T>()`, динамические `throw()`-спеки из JsonQt |
+| Qt4 API: xdata_widget, ahc, contactlistmodel | ✅ | `addMultiCellWidget`→`addWidget(span)`, `QAbstractItemModel::reset()`→`beginResetModel/endResetModel`, `setInsertionPolicy`→`setInsertPolicy`, `QMetaMethod::signature()`→`methodSignature()` |
+| Остальные Q3* (Задача 11) | 🔄 | `yarostertiplabel`, `yachatdlg` — последние незакрытые seam в `tools/yastuff` |
+| Контрольная сборка (Задача 12) | 🔄 | Почти завершена: 1–2 файла yastuff остаются |
 
 ### Слой 4 — QCA 2.3.x + безопасность 🔲 *не начат*
 
@@ -146,4 +151,4 @@ open src/yachat.app
 
 ---
 
-*Последнее обновление: 2026-04-16 (ночной прогон ChatGPT Codex: дочищены `gcuserview`/`accountmanagedlg`/`psigroupchatdlg`, обновлены `contactview`-seams вокруг drag/drop, tooltip, tree helpers и safety-fixes, `xmpptest` и `noughtsandcrosses` реально ушли от `qt3support`, `conntest` и `chess` получили честные локальные Qt API modernization batches; главный незакрытый Layer 3 seam в активном приложении по-прежнему `contactview`)*
+*Последнее обновление: 2026-04-16 (Claude: Layer 3 финальная волна — `contactview` полностью портирован на `QTreeWidget`+`ContactViewDelegate`, `mainwin`/`infodlg`/`psiaccount`/`psicon`/`serverlistquerier` очищены от Qt4 API, `JsonQt`-спеки `throw()` убраны; осталось 1–2 файла yastuff)*
