@@ -15,16 +15,17 @@
 #ifndef	__MAIN_WINDOW_H__
 #define	__MAIN_WINDOW_H__
 
-#include <q3mainwindow.h>
+#include <QMainWindow>
 #include <QMenu>
 #include <QWorkspace>
 #include <QDialog>
 #include <QLabel>
 #include <QComboBox>
-#include <q3buttongroup.h>
+#include <QButtonGroup>
 #include <QRadioButton>
-#include <q3groupbox.h>
+#include <QGroupBox>
 #include <QPushButton>
+#include <QAction>
 //Added by qt3to4:
 #include <QResizeEvent>
 #include <stdlib.h>
@@ -32,7 +33,7 @@
 #include "gamesocket.h"
 #include "gameboard.h"
 
-class MainWindow:public Q3MainWindow
+class MainWindow:public QMainWindow
 {
 	Q_OBJECT
 public:
@@ -42,9 +43,9 @@ public:
 	bool	sockOk()const{return (sock->ok());}
 
 private:
-	int		id;
 	QString		ready_txt;
 	QMenu	*game, *help;
+	QAction	*saveImageAction;
 	QWorkspace	*wrk;
 	GameSocket	*sock;
 	QStringList	hosts;
@@ -76,9 +77,9 @@ public:
 private:
 	QLabel		*l1;
 	QComboBox	*hst;
-	Q3ButtonGroup	*btn;
+	QGroupBox	*btn;
 	QRadioButton	*wg, *bg;
-	Q3GroupBox	*box;
+	QGroupBox	*box;
 	QPushButton	*Ok, *Cancel;
 
 protected:

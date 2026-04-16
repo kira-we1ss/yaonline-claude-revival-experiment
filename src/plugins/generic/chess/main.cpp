@@ -29,7 +29,7 @@ main(int argc, const char *argv[])
 {
 	QApplication	*app;
 	MainWindow	*mw;
-	QTranslator	*qt;
+	QTranslator	*qt = NULL;
 	int		result = 0;
 
 	app = new QApplication(argc, (char **)argv);
@@ -39,7 +39,6 @@ main(int argc, const char *argv[])
 	mw = new MainWindow();
 
 	if (mw->sockOk()) {
-		app->setMainWidget(mw);
 		mw->show();
 		mw->resize(XSize, YSize);
 		mw->setMinimumSize(mw->size());

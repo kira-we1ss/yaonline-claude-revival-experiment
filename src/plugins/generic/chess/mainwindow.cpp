@@ -17,6 +17,7 @@
 #include <QStatusBar>
 #include <QPixmap>
 #include <QValidator>
+#include <QRegExpValidator>
 #include <QMessageBox>
 //Added by qt3to4:
 #include <QResizeEvent>
@@ -33,30 +34,29 @@
 extern QColor	cw, cb;
 
 MainWindow::MainWindow(QWidget *parent, const char *name)
-	:Q3MainWindow(parent, name)
+	:QMainWindow(parent), saveImageAction(NULL)
 {
 	QPixmap	xpm(chess_xpm);
 
+	if (name != NULL)
+		setObjectName(QLatin1String(name));
+
 	cw = QColor(0x8F, 0xDF, 0xF0);
 	cb = QColor(0x70, 0x9F, 0xDF);
-	setIcon(xpm);
+	setWindowIcon(xpm);
 	wrk = new QWorkspace(this);
 	sock = new GameSocket(this);
-	game = new QMenu(this);
-	game->insertItem(QPixmap((const char **)new_game), tr("New"),
-		this, SLOT(newGame()), Qt::CTRL + Qt::Key_N);
-	id = game->insertItem(xpm, tr("Save image"), this,
-		SLOT(saveImage()), Qt::CTRL + Qt::Key_S);
-	game->setItemEnabled(id, FALSE);
-	game->insertSeparator();
-	game->insertItem(QPixmap((const char **)quit_xpm), tr("Quit"), qApp,
-		SLOT(quit()), Qt::CTRL + Qt::Key_Q);
-	help = new QMenu(this);
-	help->insertItem(xpm, tr("About the game"), this, SLOT(about()));
-
-	menuBar()->insertItem(tr("Game"), game);
-	menuBar()->insertSeparator();
-	menuBar()->insertItem(tr("Help"), help);
+	game = menuBar()->addMenu(tr("Game"));
+	game->addAction(QPixmap((const char **)new_game), tr("New"),
+		this, SLOT(newGame()), QKeySequence(Qt::CTRL + Qt::Key_N));
+	saveImageAction = game->addAction(xpm, tr("Save image"), this,
+		SLOT(saveImage()), QKeySequence(Qt::CTRL + Qt::Key_S));
+	saveImageAction->setEnabled(FALSE);
+	game->addSeparator();
+	game->addAction(QPixmap((const char **)quit_xpm), tr("Quit"), qApp,
+		SLOT(quit()), QKeySequence(Qt::CTRL + Qt::Key_Q));
+	help = menuBar()->addMenu(tr("Help"));
+	help->addAction(xpm, tr("About the game"), this, SLOT(about()));
 
 	setCentralWidget(wrk);
 	ready_txt = tr("Ready");
@@ -82,7 +82,7 @@ void
 MainWindow::showStatus(const QString &txt)
 {
 
-	statusBar()->message(txt);
+	statusBar()->showMessage(txt);
 }
 
 
@@ -118,7 +118,7 @@ MainWindow::newGame(int sock)
 	QObject::connect(brd, SIGNAL(showStatus(const QString&)),
 		this, SLOT(showStatus(const QString&)));
 	brd->show();
-	game->setItemEnabled(id, TRUE);
+	saveImageAction->setEnabled(TRUE);
 }
 
 
@@ -141,7 +141,7 @@ MainWindow::activated(QWidget *w)
 {
 	GameBoard	*brd = (GameBoard *)w;
 
-	game->setItemEnabled(id, brd != NULL);
+	saveImageAction->setEnabled(brd != NULL);
 	if (brd != NULL)
 		showStatus(brd->status());
 	else
@@ -161,18 +161,22 @@ MainWindow::saveImage()
 //-----------------------------------------------------------------------------
 
 SelectGame::SelectGame(QWidget *parent, const char *name)
-	:QDialog(parent, name)
+	:QDialog(parent)
 {
 
-	setCaption(tr("New game with..."));
+	if (name != NULL)
+		setObjectName(QLatin1String(name));
+
+	setWindowTitle(tr("New game with..."));
 	l1 = new QLabel(tr("To play with "), this);
-	hst = new QComboBox(TRUE, this);
+	hst = new QComboBox(this);
+	hst->setEditable(TRUE);
 	hst->setValidator(new QRegExpValidator(
 		QRegExp("([a-zA-Z0-9]*\\.)*[a-zA-Z]"), hst));
-	btn = new Q3ButtonGroup(tr("Choose your game"), this);
+	btn = new QGroupBox(tr("Choose your game"), this);
 	wg = new QRadioButton(tr("White game"), btn);
 	bg = new QRadioButton(tr("Black game"), btn);
-	box = new Q3GroupBox(this);
+	box = new QGroupBox(this);
 	Ok = new QPushButton(tr("Play!"), box);
 	Cancel = new QPushButton(tr("Cancel"), box);
 
@@ -256,7 +260,7 @@ SelectGame::host()
 {
 	QString	h(hst->currentText());
 
-	return h.left(h.findRev(':'));
+	return h.left(h.lastIndexOf(':'));
 }
 
 
@@ -276,7 +280,7 @@ QStringList SelectGame::hosts()
 
 void SelectGame::setHosts(const QStringList &h)
 {
-	hst->insertStringList(h);
+	hst->addItems(h);
 }
 
 
