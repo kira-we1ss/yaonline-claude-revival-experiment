@@ -2423,7 +2423,9 @@ void ContactView::qlv_singleclick(int button, Q3ListViewItem *i, const QPoint &p
 					lcto_active = true;
 					lcto_pos = pos;
 					lcto_item = i;
-					QTimer::singleShot(QApplication::doubleClickInterval()/2, this, SLOT(leftClickTimeOut()));
+					QTimer::singleShot(QApplication::doubleClickInterval() / 2, this, [this]() {
+						leftClickTimeOut();
+					});
 				}
 			}
 			else if(option.singleclick && button == Qt::RightButton) {
@@ -3519,7 +3521,6 @@ void ContactViewItem::clearAlert()
 {
 	if ( d->alerting ) {
 		d->alerting = false;
-		//disconnect(static_cast<ContactView*>(QListViewItem::listView())->animTimer(), SIGNAL(timeout()), this, SLOT(animate()));
 		resetStatus();
 	}
 }
@@ -3533,7 +3534,7 @@ void ContactViewItem::setIcon(const PsiIcon *icon, bool alert)
 		d->lastIcon = (PsiIcon *)icon;
 
 	if ( d->icon ) {
-		disconnect(d->icon, 0, this, 0 );
+		disconnect(d->icon, nullptr, this, nullptr);
 		d->icon->stop();
 
 		delete d->icon;

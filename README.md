@@ -102,7 +102,7 @@ open src/yachat.app
 | `Q3MainWindow` (Задача 8) | ✅ | `mainwin.h/cpp` → `QMainWindow`, `mainwin_p.cpp` Q3ToolBar-зависимости убраны |
 | `Q3ListView` в HistoryDlg (Задача 9) | ✅ | `historydlg.h/cpp` → `QTreeWidget` + `QStyledItemDelegate` |
 | `Q3ListView` в EventDlg (Задача 10) | ✅ | `eventdlg.h/cpp` → `QTreeWidget` + `QTreeWidgetItem` |
-| Остальные Q3* (Задача 11) | 🔄 | `searchdlg`, `discodlg`, `pgpkeydlg`, `proxy`, `iconset`, `tabdlg` завершены; в `contactview` переведён drop-side drag/decode слой на `QMimeData`, source-side text drag больше не использует `Q3TextDrag`, а рядом подтянуты локальные Qt5-cleanup швы (`std::sort`, new-style timer/icon connections), но `Q3ListView`/`Q3ListViewItem`/`Q3DragObject` и связанная архитектура ещё остаются; `gcuserview` и `accountmanagedlg` — всё ещё впереди |
+| Остальные Q3* (Задача 11) | 🔄 | `searchdlg`, `discodlg`, `pgpkeydlg`, `proxy`, `iconset`, `tabdlg` завершены; в `contactview` переведён drop-side drag/decode слой на `QMimeData`, source-side text drag больше не использует `Q3TextDrag`, а рядом подтянуты локальные Qt5-cleanup швы (`std::sort`, new-style timer/icon connections, lambda-based delayed left-click dispatch, `QObject::disconnect(..., nullptr, ..., nullptr)`), но `Q3ListView`/`Q3ListViewItem`/`Q3DragObject` и связанная архитектура ещё остаются; `gcuserview` и `accountmanagedlg` — всё ещё впереди |
 | Контрольная сборка (Задача 12) | 🔲 | Первая полная сборка под Qt 5.15 |
 
 ### Слой 4 — QCA 2.3.x + безопасность 🔲 *не начат*
@@ -146,4 +146,4 @@ open src/yachat.app
 
 ---
 
-*Последнее обновление: 2026-04-16 (Layer 3 всё ещё в работе; в `contactview` обновлён drag/drop batch: drop-side уже на `QMimeData`, source-side text drag больше не использует `Q3TextDrag`, но базовый `Q3ListView` seam ещё не снят)*
+*Последнее обновление: 2026-04-16 (Layer 3 всё ещё в работе; в `contactview` обновлён drag/drop batch: drop-side уже на `QMimeData`, source-side text drag больше не использует `Q3TextDrag`, а рядом дочищены ещё несколько локальных Qt4/Qt5 seams — delayed single-shot callback и `disconnect(..., nullptr, ..., nullptr)` — но базовый `Q3ListView` seam ещё не снят)*
