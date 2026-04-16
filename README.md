@@ -57,7 +57,7 @@ make -j$(sysctl -n hw.ncpu)
 open src/yachat.app
 ```
 
-> ⚠️ **Проект находится в активной разработке.** Сборка на данный момент не гарантируется — Layer 3 (удаление Qt3Support) почти завершён: остались `contactview`, `gcuserview`, `accountmanagedlg`.
+> ⚠️ **Проект находится в активной разработке.** Сборка на данный момент не гарантируется — Layer 3 (удаление Qt3Support) всё ещё в процессе. В `contactview` уже перенесён drop-side drag/decode слой с `Q3UriDrag`/`Q3TextDrag` на `QMimeData`, но сам виджет по-прежнему держится на `Q3ListView`; также остаются `gcuserview` и `accountmanagedlg`.
 
 ---
 
@@ -102,7 +102,7 @@ open src/yachat.app
 | `Q3MainWindow` (Задача 8) | ✅ | `mainwin.h/cpp` → `QMainWindow`, `mainwin_p.cpp` Q3ToolBar-зависимости убраны |
 | `Q3ListView` в HistoryDlg (Задача 9) | ✅ | `historydlg.h/cpp` → `QTreeWidget` + `QStyledItemDelegate` |
 | `Q3ListView` в EventDlg (Задача 10) | ✅ | `eventdlg.h/cpp` → `QTreeWidget` + `QTreeWidgetItem` |
-| Остальные Q3* (Задача 11) | 🔄 | `searchdlg`, `discodlg`, `pgpkeydlg`, `proxy`, `iconset`, `tabdlg` завершены; `contactview`, `gcuserview`, `accountmanagedlg` — в процессе |
+| Остальные Q3* (Задача 11) | 🔄 | `searchdlg`, `discodlg`, `pgpkeydlg`, `proxy`, `iconset`, `tabdlg` завершены; в `contactview` переведён drop-side drag/decode слой на `QMimeData` и убраны локальные Qt3-era таймерные вызовы, но `Q3ListView`/`Q3ListViewItem` и связанная архитектура ещё остаются; `gcuserview` и `accountmanagedlg` — всё ещё впереди |
 | Контрольная сборка (Задача 12) | 🔲 | Первая полная сборка под Qt 5.15 |
 
 ### Слой 4 — QCA 2.3.x + безопасность 🔲 *не начат*
@@ -146,4 +146,4 @@ open src/yachat.app
 
 ---
 
-*Последнее обновление: 2026-04-15 (задачи 8–10 завершены, задача 11 в процессе)*
+*Последнее обновление: 2026-04-16 (Layer 3 всё ещё в работе; локально обновлён drag/drop batch в `contactview`)*

@@ -36,8 +36,10 @@
 #include <QEvent>
 #include <QHelpEvent>
 #include <QList>
+#include <QMimeData>
 #include <QDropEvent>
 #include <QPixmap>
+#include <QUrl>
 #include <QDesktopWidget>
 #include <QtAlgorithms>
 #include <stdlib.h>
@@ -82,6 +84,39 @@ static inline int rankStatus(int status)
 static bool caseInsensitiveLessThan(const QString &s1, const QString &s2)
 {
 	return s1.toLower() < s2.toLower();
+}
+
+static QStringList decodeLocalDropFiles(const QMimeData *mimeData)
+{
+	QStringList files;
+	if (!mimeData || !mimeData->hasUrls())
+		return files;
+
+	const QList<QUrl> urls = mimeData->urls();
+	for (QList<QUrl>::ConstIterator it = urls.begin(); it != urls.end(); ++it) {
+		if (!it->isLocalFile())
+			continue;
+
+		const QString localFile = it->toLocalFile();
+		if (!localFile.isEmpty())
+			files.append(localFile);
+	}
+
+	return files;
+}
+
+static bool decodeDropText(const QMimeData *mimeData, QString *text)
+{
+	if (!mimeData || !mimeData->hasText())
+		return false;
+
+	const QString dropText = mimeData->text().trimmed();
+	if (dropText.isEmpty())
+		return false;
+
+	if (text)
+		*text = dropText;
+	return true;
 }
 
 //----------------------------------------------------------------------------
@@ -143,6 +178,7 @@ ContactProfile::ContactProfile(PsiAccount *pa, const QString &name, ContactView 
 	d->cv = cv;
 	d->cv->link(this);
 	d->t = new QTimer;
+	d->t->setSingleShot(true);
 	connect(d->t, &QTimer::timeout, this, &ContactProfile::updateGroups);
 	connect(pa->psi(), &PsiCon::accountCountChanged, d, &Private::numAccountsChanged);
 
@@ -843,7 +879,7 @@ void ContactProfile::animateNick(const Jid &j)
 
 void ContactProfile::deferredUpdateGroups()
 {
-	d->t->start(250, true);
+	d->t->start(250);
 }
 
 void ContactProfile::updateGroups()
@@ -1978,6 +2014,7 @@ ContactView::ContactView(QWidget *parent, const char *name)
 	d->animTimer->start(120 * 5);
 
 	d->recalculateSizeTimer = new QTimer(this);
+	d->recalculateSizeTimer->setSingleShot(true);
 	connect(d->recalculateSizeTimer, &QTimer::timeout, d, &Private::recalculateSize);
 
 	// actions
@@ -2667,7 +2704,7 @@ QSize ContactView::sizeHint() const
  */
 void ContactView::recalculateSize()
 {
-	d->recalculateSizeTimer->start( 0, true );
+	d->recalculateSizeTimer->start(0);
 }
 
 //------------------------------------------------------------------------------
@@ -2740,7 +2777,7 @@ void RichListViewItem::setup()
 
 		v_widthUsed = int(v_rt->idealWidth()) + left;
 
-		h = QMAX( h, int(v_rt->size().height()) );
+		h = qMax(h, int(v_rt->size().height()));
 
 		if ( h % 2 > 0 )
 			h++;
@@ -3619,6 +3656,15 @@ void ContactViewItem::setContact(UserListItem *u)
 
 bool ContactViewItem::acceptDrop(const QMimeSource *m) const
 {
+	Q_UNUSED(m);
+
+	// Keep the legacy Q3ListView hook for now, but do the actual mime decoding
+	// in dropped() via QDropEvent::mimeData() so the drop path uses Qt5 data APIs.
+	return canAcceptDropTarget();
+}
+
+bool ContactViewItem::canAcceptDropTarget() const
+{
 	if ( type_ == Profile )
 		return false;
 	else if ( type_ == Group ) {
@@ -3629,23 +3675,11 @@ bool ContactViewItem::acceptDrop(const QMimeSource *m) const
 		if ( d->u && d->u->isSelf() )
 			return false;
 		ContactViewItem *par = parentItem();
+		if(!par)
+			return false;
 		if(par->groupType() != gGeneral && par->groupType() != gUser)
 			return false;
 	}
-
-	// Files. Note that the QTextDrag test has to come after QUriDrag.
-	if (type_ == Contact && Q3UriDrag::canDecode(m)) {
-		QStringList l;
-		if (Q3UriDrag::decodeLocalFiles(m,l) && !l.isEmpty())
-			return true;
-	}
-
-	if(!Q3TextDrag::canDecode(m))
-		return false;
-
-	QString str;
-	if(!Q3TextDrag::decode(m, str))
-		return false;
 
 	return true;
 }
@@ -3662,24 +3696,30 @@ void ContactViewItem::dragLeft()
 
 void ContactViewItem::dropped(QDropEvent *i)
 {
-	if(!acceptDrop(i))
+	if(!i || !canAcceptDropTarget())
+		return;
+
+	const QMimeData *mimeData = i->mimeData();
+	if(!mimeData)
 		return;
 
 	// Files
-	if (Q3UriDrag::canDecode(i)) {
-		QStringList l;
-		if (Q3UriDrag::decodeLocalFiles(i,l) && !l.isEmpty()) {
-			d->cp->dragDropFiles(l, this);
-			return;
-		}
+	const QStringList localFiles = decodeLocalDropFiles(mimeData);
+	if (!localFiles.isEmpty()) {
+		d->cp->dragDropFiles(localFiles, this);
+		i->acceptProposedAction();
+		return;
 	}
 
 	// Text
-	if(Q3TextDrag::canDecode(i)) {
-		QString text;
-		if(Q3TextDrag::decode(i, text))
-			d->cp->dragDrop(text, this);
+	QString text;
+	if (decodeDropText(mimeData, &text)) {
+		d->cp->dragDrop(text, this);
+		i->acceptProposedAction();
+		return;
 	}
+
+	i->ignore();
 }
 
 void ContactViewItem::cancelRename (int i)

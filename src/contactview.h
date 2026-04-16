@@ -415,6 +415,7 @@ private:
 	class Private;
 	Private *d;
 
+	bool canAcceptDropTarget() const;
 	void cacheValues();
 	int rankGroup(int groupType) const;
 	void drawGroupIcon();
