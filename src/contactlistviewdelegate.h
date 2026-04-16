@@ -32,7 +32,7 @@ class ContactListItemProxy;
 class PsiContact;
 class ContactListGroup;
 class PsiAccount;
-class QStyleOptionViewItemV2;
+// QStyleOptionViewItemV2 merged into QStyleOptionViewItem in Qt5
 
 class ContactListViewDelegate : public QItemDelegate
 {

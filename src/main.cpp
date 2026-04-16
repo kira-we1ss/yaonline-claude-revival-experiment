@@ -422,7 +422,7 @@ int main(int argc, char *argv[])
 	for(int n = 1; n < argc; ++n) {
 		QString str = argv[n];
 		QString var, val;
-		int x = str.find('=');
+		int x = str.indexOf('=');
 		if(x == -1) {
 			var = str;
 			val = "";

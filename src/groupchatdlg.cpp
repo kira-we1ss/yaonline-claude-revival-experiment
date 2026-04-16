@@ -206,7 +206,7 @@ bool GCMainDlg::doSend()
 	if (!ChatDlgBase::doSend())
 		return false;
 
-	QString str = chatEdit()->text();
+	QString str = chatEdit()->toPlainText();
 	if (str == "/clear") {
 		doClear();
 		chatEdit()->clear();

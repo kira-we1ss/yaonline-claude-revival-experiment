@@ -25,6 +25,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QDesktopServices>
+#include <QStandardPaths>
 
 #include "psioptions.h"
 
@@ -33,7 +34,7 @@ static QString lastUsedSavePathOptionPath = "options.ui.last-used-save-path";
 
 static QString defaultPath()
 {
-	QString result = QDesktopServices::storageLocation(QDesktopServices::DesktopLocation);
+	QString result = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
 	if (result.isEmpty()) {
 		result = QDir::homePath();
 	}

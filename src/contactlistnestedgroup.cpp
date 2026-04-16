@@ -136,9 +136,9 @@ void ContactListNestedGroup::contactGroupsChanged(PsiContact* contact, QStringLi
 
 		foreach(QString i, mergedGroupNames) {
 #ifdef CONTACTLIST_NESTED_GROUPS
-			splitGroupNames.remove(i.split(groupDelimiter()));
+			splitGroupNames.removeOne(i.split(groupDelimiter()));
 #else
-			splitGroupNames.remove(QStringList() << i);
+			splitGroupNames.removeOne(QStringList() << i);
 #endif
 		}
 
@@ -146,7 +146,7 @@ void ContactListNestedGroup::contactGroupsChanged(PsiContact* contact, QStringLi
 		if (!group->itemsCount()) {
 			emptyGroups << group;
 		}
-		unnotifiedGroups.remove(unnotifiedGroups.indexOf(group));
+		unnotifiedGroups.removeAt(unnotifiedGroups.indexOf(group));
 	}
 
 	// remove the contact from the unnotified groups
@@ -161,7 +161,7 @@ void ContactListNestedGroup::contactGroupsChanged(PsiContact* contact, QStringLi
 	foreach(ContactListGroup* group, emptyGroups) {
 // qWarning("ContactListNextedGroup(%x)::contactGroupsChanged: removing empty group: %s", this, qPrintable(group->fullName()));
 		removeItem(ContactListGroup::findGroup(group));
-		groups_.remove(groups_.indexOf(group));
+		groups_.removeAt(groups_.indexOf(group));
 		delete group;
 	}
 
@@ -212,7 +212,7 @@ void ContactListNestedGroup::contactGroupsChanged(PsiContact* contact, QStringLi
 		if (!child->itemsCount()) {
 // qWarning("ContactListNextedGroup(%x)::contactGroupsChanged: removing empty group2: %s", this, qPrintable(child->fullName()));
 			removeItem(ContactListGroup::findGroup(child));
-			groups_.remove(groups_.indexOf(child));
+			groups_.removeAt(groups_.indexOf(child));
 			delete group;
 		}
 	}

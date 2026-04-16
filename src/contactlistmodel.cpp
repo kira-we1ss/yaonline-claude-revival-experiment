@@ -149,7 +149,8 @@ void ContactListModel::endBulkUpdate()
 		// blockSignals(false);
 		emitDeltaSignals_ = true;
 		if (doResetAfterBulkUpdate_) {
-			reset();
+			beginResetModel();
+			endResetModel();
 
 			// in Qt 4.3.4 emitting modelReset() leads to QSortFilterProxyModel
 			// calling invalidate() on itself first, then immediately it will emit
@@ -170,7 +171,8 @@ void ContactListModel::endBulkUpdate()
 void ContactListModel::rosterRequestFinished()
 {
 	if (rowCount(QModelIndex()) == 0) {
-		reset();
+		beginResetModel();
+		endResetModel();
 
 		emit layoutAboutToBeChanged();
 		emit layoutChanged();

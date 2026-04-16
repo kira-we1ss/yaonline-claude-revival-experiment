@@ -103,10 +103,10 @@ inline static QIcon::State iconState(QStyle::State state)
 	return state & QStyle::State_Open ? QIcon::On : QIcon::Off;
 }
 
-inline static QRect textLayoutBounds(const QStyleOptionViewItemV2 &option)
+inline static QRect textLayoutBounds(const QStyleOptionViewItem &option)
 {
 	QRect rect = option.rect;
-	const bool wrapText = option.features & QStyleOptionViewItemV2::WrapText;
+	const bool wrapText = option.features & QStyleOptionViewItem::WrapText;
 	switch (option.decorationPosition) {
 	case QStyleOptionViewItem::Left:
 	case QStyleOptionViewItem::Right:
@@ -124,8 +124,8 @@ inline static QRect textLayoutBounds(const QStyleOptionViewItemV2 &option)
 void ContactListViewDelegate::doSetOptions(const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
 	d->opt = setOptions(index, option);
-	const QStyleOptionViewItemV2 *v2 = qstyleoption_cast<const QStyleOptionViewItemV2 *>(&option);
-	d->opt.features = v2 ? v2->features : QStyleOptionViewItemV2::ViewItemFeatures(QStyleOptionViewItemV2::None);
+	const QStyleOptionViewItem *v2 = qstyleoption_cast<const QStyleOptionViewItem *>(&option);
+	d->opt.features = v2 ? v2->features : QStyleOptionViewItem::ViewItemFeatures(QStyleOptionViewItem::None);
 
 	const HoverableStyleOptionViewItem *hoverable = qstyleoption_cast<const HoverableStyleOptionViewItem *>(&option);
 	d->opt.hovered = hoverable ? hoverable->hovered : false;
@@ -400,7 +400,7 @@ QColor ContactListViewDelegate::backgroundColor(const QStyleOptionViewItem& opti
 	}
 	else {
 		QVariant value = index.data(Qt::BackgroundRole);
-		if (qVariantCanConvert<QBrush>(value)) {
+		if (value.canConvert<QBrush>()) {
 			return qvariant_cast<QBrush>(value).color();
 		}
 	}

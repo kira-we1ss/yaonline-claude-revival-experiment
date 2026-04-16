@@ -111,11 +111,11 @@ HEADERS += \
 	$$PWD/psilogger.h \
 	$$PWD/varlist.h \ 
 	$$PWD/jidutil.h \
-#	$$PWD/showtextdlg.h \ 
+	$$PWD/showtextdlg.h \
 	$$PWD/profiles.h \
 	$$PWD/activeprofiles.h \
 #	$$PWD/profiledlg.h \
-#	$$PWD/aboutdlg.h \
+	$$PWD/aboutdlg.h \
 	$$PWD/desktoputil.h \
 	$$PWD/textutil.h \
 	$$PWD/pixmaputil.h \
@@ -158,10 +158,10 @@ HEADERS += \
 	$$PWD/translationmanager.h \
 	$$PWD/eventdb.h \
 #	$$PWD/historydlg.h \
-#	$$PWD/tipdlg.h \
+	$$PWD/tipdlg.h \
 	$$PWD/searchdlg.h \
 	$$PWD/registrationdlg.h \
-#	$$PWD/psitoolbar.h \
+	$$PWD/psitoolbar.h \
 #	$$PWD/passphrasedlg.h \
 	$$PWD/vcardfactory.h \
 	$$PWD/sslcertdlg.h \
@@ -169,7 +169,7 @@ HEADERS += \
 	$$PWD/discodlg.h \
 	$$PWD/alerticon.h \
 	$$PWD/alertable.h \
-#	$$PWD/psipopup.h \
+	$$PWD/psipopup.h \
 	$$PWD/psinotifier.h \
 	$$PWD/psinotifierbase.h \
 	$$PWD/psiapplication.h \
@@ -226,11 +226,11 @@ SOURCES += \
 	$$PWD/psilogger.cpp \
 	$$PWD/varlist.cpp \
 	$$PWD/jidutil.cpp \
-#	$$PWD/showtextdlg.cpp \
+	$$PWD/showtextdlg.cpp \
 	$$PWD/psi_profiles.cpp \
 	$$PWD/activeprofiles.cpp \
 #	$$PWD/profiledlg.cpp \
-#	$$PWD/aboutdlg.cpp \
+	$$PWD/aboutdlg.cpp \
 	$$PWD/desktoputil.cpp \
 	$$PWD/textutil.cpp \
 	$$PWD/pixmaputil.cpp \
@@ -266,7 +266,7 @@ SOURCES += \
 	$$PWD/chatsplitter.cpp \
 #	$$PWD/chateditproxy.cpp \
 #	$$PWD/psichatdlg.cpp \
-#	$$PWD/tipdlg.cpp \
+	$$PWD/tipdlg.cpp \
 #	$$PWD/adduserdlg.cpp \
 	$$PWD/infodlg.cpp \
 	$$PWD/translationmanager.cpp \
@@ -275,14 +275,14 @@ SOURCES += \
 #	$$PWD/historydlg.cpp \
 	$$PWD/searchdlg.cpp \
 	$$PWD/registrationdlg.cpp \
-#	$$PWD/psitoolbar.cpp \
+	$$PWD/psitoolbar.cpp \
 #	$$PWD/passphrasedlg.cpp \
 	$$PWD/vcardfactory.cpp \
 	$$PWD/sslcertdlg.cpp \
 	$$PWD/discodlg.cpp \
 	$$PWD/alerticon.cpp \
 	$$PWD/alertable.cpp \
-#	$$PWD/psipopup.cpp \
+	$$PWD/psipopup.cpp \
 	$$PWD/psinotifier.cpp \
 	$$PWD/psinotifierbase.cpp \
 	$$PWD/psiapplication.cpp \

@@ -340,12 +340,12 @@ void PsiPopup::setData(const Jid &j, const Resource &r, const UserListItem *u, c
 		
 	if (!name.isEmpty()) {
 		if ( !option.ppJidClip )
-			name = "<nobr>" + Qt::escape(name) + "</nobr>";
+			name = "<nobr>" + name.toHtmlEscaped() + "</nobr>";
 		else
-			name = "<nobr>" + Qt::escape(name) + " &lt;" + Qt::escape(jid) + "&gt;" + "</nobr>";
+			name = "<nobr>" + name.toHtmlEscaped() + " &lt;" + jid.toHtmlEscaped() + "&gt;" + "</nobr>";
 	}
 	else 
-		name = "<nobr>&lt;" + Qt::escape(jid) + "&gt;</nobr>";
+		name = "<nobr>&lt;" + jid.toHtmlEscaped() + "&gt;</nobr>";
 
 	QString statusString = TextUtil::plain2rich(status);
 	statusString = TextUtil::emoticonify(statusString);
