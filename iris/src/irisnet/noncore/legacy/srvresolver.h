@@ -41,6 +41,8 @@ public:
 		quint16 weight;
 		quint16 port;
 	};
+
+	using ServerList = QList<Server>;
 };
 
 class SrvResolver : public QObject
@@ -56,7 +58,7 @@ public:
 	void stop();
 	bool isBusy() const;
 
-	QList<Q3Dns::Server> servers() const;
+	Q3Dns::ServerList servers() const;
 
 	bool failed() const;
 	QHostAddress resultAddress() const;

@@ -210,7 +210,7 @@ public:
 	QStringList hostsToTry;
 	QString host;
 	int port;
-	QList<Q3Dns::Server> servers;
+	Q3Dns::ServerList servers;
 	int errorCode;
 	QString connectHost;
 	QList<QHostAddress> addrList;
@@ -552,9 +552,9 @@ void AdvancedConnector::tryNextSrv()
 	printf("trying next srv\n");
 #endif
 	Q_ASSERT(!d->servers.isEmpty());
-	d->host = d->servers.first().name;
-	d->port = d->servers.first().port;
-	d->servers.takeFirst();
+	const Q3Dns::Server server = d->servers.takeFirst();
+	d->host = server.name;
+	d->port = server.port;
 	do_resolve();
 }
 

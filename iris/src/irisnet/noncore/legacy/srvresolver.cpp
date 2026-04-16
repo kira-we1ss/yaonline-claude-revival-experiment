@@ -20,34 +20,19 @@
 
 #include "srvresolver.h"
 
+#include <algorithm>
+
 #ifndef NO_NDNS
 # include "ndns.h"
 #endif
 
 // CS_NAMESPACE_BEGIN
 
-static void sortSRVList(QList<Q3Dns::Server> &list)
+static void sortSRVList(Q3Dns::ServerList &list)
 {
-	QList<Q3Dns::Server> tmp = list;
-	list.clear();
-
-	while(!tmp.isEmpty()) {
-		QList<Q3Dns::Server>::Iterator p = tmp.end();
-		for(QList<Q3Dns::Server>::Iterator it = tmp.begin(); it != tmp.end(); ++it) {
-			if(p == tmp.end())
-				p = it;
-			else {
-				int a = (*it).priority;
-				int b = (*p).priority;
-				int j = (*it).weight;
-				int k = (*p).weight;
-				if(a < b || (a == b && j < k))
-					p = it;
-			}
-		}
-		list.append(*p);
-		tmp.erase(p);
-	}
+	std::stable_sort(list.begin(), list.end(), [](const Q3Dns::Server &lhs, const Q3Dns::Server &rhs) {
+		return lhs.priority < rhs.priority || (lhs.priority == rhs.priority && lhs.weight < rhs.weight);
+	});
 }
 
 class SrvResolver::Private
@@ -76,7 +61,7 @@ public:
 
 	bool srvonly;
 	QString srv;
-	QList<Q3Dns::Server> servers;
+	Q3Dns::ServerList servers;
 	bool aaaa;
 
 	QTimer t;
@@ -171,7 +156,7 @@ bool SrvResolver::isBusy() const
 		return false;
 }
 
-QList<Q3Dns::Server> SrvResolver::servers() const
+Q3Dns::ServerList SrvResolver::servers() const
 {
 	return d->servers;
 }
@@ -211,10 +196,9 @@ void SrvResolver::nndns_resultsReady(const QList<XMPP::NameRecord> &results)
 
 	if(d->nntype == XMPP::NameRecord::Srv) {
 		// grab the server list and destroy the qdns object
-		QList<Q3Dns::Server> list;
-		for(int n = 0; n < results.count(); ++n)
-		{
-			list += Q3Dns::Server(QString::fromLatin1(results[n].name()), results[n].priority(), results[n].weight(), results[n].port());
+		Q3Dns::ServerList list;
+		for(const XMPP::NameRecord &result : results) {
+			list.append(Q3Dns::Server(QString::fromLatin1(result.name()), result.priority(), result.weight(), result.port()));
 		}
 
 		d->nndns_busy = false;
@@ -239,18 +223,16 @@ void SrvResolver::nndns_resultsReady(const QList<XMPP::NameRecord> &results)
 	else {
 		// grab the address list and destroy the qdns object
 		QList<QHostAddress> list;
-		if(d->nntype == XMPP::NameRecord::A || d->nntype == XMPP::NameRecord::Aaaa)
-		{
-			for(int n = 0; n < results.count(); ++n)
-			{
-				list += results[n].address();
+		if(d->nntype == XMPP::NameRecord::A || d->nntype == XMPP::NameRecord::Aaaa) {
+			for(const XMPP::NameRecord &result : results) {
+				list.append(result.address());
 			}
 		}
 		d->nndns_busy = false;
 		d->nndns.stop();
 
 		if(!list.isEmpty()) {
-			int port = d->servers.first().port;
+			const quint16 port = d->servers.first().port;
 			d->servers.removeFirst();
 			d->aaaa = true;
 
@@ -285,7 +267,7 @@ void SrvResolver::ndns_done()
 {
 #ifndef NO_NDNS
 	QHostAddress r = d->ndns.result();
-	int port = d->servers.first().port;
+	const quint16 port = d->servers.first().port;
 	d->servers.removeFirst();
 
 	if(!r.isNull()) {
