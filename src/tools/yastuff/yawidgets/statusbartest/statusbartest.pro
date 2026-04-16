@@ -1,6 +1,6 @@
 TEMPLATE = app
 CONFIG += qt debug
-QT += gui qt3support xml
+QT += gui xml
 
 # INCLUDEPATH += $$PWD/..
 # DEPENDPATH  += $$PWD/..

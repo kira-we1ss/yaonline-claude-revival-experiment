@@ -1,7 +1,7 @@
 TEMPLATE = app
 CONFIG += qt debug
 CONFIG -= app_bundle
-QT += gui xml qt3support network
+QT += gui xml network
 
 SOURCES += \
 	accountinformertestmain.cpp \

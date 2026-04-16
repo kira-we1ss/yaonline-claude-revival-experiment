@@ -1,7 +1,7 @@
 TEMPLATE = app
 CONFIG += qt release
 CONFIG -= app_bundle
-QT += gui xml qt3support
+QT += gui xml
 SOURCES += \
 	chatviewbenchmain.cpp \
 	../yachatview.cpp \

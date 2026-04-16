@@ -1,6 +1,6 @@
 TEMPLATE = app
 CONFIG += qt debug
-QT += gui xml qt3support
+QT += gui xml
 
 SOURCES += \
 	chatseparatortestmain.cpp \

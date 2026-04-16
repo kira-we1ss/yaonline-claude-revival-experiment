@@ -1,6 +1,5 @@
 TEMPLATE = lib
 CONFIG  += designer plugin debug
-# QT      += qt3support
 TARGET   = yawidgets
 
 target.path = $$[QT_INSTALL_PLUGINS]/designer
