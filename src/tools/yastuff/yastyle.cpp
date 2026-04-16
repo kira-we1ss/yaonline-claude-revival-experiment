@@ -40,7 +40,7 @@ static YaStyle* instance_ = 0;
  * YaStyle could be effectively instantiated only once per application
  */
 YaStyle::YaStyle(QStyle* defaultStyle)
-	: QPlastiqueStyle()
+	: QProxyStyle(defaultStyle)
 {
 	Q_ASSERT(!instance_);
 	instance_ = this;
@@ -66,7 +66,7 @@ YaStyle::YaStyle(QStyle* defaultStyle)
 	menuBrush.setStyle(Qt::SolidPattern);
 	menuPalette_.setBrush(QPalette::Window, menuBrush);
 
-	defaultStyle_->setParent(this);
+	// QProxyStyle(defaultStyle) already takes ownership of the wrapped style.
 }
 
 YaStyle::~YaStyle()
@@ -88,7 +88,7 @@ void YaStyle::polish(QWidget* widget)
 		return;
 	}
 
-	QPlastiqueStyle::polish(widget);
+	QProxyStyle::polish(widget);
 }
 
 void YaStyle::unpolish(QWidget* widget)
@@ -98,7 +98,7 @@ void YaStyle::unpolish(QWidget* widget)
 		return;
 	}
 
-	QPlastiqueStyle::unpolish(widget);
+	QProxyStyle::unpolish(widget);
 }
 
 int YaStyle::styleHint(StyleHint hint, const QStyleOption* option, const QWidget* widget, QStyleHintReturn* returnData) const
@@ -141,7 +141,7 @@ int YaStyle::styleHint(StyleHint hint, const QStyleOption* option, const QWidget
 	default:
 		break;
 	}
-	return QPlastiqueStyle::styleHint(hint, option, widget, returnData);
+	return QProxyStyle::styleHint(hint, option, widget, returnData);
 }
 
 QStyle::SubControl YaStyle::hitTestComplexControl(ComplexControl cc, const QStyleOptionComplex* opt, const QPoint& pos, const QWidget* widget) const
@@ -152,7 +152,7 @@ QStyle::SubControl YaStyle::hitTestComplexControl(ComplexControl cc, const QStyl
 	default:
 		break;
 	}
-	return QPlastiqueStyle::hitTestComplexControl(cc, opt, pos, widget);
+	return QProxyStyle::hitTestComplexControl(cc, opt, pos, widget);
 }
 
 QRect YaStyle::subControlRect(ComplexControl cc, const QStyleOptionComplex* opt, SubControl sc, const QWidget* widget) const
@@ -163,7 +163,7 @@ QRect YaStyle::subControlRect(ComplexControl cc, const QStyleOptionComplex* opt,
 	default:
 		break;
 	}
-	return QPlastiqueStyle::subControlRect(cc, opt, sc, widget);
+	return QProxyStyle::subControlRect(cc, opt, sc, widget);
 }
 
 void YaStyle::drawComplexControl(ComplexControl cc, const QStyleOptionComplex* opt, QPainter* p, const QWidget* widget) const
@@ -177,7 +177,7 @@ void YaStyle::drawComplexControl(ComplexControl cc, const QStyleOptionComplex* o
 			newopt.state &= ~QStyle::State_Selected;
 			newopt.state &= ~QStyle::State_MouseOver;
 			newopt.state &= ~QStyle::State_HasFocus;
-			QPlastiqueStyle::drawComplexControl(cc, &newopt, p, widget);
+			QProxyStyle::drawComplexControl(cc, &newopt, p, widget);
 			return;
 		}
 		break;
@@ -189,7 +189,7 @@ void YaStyle::drawComplexControl(ComplexControl cc, const QStyleOptionComplex* o
 		;
 	}
 
-	QPlastiqueStyle::drawComplexControl(cc, opt, p, widget);
+	QProxyStyle::drawComplexControl(cc, opt, p, widget);
 }
 
 void YaStyle::processStyleOptionMenuItem(QStyleOptionMenuItem* option, const QWidget* w) const
@@ -234,7 +234,7 @@ QSize YaStyle::sizeFromContents(ContentsType ct, const QStyleOption* opt, const 
 		break;
 	}
 
-	return QPlastiqueStyle::sizeFromContents(ct, opt, contentsSize, w);
+	return QProxyStyle::sizeFromContents(ct, opt, contentsSize, w);
 }
 
 int YaStyle::pixelMetric(PixelMetric metric, const QStyleOption* option, const QWidget* widget) const
@@ -258,7 +258,7 @@ int YaStyle::pixelMetric(PixelMetric metric, const QStyleOption* option, const Q
 	default:
 		break;
 	}
-	return QPlastiqueStyle::pixelMetric(metric, option, widget);
+	return QProxyStyle::pixelMetric(metric, option, widget);
 }
 
 void YaStyle::drawItemText(QPainter* painter, const QRect& rectangle, int alignment, const QPalette& palette, bool enabled, const QString& text, QPalette::ColorRole textRole) const
@@ -321,7 +321,7 @@ void YaStyle::drawControl(ControlElement ce, const QStyleOption* opt, QPainter* 
 	default:
 		;
 	}
-	QPlastiqueStyle::drawControl(ce, opt, p, w);
+	QProxyStyle::drawControl(ce, opt, p, w);
 }
 
 void YaStyle::drawPrimitive(PrimitiveElement pe, const QStyleOption* opt, QPainter* p, const QWidget* w) const
@@ -338,12 +338,12 @@ void YaStyle::drawPrimitive(PrimitiveElement pe, const QStyleOption* opt, QPaint
 	if (pe == PE_FrameFocusRect)
 		return;
 
-	QPlastiqueStyle::drawPrimitive(pe, opt, p, w);
+	QProxyStyle::drawPrimitive(pe, opt, p, w);
 }
 
 QRect YaStyle::subElementRect(SubElement element, const QStyleOption* option, const QWidget* widget) const
 {
-	QRect result = QPlastiqueStyle::subElementRect(element, option, widget);
+	QRect result = QProxyStyle::subElementRect(element, option, widget);
 	if (element == QStyle::SE_LineEditContents) {
 		int margin = widget ? widget->property("margin-left-right").toInt() : 0;
 		result.adjust(margin, 0, -margin, 0);

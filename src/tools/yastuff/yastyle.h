@@ -21,13 +21,13 @@
 #ifndef YASTYLE_H
 #define YASTYLE_H
 
-#include <QPlastiqueStyle>
+#include <QProxyStyle>
 #include <QHash>
 #include <QFont>
 
 class QStyleOptionMenuItem;
 
-class YaStyle : public QPlastiqueStyle
+class YaStyle : public QProxyStyle
 {
 public:
 	YaStyle(QStyle* defaultStyle);
