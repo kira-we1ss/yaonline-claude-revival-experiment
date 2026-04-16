@@ -1961,20 +1961,18 @@ public slots:
 	/*
 	 * \brief Display tool tip for item under cursor.
 	 */
-	bool doToolTip(QPoint pos)
+	bool doToolTip(const QPoint &pos)
 	{
 		ContactViewItem *i = cv->itemAtPosition(pos);
-		if(i) {
-			QPoint globalPos = cv->mapToGlobal(pos);
-			if(i->type() == ContactViewItem::Contact)
-				PsiToolTip::showText(globalPos, i->u()->makeTip(true, false), cv);
-			else if(i->type() == ContactViewItem::Profile)
-				PsiToolTip::showText(globalPos, i->contactProfile()->makeTip(true, false), cv);
-			else
-				PsiToolTip::showText(globalPos, i->groupName() + " " + i->groupInfo(), cv);
-			return true;
-		}
-		return false;
+		if(!i)
+			return false;
+
+		const QString tip = i->toolTipText();
+		if(tip.isEmpty())
+			return false;
+
+		PsiToolTip::showText(cv->mapToGlobal(pos), tip, cv);
+		return true;
 	}
 
 private slots:
@@ -2002,7 +2000,8 @@ ContactView::ContactView(QWidget *parent, const char *name)
 	setTreeStepSize(4);
 	setSorting(0,true);
 
-	window()->installEventFilter( this );
+	window()->installEventFilter(this);
+	viewport()->installEventFilter(this);
 
 	// create the column and hide the header
 	addColumn("");
@@ -2351,18 +2350,19 @@ void ContactView::setShowSelf(bool x)
 /*
  * \brief Event filter. Nuff said.
  */
-bool ContactView::eventFilter( QObject *obj, QEvent *event )
+bool ContactView::eventFilter(QObject *obj, QEvent *event)
 {
-	if ( event->type() == QEvent::Move )
+	if (event->type() == QEvent::Move)
 		d->determineAutoRosterSizeGrowSide();
 	else if (event->type() == QEvent::ToolTip && obj == viewport()) {
-		if (d->doToolTip(((QHelpEvent*)event)->pos())) {
+		const QHelpEvent *helpEvent = static_cast<const QHelpEvent *>(event);
+		if (d->doToolTip(helpEvent->pos())) {
 			event->accept();
 			return true;
 		}
 	}
 
-	return Q3ListView::eventFilter( obj, event );
+	return Q3ListView::eventFilter(obj, event);
 }
 
 
@@ -3154,6 +3154,17 @@ ContactViewItem *ContactViewItem::nextSiblingItem() const
 bool ContactViewItem::hasChildrenItems() const
 {
 	return childCount() > 0;
+}
+
+QString ContactViewItem::toolTipText() const
+{
+	if (type_ == Contact && d->u)
+		return d->u->makeTip(true, false);
+	if (type_ == Profile)
+		return d->cp->makeTip(true, false);
+	if (type_ == Group)
+		return d->groupInfo.isEmpty() ? d->groupName : d->groupName + " " + d->groupInfo;
+	return QString();
 }
 
 void ContactViewItem::drawGroupIcon()

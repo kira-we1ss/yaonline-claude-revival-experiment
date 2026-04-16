@@ -368,6 +368,7 @@ public:
 	ContactViewItem *firstChildItem() const;
 	ContactViewItem *nextSiblingItem() const;
 	bool hasChildrenItems() const;
+	QString toolTipText() const;
 
 	void setContact(UserListItem *);
 	void setProfileName(const QString &);
