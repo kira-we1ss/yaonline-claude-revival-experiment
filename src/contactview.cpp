@@ -2029,29 +2029,29 @@ ContactView::ContactView(QWidget *parent, const char *name)
 
 	// actions
 	qa_send = new IconAction("", "psi/sendMessage", tr("Send &message"), 0, this);
-	connect(qa_send, SIGNAL(activated()), SLOT(doSendMessage()));
+	connect(qa_send, &QAction::triggered, this, &ContactView::doSendMessage);
 	qa_ren = new IconAction("", /*"psi/edit/clear",*/ tr("Re&name"), 0, this);
-	connect(qa_ren, SIGNAL(activated()), SLOT(doRename()));
+	connect(qa_ren, &QAction::triggered, this, &ContactView::doRename);
 	qa_assignAvatar = new IconAction("", tr("&Assign Custom Picture"), 0, this);
-	connect(qa_assignAvatar, SIGNAL(activated()), SLOT(doAssignAvatar()));
+	connect(qa_assignAvatar, &QAction::triggered, this, &ContactView::doAssignAvatar);
 	qa_clearAvatar = new IconAction("", tr("&Clear Custom Picture"), 0, this);
-	connect(qa_clearAvatar, SIGNAL(activated()), SLOT(doClearAvatar()));
+	connect(qa_clearAvatar, &QAction::triggered, this, &ContactView::doClearAvatar);
 	qa_chat = new IconAction("", "psi/start-chat", tr("Open &chat window"), 0, this);
-	connect(qa_chat, SIGNAL(activated()), SLOT(doOpenChat()));
+	connect(qa_chat, &QAction::triggered, this, &ContactView::doOpenChat);
 #ifdef WHITEBOARDING
 	qa_wb = new IconAction("", "psi/whiteboard", tr("Open a &whiteboard"), Qt::CTRL+Qt::Key_W, this);
-	connect(qa_wb, SIGNAL(activated()), SLOT(doOpenWhiteboard()));
+	connect(qa_wb, &QAction::triggered, this, &ContactView::doOpenWhiteboard);
 #endif
 	qa_hist = new IconAction("", "psi/history", tr("&History"), 0, this);
-	connect(qa_hist, SIGNAL(activated()), SLOT(doHistory()));
+	connect(qa_hist, &QAction::triggered, this, &ContactView::doHistory);
 	qa_logon = new IconAction("", tr("&Log on"), 0, this);
-	connect(qa_logon, SIGNAL(activated()), SLOT(doLogon()));
+	connect(qa_logon, &QAction::triggered, this, &ContactView::doLogon);
 	qa_recv = new IconAction("", tr("&Receive incoming event"), 0, this);
-	connect(qa_recv, SIGNAL(activated()), SLOT(doRecvEvent()));
+	connect(qa_recv, &QAction::triggered, this, &ContactView::doRecvEvent);
 	qa_rem = new IconAction("", "psi/remove", tr("Rem&ove"), 0, this);
-	connect(qa_rem, SIGNAL(activated()), SLOT(doRemove()));
+	connect(qa_rem, &QAction::triggered, this, &ContactView::doRemove);
 	qa_vcard = new IconAction("", "psi/vCard", tr("User &Info"), 0, this);
-	connect(qa_vcard, SIGNAL(activated()), SLOT(doVCard()));
+	connect(qa_vcard, &QAction::triggered, this, &ContactView::doVCard);
 
 	if(option.lockdown.roster) {
 		qa_ren->setEnabled(false);
