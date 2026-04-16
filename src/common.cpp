@@ -26,7 +26,22 @@
 #include <QRegExp>
 #include <QFile>
 #include <QApplication>
+#if QT_VERSION >= 0x050000
+# if defined(__has_include)
+#  if __has_include(<QtMultimedia/QSound>)
+#   include <QtMultimedia/QSound>
+#   define HAVE_QSOUND 1
+#  endif
+# endif
+#else
 #include <QSound>
+#define HAVE_QSOUND 1
+#endif
+
+#ifndef HAVE_QSOUND
+#define HAVE_QSOUND 0
+#endif
+
 #include <QObject>
 #include <QMessageBox>
 
@@ -240,8 +255,10 @@ void soundPlay(const QString &str)
 	if(!QFile::exists(str))
 		return;
 
-#if defined(Q_WS_WIN) || defined(Q_WS_MAC)
+#if HAVE_QSOUND && (defined(Q_WS_WIN) || defined(Q_WS_MAC))
 	QSound::play(str);
+#elif defined(Q_WS_WIN) || defined(Q_WS_MAC)
+	QApplication::beep();
 #else
 	if(!option.player.isEmpty()) {
 		QStringList args;
