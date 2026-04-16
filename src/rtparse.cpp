@@ -21,7 +21,6 @@
 #include "rtparse.h"
 #include "textutil.h"
 
-#include <QTextDocument> // for Qt::escape()
 
 RTParse::RTParse(const QString &_in)
 {
@@ -45,7 +44,7 @@ QString RTParse::next()
 	// if we're at a tag, append it to the output
 	if(in.at(v_at) == '<') {
 		QString s;
-		int n = in.find('>', v_at);
+		int n = in.indexOf('>', v_at);
 		if(n == -1) {
 			s = in.mid(v_at);
 		}
@@ -59,7 +58,7 @@ QString RTParse::next()
 
 	// now find the next tag, and grab the text in between
 	QString s;
-	int x = in.find('<', v_at);
+	int x = in.indexOf('<', v_at);
 	if(x == -1) {
 		s = in.mid(v_at);
 		v_atEnd = true;
@@ -82,7 +81,7 @@ bool RTParse::atEnd() const
 void RTParse::putPlain(const QString &s)
 {
 	//printf("got this: [%s]\n", s.toLatin1().constData());
-	out += Qt::escape(s);
+	out += TextUtil::escape(s);
 	//printf("changed to this: [%s]\n", expandEntities(s).toLatin1().constData());
 }
 

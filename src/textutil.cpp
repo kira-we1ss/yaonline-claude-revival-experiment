@@ -297,7 +297,7 @@ static QString linkify_htmlsafe(const QString &in)
 		if(linkify_isOneOf(in.at(n), dangerousChars)) {
 			// hex encode
 			QString hex;
-			hex.sprintf("%%%02X", in.at(n).toLatin1().constData());
+			hex.sprintf("%%%02X", static_cast<unsigned char>(in.at(n).toLatin1()));
 			out.append(hex);
 		}
 		else {
@@ -462,10 +462,10 @@ QString TextUtil::linkify(const QString &in)
 			}
 			href += link;
 			// attributes need to be encoded too.
-			href = Qt::escape(href);
+			href = TextUtil::escape(href);
 			href = linkify_htmlsafe(href);
 			//printf("link: [%s], href=[%s]\n", link.toLatin1().constData(), href.toLatin1().constData());
-			linked = QString("<a href=\"%1\">").arg(href) + Qt::escape(link) + "</a>" + Qt::escape(pre.mid(cutoff));
+			linked = QString("<a href=\"%1\">").arg(href) + TextUtil::escape(link) + "</a>" + TextUtil::escape(pre.mid(cutoff));
 			out.replace(x1, len, linked);
 			n = x1 + linked.length() - 1;
 		}
@@ -544,7 +544,7 @@ QString TextUtil::emoticonify(const QString &in)
 
 						// find the closest match
 						const QRegExp &rx = icon->regExp();
-						int n = rx.search(str, iii);
+						int n = rx.indexIn(str, iii);
 						if ( n == -1 )
 							continue;
 
