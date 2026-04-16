@@ -1,22 +1,18 @@
-#include <qapplication.h>
-#include <q3textedit.h>
-#include <q3groupbox.h>
-#include <qlineedit.h>
-#include <qlabel.h>
-#include <qcheckbox.h>
-#include <q3textedit.h>
-#include <qcombobox.h>
-#include <qpushbutton.h>
-#include <qmessagebox.h>
-#include <qinputdialog.h>
-#include <qspinbox.h>
-#include <qtimer.h>
-#include <qmenubar.h>
-#include <q3popupmenu.h>
-#include <qtabwidget.h>
+#include <QApplication>
+#include <Q3TextEdit>
+#include <Q3GroupBox>
+#include <QLineEdit>
+#include <QLabel>
+#include <QCheckBox>
+#include <QComboBox>
+#include <QPushButton>
+#include <QMessageBox>
+#include <QInputDialog>
+#include <QSpinBox>
+#include <QTimer>
+#include <QMenuBar>
+#include <QTabWidget>
 #include <qca.h>
-//Added by qt3to4:
-#include <Q3PtrList>
 #include <QList>
 //#include <iris/xmpp.h>
 #include "xmpp.h"
@@ -165,10 +161,8 @@ public:
 		connect(pb_iqv, SIGNAL(clicked()), SLOT(sc_iqv()));
 		connect(pb_about, SIGNAL(clicked()), SLOT(about()));
 
-		sb_ssfmin->setMinValue(0);
-		sb_ssfmin->setMaxValue(256);
-		sb_ssfmax->setMinValue(0);
-		sb_ssfmax->setMaxValue(256);
+		sb_ssfmin->setRange(0, 256);
+		sb_ssfmax->setRange(0, 256);
 
 		pb_send->setEnabled(false);
 		proxy_activated(0);
@@ -291,7 +285,7 @@ private slots:
 			return;
 		}
 
-		int p = cb_proxy->currentItem();
+		const int p = cb_proxy->currentIndex();
 		XMPP::AdvancedConnector::Proxy proxy;
 		if(p > 0) {
 			QString s = le_proxyhost->text();
@@ -307,13 +301,13 @@ private slots:
 			QString host;
 			int port = 0;
 			if(!s.isEmpty()) {
-				int n = s.find(':');
+				const int n = s.indexOf(':');
 				if(n == -1) {
 					QMessageBox::information(this, tr("Error"), tr("Please enter the proxy host in the form 'host:port'."));
 					return;
 				}
-				host = s.mid(0, n);
-				port = s.mid(n+1).toInt();
+				host = s.left(n);
+				port = s.mid(n + 1).toInt();
 			}
 			if(p == 1)
 				proxy.setHttpConnect(host, port);
@@ -332,13 +326,13 @@ private slots:
 		bool ssl = false;
 		if(useHost) {
 			QString s = le_host->text();
-			int n = s.find(':');
+			const int n = s.indexOf(':');
 			if(n == -1) {
 				QMessageBox::information(this, tr("Error"), tr("Please enter the host in the form 'host:port'."));
 				return;
 			}
-			host = s.mid(0, n);
-			port = s.mid(n+1).toInt();
+			host = s.left(n);
+			port = s.mid(n + 1).toInt();
 
 			if(ck_ssl->isChecked())
 				ssl = true;
@@ -421,7 +415,7 @@ private slots:
 		QString errMsg;
 		int errLine, errCol;
 		if(!doc.setContent(str, true, &errMsg, &errLine, &errCol)) {
-			int lines = QStringList::split('\n', str, true).count();
+			const int lines = str.split('\n', Qt::KeepEmptyParts).count();
 			--errLine; // skip the first line
 			if(errLine == lines-1) {
 				errLine = lines-2;
@@ -606,7 +600,7 @@ private slots:
 			else {
 				conn->changePollInterval(10); // slow down during prompt
 				bool ok;
-				QString s = QInputDialog::getText(tr("Password"), tr("Enter the password for %1").arg(jid.full()), QLineEdit::Password, QString::null, &ok, this);
+				QString s = QInputDialog::getText(tr("Password"), tr("Enter the password for %1").arg(jid.full()), QLineEdit::Password, QString(), &ok, this);
 				if(!ok) {
 					stop();
 					return;
@@ -779,7 +773,7 @@ private:
 	void setHostState()
 	{
 		bool ok = false;
-		if(!ck_probe->isChecked() && cb_proxy->currentItem() != 3)
+		if(!ck_probe->isChecked() && cb_proxy->currentIndex() != 3)
 			ok = true;
 		lb_host->setEnabled(ok);
 		le_host->setEnabled(ok);
@@ -816,7 +810,7 @@ public:
 
 	void appendXmlOut(const QString &s)
 	{
-		QStringList lines = QStringList::split('\n', s, true);
+		const QStringList lines = s.split('\n', Qt::KeepEmptyParts);
 		QString str;
 		bool first = true;
 		for(QStringList::ConstIterator it = lines.begin(); it != lines.end(); ++it) {
@@ -830,7 +824,7 @@ public:
 
 	void appendXmlIn(const QString &s)
 	{
-		QStringList lines = QStringList::split('\n', s, true);
+		const QStringList lines = s.split('\n', Qt::KeepEmptyParts);
 		QString str;
 		bool first = true;
 		for(QStringList::ConstIterator it = lines.begin(); it != lines.end(); ++it) {
