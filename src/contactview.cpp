@@ -3534,7 +3534,7 @@ void ContactViewItem::setIcon(const PsiIcon *icon, bool alert)
 		d->lastIcon = (PsiIcon *)icon;
 
 	if ( d->icon ) {
-		disconnect(d->icon, nullptr, this, nullptr);
+		disconnect(d->icon, &PsiIcon::pixmapChanged, this, &ContactViewItem::iconUpdated);
 		d->icon->stop();
 
 		delete d->icon;
