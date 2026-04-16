@@ -34,7 +34,7 @@ SSLCertDlg::SSLCertDlg(QWidget *parent)
 {
 	ui_.setupUi(this);
 	setModal(true);
-	setWindowTitle(CAP(caption()));
+	setWindowTitle(CAP(windowTitle()));
 
 	connect(ui_.pb_close, SIGNAL(clicked()), SLOT(close()));
 	ui_.pb_close->setDefault(true);
@@ -106,7 +106,9 @@ void SSLCertDlg::showCert(const QCA::Certificate &certificate, int result, QCA::
 
 void SSLCertDlg::setLabelStatus(QLabel& l, bool ok)
 {
-	l.setPaletteForegroundColor(ok ? QColor("#2A993B") : QColor("#810000"));
+	QPalette pal = l.palette();
+	pal.setColor(QPalette::WindowText, ok ? QColor("#2A993B") : QColor("#810000"));
+	l.setPalette(pal);
 }
 
 QString SSLCertDlg::makePropEntry(QCA::CertificateInfoType var, const QString &name, const QCA::CertificateInfo &list)

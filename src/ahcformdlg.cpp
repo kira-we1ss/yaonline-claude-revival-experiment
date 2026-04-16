@@ -39,7 +39,7 @@ AHCFormDlg::AHCFormDlg(const AHCommand& r, const Jid& receiver, XMPP::Client* cl
 	node_ = r.node();
 	sessionId_ = r.sessionId();
 
-	QVBoxLayout *vb = new QVBoxLayout(this, 11, 6);
+	QVBoxLayout *vb = new QVBoxLayout(this);
 
 	// Instructions
 	if (!r.data().instructions().isEmpty()) {
@@ -55,7 +55,7 @@ AHCFormDlg::AHCFormDlg(const AHCommand& r, const Jid& receiver, XMPP::Client* cl
 	vb->addStretch(1);
 
 	// Buttons
-	QHBoxLayout *hb = new QHBoxLayout(vb);
+	QHBoxLayout *hb = new QHBoxLayout();
 	pb_complete = pb_cancel = pb_prev = pb_next = 0;
 	if (!final) {
 
@@ -133,10 +133,10 @@ AHCFormDlg::AHCFormDlg(const AHCommand& r, const Jid& receiver, XMPP::Client* cl
 	}
 
 	if (!r.data().title().isEmpty()) {
-		setCaption(QString("%1 (%2)").arg(r.data().title()).arg(receiver.full()));
+		setWindowTitle(QString("%1 (%2)").arg(r.data().title()).arg(receiver.full()));
 	}
 	else {
-		setCaption(QString("%1").arg(receiver.full()));
+		setWindowTitle(QString("%1").arg(receiver.full()));
 	}
 }
 

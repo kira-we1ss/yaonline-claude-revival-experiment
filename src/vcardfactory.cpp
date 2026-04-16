@@ -69,7 +69,7 @@ VCardFactory* VCardFactory::instance()
 void VCardFactory::checkLimit(QString jid, VCard *vcard)
 {
 	if (vcardList_.contains(jid)) {
-		vcardList_.remove(jid);
+		vcardList_.removeAll(jid);
 		delete vcardDict_.take(jid);
 	}
 #ifndef YAPSI
@@ -112,7 +112,7 @@ void VCardFactory::saveVCard(const Jid& j, const VCard& _vcard)
 	QFile file ( ApplicationInfo::vCardDir() + "/" + JIDUtil::encode(j.userHost()).toLower() + ".xml" );
 	file.open ( QIODevice::WriteOnly );
 	QTextStream out ( &file );
-	out.setEncoding ( QTextStream::UnicodeUTF8 );
+	out.setCodec("UTF-8");
 	QDomDocument doc;
 	doc.appendChild( vcard->toXml ( &doc ) );
 	out << doc.toString(4);

@@ -212,12 +212,12 @@ void CachedAvatar::saveToCache(const QByteArray& data)
 	hash_ = hash;
 	// printf("Saving %s to cache.\n",hash.toLatin1().constData());
 	QFile f(cachedFileName());
-	if (f.open(IO_WriteOnly)) {
-		f.writeBlock(data);
+	if (f.open(QIODevice::WriteOnly)) {
+		f.write(data);
 		f.close();
 	}
 	else {
-		printf("Error opening %s for writing.\n",f.name().toLatin1().constData());
+		printf("Error opening %s for writing.\n",f.fileName().toLatin1().constData());
 	}
 }
 
@@ -721,7 +721,7 @@ void AvatarFactory::publish_success(const QString& n, const PubSubItem& item)
 		meta_el.setAttribute("xmlns","http://www.xmpp.org/extensions/xep-0084.html#ns-metadata");
 		QDomElement info_el = doc->createElement("info");
 		info_el.setAttribute("id",selfAvatarHash_);
-		info_el.setAttribute("bytes",avatar_image.numBytes());
+		info_el.setAttribute("bytes", avatar_image.sizeInBytes());
 		info_el.setAttribute("height",avatar_image.height());
 		info_el.setAttribute("width",avatar_image.width());
 		info_el.setAttribute("type",image2type(selfAvatarData_));

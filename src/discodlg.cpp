@@ -224,7 +224,7 @@ private:
 	bool autoItemsEnabled() const;
 	bool autoInfoEnabled() const;
 	DiscoDlg *dlg() const;
-
+public:
 	// Qt3 compat helpers
 	void setExpandable(bool e) {
 		setChildIndicatorPolicy(e ? QTreeWidgetItem::ShowIndicator : QTreeWidgetItem::DontShowIndicator);
@@ -232,6 +232,7 @@ private:
 	bool isExpandable() const {
 		return childIndicatorPolicy() != QTreeWidgetItem::DontShowIndicator || childCount() > 0;
 	}
+private:
 };
 
 DiscoListItem::DiscoListItem(DiscoItem it, DiscoData *_d, QTreeWidget *parent)
@@ -1415,7 +1416,7 @@ DiscoDlg::DiscoDlg(PsiAccount *pa, const Jid &jid, const QString &node)
 	d->jid  = jid;
 	d->node = node;
 
-	setWindowTitle(CAP(caption()));
+	setWindowTitle(CAP(windowTitle()));
 	setWindowIcon(PsiIconset::instance()->transportStatus("transport", STATUS_ONLINE).icon());
 	X11WM_CLASS("disco");
 

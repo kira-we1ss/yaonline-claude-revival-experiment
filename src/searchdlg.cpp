@@ -179,7 +179,7 @@ SearchDlg::SearchDlg(const Jid &jid, PsiAccount *pa)
 	d->jt = 0;
 	d->xdata = 0;
 
-	setWindowTitle(caption().arg(d->jid.full()));
+	setWindowTitle(windowTitle().arg(d->jid.full()));
 
 	d->busy = busy;
 

@@ -92,7 +92,7 @@ bool ContactUpdatesNotifier::filterContactAuth(PsiAccount* account, const XMPP::
 		    n.account == account &&
 		    n.jid.compare(jid, n.compareResource))
 		{
-			QMetaObject::invokeMethod(n.object, n.slot, Qt::DirectConnection,
+			QMetaObject::invokeMethod(n.object, n.slot.toLatin1().constData(), Qt::DirectConnection,
 			                          Q_RETURN_ARG(bool, filter),
 			                          Q_ARG(ContactUpdatesNotifier::ContactUpdateActionType, n.type),
 			                          Q_ARG(PsiAccount*, n.account),
@@ -116,7 +116,7 @@ void ContactUpdatesNotifier::contactAction(ContactUpdatesNotifier::ContactUpdate
 		    n.account == account &&
 		    n.jid.compare(jid, n.compareResource))
 		{
-			QMetaObject::invokeMethod(n.object, n.slot, Qt::DirectConnection, QGenericReturnArgument(),
+			QMetaObject::invokeMethod(n.object, n.slot.toLatin1().constData(), Qt::DirectConnection, QGenericReturnArgument(),
 			                          Q_ARG(ContactUpdatesNotifier::ContactUpdateActionType, n.type),
 			                          Q_ARG(PsiAccount*, n.account),
 			                          Q_ARG(XMPP::Jid, n.jid),
@@ -134,7 +134,7 @@ void ContactUpdatesNotifier::update()
 		PendingNotification n = it.next();
 
 		if (qAbs(now.secsTo(n.startTime)) > n.timeout) {
-			QMetaObject::invokeMethod(n.object, n.slot, Qt::DirectConnection, QGenericReturnArgument(),
+			QMetaObject::invokeMethod(n.object, n.slot.toLatin1().constData(), Qt::DirectConnection, QGenericReturnArgument(),
 			                          Q_ARG(ContactUpdatesNotifier::ContactUpdateActionType, n.type),
 			                          Q_ARG(PsiAccount*, n.account),
 			                          Q_ARG(XMPP::Jid, n.jid),
