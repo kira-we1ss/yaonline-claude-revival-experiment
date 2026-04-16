@@ -67,8 +67,10 @@ TabDlg* TabManager::newTabs()
 
 void TabManager::tabDestroyed(QObject* obj)
 {
-	Q_ASSERT(tabs_.contains(static_cast<TabDlg*>(obj)));
-	tabs_.removeAll(static_cast<TabDlg*>(obj));
+	TabDlg *tabDlg = qobject_cast<TabDlg*>(obj);
+	Q_ASSERT(tabDlg);
+	Q_ASSERT(tabs_.contains(tabDlg));
+	tabs_.removeAll(tabDlg);
 }
 
 bool TabManager::isChatTabbed(const TabbableWidget* chat) const
@@ -90,7 +92,7 @@ TabDlg* TabManager::getManagingTabs(const TabbableWidget* chat) const
 			return tabDlg;
 		}
 	}
-	return 0;
+	return nullptr;
 }
 
 const QList<TabDlg*>& TabManager::tabSets()

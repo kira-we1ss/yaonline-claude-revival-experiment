@@ -33,6 +33,7 @@
 class PsiCon;
 class ChatTabs;
 class ChatDlg;
+class QAction;
 class QPushButton;
 class QMenu;
 class QString;
@@ -139,6 +140,18 @@ private:
 	bool reordering_;
 
 	QSize chatSize_;
+
+	TabbableWidget* currentTabWidget() const;
+	int currentTabIndex() const;
+	int indexOfTab(const TabbableWidget* tab) const;
+	void insertTabWidget(int index, TabbableWidget *tab);
+	void removeTabWidget(TabbableWidget *tab);
+	void setCurrentTabWidget(TabbableWidget *tab);
+	void setCurrentTabIndex(int index);
+	void setTabWidgetSignalsBlocked(bool blocked);
+#ifndef YAPSI
+	void rebuildPsiTabOrder(TabbableWidget *currentTab);
+#endif
 
 	void extinguishFlashingTabs();
 	void updateCaption();

@@ -26,12 +26,13 @@
 
 class TabbableWidget;
 class TabDlg;
+class QWidget;
 
 class TabManager : public QObject
 {
 	Q_OBJECT
 public:
-	TabManager(PsiCon *psiCon, QObject *parent = 0);
+	TabManager(PsiCon *psiCon, QObject *parent = nullptr);
 	~TabManager();
 
 	PsiCon* psiCon() const;

@@ -24,6 +24,7 @@
 #include "iconset.h"
 #include "common.h"
 #include "psicon.h"
+#include <QAction>
 #include <QMenuBar>
 #include <QCursor>
 #include <QVBoxLayout>
@@ -33,7 +34,9 @@
 #include <QMenu>
 #include <QDropEvent>
 #include <QCloseEvent>
+#include <QMimeData>
 #include <QPainter>
+#include <QtGlobal>
 #ifdef YAPSI
 #include "yatabwidget.h"
 #include "yavisualutil.h"
@@ -78,8 +81,10 @@ TabDlg::TabDlg(TabManager* tabManager)
 	, closing_(false)
 	, reordering_(false)
 {
-	if ( option.brushedMetal )
+#if defined(Q_OS_MAC) && (QT_VERSION < QT_VERSION_CHECK(5, 0, 0))
+	if (option.brushedMetal)
 		setAttribute(Qt::WA_MacMetalStyle);
+#endif
 
 	// FIXME
 	qRegisterMetaType<TabDlg*>("TabDlg*");
@@ -152,6 +157,112 @@ void TabDlg::setShortcuts()
 	act_next_->setShortcuts(ShortcutManager::instance()->shortcuts("chat.next-tab"));
 }
 
+TabbableWidget* TabDlg::currentTabWidget() const
+{
+#ifdef YAPSI
+	return static_cast<TabbableWidget*>(tabWidget_->currentWidget());
+#else
+	return qobject_cast<TabbableWidget*>(tabWidget_->currentPage());
+#endif
+}
+
+int TabDlg::currentTabIndex() const
+{
+#ifdef YAPSI
+	return tabWidget_->currentIndex();
+#else
+	return tabWidget_->currentPageIndex();
+#endif
+}
+
+int TabDlg::indexOfTab(const TabbableWidget* tab) const
+{
+#ifdef YAPSI
+	return tabWidget_->indexOf(const_cast<TabbableWidget*>(tab));
+#else
+	return tabWidget_->getIndex(const_cast<TabbableWidget*>(tab));
+#endif
+}
+
+void TabDlg::insertTabWidget(int index, TabbableWidget *tab)
+{
+#ifdef YAPSI
+	tabWidget_->insertTab(index, tab, captionForTab(tab));
+#else
+	Q_UNUSED(index);
+	rebuildPsiTabOrder(currentTabWidget() ? currentTabWidget() : tab);
+#endif
+}
+
+void TabDlg::removeTabWidget(TabbableWidget *tab)
+{
+#ifdef YAPSI
+	tabWidget_->removeTab(indexOfTab(tab));
+#else
+	tabWidget_->removePage(tab);
+#endif
+}
+
+void TabDlg::setCurrentTabWidget(TabbableWidget *tab)
+{
+#ifdef YAPSI
+	tabWidget_->setCurrentWidget(tab);
+#else
+	tabWidget_->showPage(tab);
+#endif
+}
+
+void TabDlg::setCurrentTabIndex(int index)
+{
+#ifdef YAPSI
+	tabWidget_->setCurrentIndex(index);
+#else
+	tabWidget_->setCurrentPage(index);
+#endif
+}
+
+void TabDlg::setTabWidgetSignalsBlocked(bool blocked)
+{
+#ifdef YAPSI
+	tabWidget_->doBlockSignals(blocked);
+#else
+	tabWidget_->blockSignals(blocked);
+#endif
+}
+
+#ifndef YAPSI
+void TabDlg::rebuildPsiTabOrder(TabbableWidget *currentTab)
+{
+	const bool widgetSignalsBlocked = tabWidget_->signalsBlocked();
+	tabWidget_->blockSignals(true);
+
+	while (tabWidget_->count() > 0) {
+		QWidget *page = tabWidget_->widget(0);
+		if (!page) {
+			break;
+		}
+		tabWidget_->removePage(page);
+	}
+
+	foreach(TabbableWidget* tab, tabs_) {
+		tabWidget_->addTab(tab, captionForTab(tab));
+	}
+
+	if (currentTab && tabs_.contains(currentTab)) {
+		tabWidget_->showPage(currentTab);
+	}
+	else if (!tabs_.isEmpty()) {
+		tabWidget_->showPage(tabs_.first());
+	}
+
+	tabWidget_->blockSignals(widgetSignalsBlocked);
+
+	if (!widgetSignalsBlocked) {
+		tabSelected(currentTabWidget());
+	}
+}
+#endif
+
 void TabDlg::resizeEvent(QResizeEvent *e)
 {
 	TabBaseClass::resizeEvent(e);
@@ -204,10 +315,9 @@ void TabDlg::tab_aboutToShowMenu(QMenu *menu)
 
 	QMenu* sendTo = new QMenu(menu);
 	sendTo->setTitle(tr("Send Current Tab to"));
-	int tabDlgMetaType = qRegisterMetaType<TabDlg*>("TabDlg*");
 	foreach(TabDlg* tabSet, tabManager_->tabSets()) {
 		QAction *act = sendTo->addAction(tabSet->desiredCaption());
-		act->setData(QVariant(tabDlgMetaType, &tabSet));
+		act->setData(QVariant::fromValue(tabSet));
 		act->setEnabled(tabSet != this);
 	}
 	connect(sendTo, SIGNAL(triggered(QAction*)), SLOT(menu_sendTabTo(QAction*)));
@@ -216,7 +326,7 @@ void TabDlg::tab_aboutToShowMenu(QMenu *menu)
 
 void TabDlg::menu_sendTabTo(QAction *act)
 {
-	queuedSendTabTo(static_cast<TabbableWidget*>(tabWidget_->currentWidget()), act->data().value<TabDlg*>());
+	queuedSendTabTo(currentTabWidget(), act->data().value<TabDlg*>());
 }
 
 void TabDlg::sendTabTo(TabbableWidget* tab, TabDlg* otherTabs)
@@ -244,7 +354,7 @@ void TabDlg::setLooks()
 {
 	//set the widget icon
 #ifndef YAPSI
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	setWindowIcon(IconsetFactory::icon("psi/start-chat").icon());
 #endif
 	tabWidget_->setTabPosition(QTabWidget::Top);
@@ -286,7 +396,7 @@ bool TabDlg::managesTab(const TabbableWidget* tab) const
 
 bool TabDlg::tabOnTop(const TabbableWidget* tab) const
 {
-	return tabWidget_->currentWidget() == tab;
+	return currentTabWidget() == tab;
 }
 
 void TabDlg::insertTab(int index, TabbableWidget *tab)
@@ -295,7 +405,7 @@ void TabDlg::insertTab(int index, TabbableWidget *tab)
 	bool updatesEnabled = this->updatesEnabled();
 	setUpdatesEnabled(false);
 	tabs_.insert(index, tab);
-	tabWidget_->insertTab(index, tab, captionForTab(tab));
+	insertTabWidget(index, tab);
 
 	connect(tab, SIGNAL(invalidateTabInfo()), SLOT(updateTab()));
 	connect(tab, SIGNAL(updateFlashState()), SLOT(updateFlashState()));
@@ -312,7 +422,7 @@ void TabDlg::addTab(TabbableWidget* tab)
 
 void TabDlg::detachCurrentTab()
 {
-	detachTab(static_cast<TabbableWidget*>(tabWidget_->currentWidget()));
+	detachTab(currentTabWidget());
 }
 
 uint TabDlg::tabCount() const
@@ -345,7 +455,7 @@ void TabDlg::removeTabWithNoChecks(TabbableWidget *tab)
 	disconnect(tab, SIGNAL(updateFlashState()), this, SLOT(updateFlashState()));
 
 	tabs_.removeAll(tab);
-	tabWidget_->removeTab(tabWidget_->indexOf(tab));
+	removeTabWidget(tab);
 	checkHasChats();
 	openedChatsUpdate();
 }
@@ -385,7 +495,7 @@ void TabDlg::selectTab(TabbableWidget* chat)
 {
 	bool updatesEnabled = this->updatesEnabled();
 	setUpdatesEnabled(false);
-	tabWidget_->setCurrentWidget(chat);
+	setCurrentTabWidget(chat);
 	chat->aboutToShow();
 	setUpdatesEnabled(updatesEnabled);
 }
@@ -409,7 +519,7 @@ void TabDlg::changeEvent(QEvent* e)
 
 void TabDlg::activated()
 {
-	TabbableWidget* currentTab = dynamic_cast<TabbableWidget*>(tabWidget_->currentWidget());
+	TabbableWidget* currentTab = currentTabWidget();
 	if (currentTab && !closing_) {
 		currentTab->activated();
 	}
@@ -439,10 +549,11 @@ QString TabDlg::desiredCaption() const
 		}
 	}
 #endif
-	if (tabWidget_->currentWidget()) {
-		cap += static_cast<TabbableWidget*>(tabWidget_->currentWidget())->getDisplayName();
+	TabbableWidget *currentTab = currentTabWidget();
+	if (currentTab) {
+		cap += currentTab->getDisplayName();
 #ifndef YAPSI
-		if (static_cast<TabbableWidget*>(tabWidget_->currentWidget())->state() == TabbableWidget::StateComposing)
+		if (currentTab->state() == TabbableWidget::StateComposing)
 			cap += tr(" is composing");
 #endif
 	}
@@ -586,24 +697,24 @@ void TabDlg::updateTab(TabbableWidget* chat)
 
 void TabDlg::nextTab()
 {
-	int page = tabWidget_->currentIndex()+1;
-	if ( page >= tabWidget_->count() )
+	int page = currentTabIndex() + 1;
+	if (page >= tabWidget_->count())
 		page = 0;
-	tabWidget_->setCurrentIndex( page );
+	setCurrentTabIndex(page);
 }
 
 void TabDlg::previousTab()
 {
-	int page = tabWidget_->currentIndex()-1;
-	if ( page < 0 )
+	int page = currentTabIndex() - 1;
+	if (page < 0)
 		page = tabWidget_->count() - 1;
-	tabWidget_->setCurrentIndex( page );
+	setCurrentTabIndex(page);
 }
 
 void TabDlg::closeCurrentTab()
 {
 	LOG_TRACE;
-	closeTab(static_cast<TabbableWidget*>(tabWidget_->currentWidget()));
+	closeTab(currentTabWidget());
 }
 
 void TabDlg::closeTab(int index)
@@ -739,15 +850,16 @@ void TabDlg::reorderTabs(int oldIndex, int newIndex)
 	Q_ASSERT(tab);
 
 	blockSignals(true);
-	tabWidget_->doBlockSignals(true);
+	setTabWidgetSignalsBlocked(true);
 
 	removeTabWithNoChecks(tab);
 	insertTab(newIndex, tab);
 
-	tabWidget_->doBlockSignals(false);
+	setTabWidgetSignalsBlocked(false);
 	blockSignals(false);
 
 	reordering_ = false;
+	tabSelected(currentTabWidget());
 }
 
 /**
