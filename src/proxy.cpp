@@ -325,7 +325,7 @@ ProxyDlg::ProxyDlg(const ProxyItemList &list, const QStringList &methods, int de
 	setAttribute(Qt::WA_DeleteOnClose);
 	d = new Private;
 	setupUi(this);
-	setWindowTitle(CAP(caption()));
+	setWindowTitle(CAP(windowTitle()));
 	setModal(QApplication::activeModalWidget() ? true: false);
 
 	d->list = list;
@@ -344,11 +344,11 @@ ProxyDlg::ProxyDlg(const ProxyItemList &list, const QStringList &methods, int de
 	pb_remove->setEnabled(false);
 	pb_save->setDefault(true);
 
-	cb_type->insertStringList(methods);
+	cb_type->addItems(methods);
 	connect(cb_type, SIGNAL(activated(int)), SLOT(cb_activated(int)));
 
 	for(ProxyItemList::ConstIterator it = d->list.begin(); it != d->list.end(); ++it)
-		lbx_proxy->insertItem((*it).name);
+		lbx_proxy->addItem((*it).name);
 	if(!list.isEmpty()) {
 		if(def < 0)
 			def = 0;
@@ -374,7 +374,7 @@ void ProxyDlg::proxy_new()
 	s.name = getUniqueName();
 	d->list += s;
 
-	lbx_proxy->insertItem(s.name);
+	lbx_proxy->addItem(s.name);
 	lbx_proxy->setCurrentRow(lbx_proxy->count()-1);
 	selectCurrent();
 }
@@ -389,7 +389,7 @@ void ProxyDlg::proxy_remove()
 		d->list.remove(it);
 
 		d->last = -1;
-		lbx_proxy->removeItem(x);
+		delete lbx_proxy->takeItem(x);
 		selectCurrent();
 	}
 }
@@ -539,7 +539,7 @@ ProxyChooser::ProxyChooser(ProxyManager *m, QWidget *parent, const char *name)
 	hb->setSpacing(4);
 	d->cb_proxy = new QComboBox(this);
 	QSizePolicy sp = d->cb_proxy->sizePolicy();
-	d->cb_proxy->setSizePolicy( QSizePolicy(QSizePolicy::Expanding, sp.verData()) );
+	d->cb_proxy->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, sp.verticalPolicy()));
 	hb->addWidget(d->cb_proxy);
 	d->pb_edit = new QPushButton(tr("Edit..."), this);
 	connect(d->pb_edit, SIGNAL(clicked()), SLOT(doOpen()));
@@ -555,44 +555,44 @@ ProxyChooser::~ProxyChooser()
 
 int ProxyChooser::currentItem() const
 {
-	return d->cb_proxy->currentItem();
+	return d->cb_proxy->currentIndex();
 }
 
 void ProxyChooser::setCurrentItem(int x)
 {
-	d->cb_proxy->setCurrentItem(x);
+	d->cb_proxy->setCurrentIndex(x);
 }
 
 void ProxyChooser::pm_settingsChanged()
 {
-	int x = d->cb_proxy->currentItem();
+	int x = d->cb_proxy->currentIndex();
 	buildComboBox();
 	if(x >= 1) {
 		x = d->m->findOldIndex(x-1);
 		if(x == -1)
-			d->cb_proxy->setCurrentItem(0);
+			d->cb_proxy->setCurrentIndex(0);
 		else
-			d->cb_proxy->setCurrentItem(x+1);
+			d->cb_proxy->setCurrentIndex(x+1);
 	}
 	else {
 		x = d->m->lastEdited();
 		if(x != -1)
-			d->cb_proxy->setCurrentItem(x+1);
+			d->cb_proxy->setCurrentIndex(x+1);
 	}
 }
 
 void ProxyChooser::buildComboBox()
 {
 	d->cb_proxy->clear();
-	d->cb_proxy->insertItem(tr("None"));
+	d->cb_proxy->addItem(tr("None"));
 	ProxyItemList list = d->m->itemList();
 	for(ProxyItemList::ConstIterator it = list.begin(); it != list.end(); ++it)
-		d->cb_proxy->insertItem((*it).name);
+		d->cb_proxy->addItem((*it).name);
 }
 
 void ProxyChooser::doOpen()
 {
-	int x = d->cb_proxy->currentItem();
+	int x = d->cb_proxy->currentIndex();
 	if(x < 1)
 		x = -1;
 	else
