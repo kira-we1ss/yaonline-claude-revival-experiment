@@ -21,6 +21,7 @@
 #ifndef GCUSERVIEW_H
 #define GCUSERVIEW_H
 
+#include <QObject>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 
@@ -63,7 +64,7 @@ class GCUserView : public QTreeWidget
 {
 	Q_OBJECT
 public:
-	GCUserView(QWidget* parent);
+	explicit GCUserView(QWidget *parent);
 	~GCUserView();
 
 	void setMainDlg(PsiGroupchatDlg* mainDlg);

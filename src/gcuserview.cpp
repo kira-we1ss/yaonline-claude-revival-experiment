@@ -30,6 +30,8 @@
 #include <QApplication>
 #include <QFontMetrics>
 
+#include <algorithm>
+
 #include "capsmanager.h"
 #include "psitooltip.h"
 #include "psiaccount.h"
@@ -133,9 +135,9 @@ bool GCUserViewGroupItem::operator<(const QTreeWidgetItem &other) const
 // GCUserView
 //----------------------------------------------------------------------------
 
-GCUserView::GCUserView(QWidget* parent)
+GCUserView::GCUserView(QWidget *parent)
 	: QTreeWidget(parent)
-	, gcDlg_(0)
+	, gcDlg_(nullptr)
 {
 	setHeaderHidden(true);
 	setRootIsDecorated(false);
@@ -156,10 +158,10 @@ GCUserView::GCUserView(QWidget* parent)
 	i = new GCUserViewGroupItem(this, tr("Moderators"), 1);
 	i->setExpanded(true);
 
-	connect(this, SIGNAL(itemDoubleClicked(QTreeWidgetItem *, int)),
-	        SLOT(qlv_doubleClicked(QTreeWidgetItem *)));
-	connect(this, SIGNAL(customContextMenuRequested(const QPoint &)),
-	        SLOT(qlv_contextMenuRequested(const QPoint &)));
+	connect(this, &QTreeWidget::itemDoubleClicked, this,
+	        [this](QTreeWidgetItem *item, int) { qlv_doubleClicked(item); });
+	connect(this, &QWidget::customContextMenuRequested,
+	        this, &GCUserView::qlv_contextMenuRequested);
 }
 
 GCUserView::~GCUserView()
@@ -176,7 +178,7 @@ QMimeData *GCUserView::mimeData(const QList<QTreeWidgetItem *> items) const
 	if (!items.isEmpty()) {
 		QTreeWidgetItem *it = items.first();
 		if (it && it->parent()) {
-			GCUserViewItem *u = (GCUserViewItem*) it;
+			auto *u = static_cast<GCUserViewItem *>(it);
 			if (!u->s.mucItem().jid().isEmpty()) {
 				QMimeData *md = new QMimeData;
 				md->setText(u->s.mucItem().jid().bare());
@@ -201,7 +203,7 @@ void GCUserView::updateAll()
 	for (int j = 0; j < topLevelItemCount(); ++j) {
 		QTreeWidgetItem *group = topLevelItem(j);
 		for (int k = 0; k < group->childCount(); ++k) {
-			GCUserViewItem *i = (GCUserViewItem *)group->child(k);
+			auto *i = static_cast<GCUserViewItem *>(group->child(k));
 			i->setIcon(0, PsiIconset::instance()->status(i->s).icon());
 		}
 	}
@@ -215,7 +217,7 @@ QStringList GCUserView::nickList() const
 		for (int k = 0; k < group->childCount(); ++k)
 			list << group->child(k)->text(0);
 	}
-	qSort(list.begin(), list.end(), caseInsensitiveLessThan);
+	std::sort(list.begin(), list.end(), caseInsensitiveLessThan);
 	return list;
 }
 
@@ -224,7 +226,7 @@ bool GCUserView::hasJid(const Jid& jid)
 	for (int j = 0; j < topLevelItemCount(); ++j) {
 		QTreeWidgetItem *group = topLevelItem(j);
 		for (int k = 0; k < group->childCount(); ++k) {
-			GCUserViewItem *lvi = (GCUserViewItem *)group->child(k);
+			auto *lvi = static_cast<GCUserViewItem *>(group->child(k));
 			if (!lvi->s.mucItem().jid().isEmpty() && lvi->s.mucItem().jid().compare(jid, false))
 				return true;
 		}
@@ -246,7 +248,7 @@ QTreeWidgetItem *GCUserView::findEntry(const QString &nick)
 
 void GCUserView::updateEntry(const QString &nick, const Status &s)
 {
-	GCUserViewItem *lvi = (GCUserViewItem *)findEntry(nick);
+	auto *lvi = dynamic_cast<GCUserViewItem *>(findEntry(nick));
 	if (lvi && lvi->s.mucItem().role() != s.mucItem().role()) {
 		delete lvi;
 		lvi = nullptr;
@@ -270,7 +272,7 @@ GCUserViewGroupItem* GCUserView::findGroup(MUCItem::Role a) const
 		r = Participant;
 
 	for (int j = 0; j < topLevelItemCount(); ++j) {
-		GCUserViewGroupItem *g = (GCUserViewGroupItem *)topLevelItem(j);
+		auto *g = static_cast<GCUserViewGroupItem *>(topLevelItem(j));
 		if (g->key() == (int)r + 1)
 			return g;
 	}
@@ -290,15 +292,14 @@ bool GCUserView::maybeTip(const QPoint &pos)
 	if (!qlvi || !qlvi->parent())
 		return false;
 
-	GCUserViewItem *lvi = (GCUserViewItem *) qlvi;
-	QRect r(visualItemRect(lvi));
+	auto *lvi = static_cast<GCUserViewItem *>(qlvi);
 
 	const QString &nick = lvi->text(0);
 	const Status &s = lvi->s;
 	UserListItem u;
 	PsiGroupchatDlg* dlg = gcDlg_;
 	if (!dlg) {
-		qDebug("Calling maybetip on an entity without an owning dialog");
+		qWarning("Calling maybetip on an entity without an owning dialog");
 		return false;
 	}
 	u.setJid(dlg->jid().withResource(nick));
@@ -321,7 +322,7 @@ bool GCUserView::maybeTip(const QPoint &pos)
 bool GCUserView::event(QEvent* e)
 {
 	if (e->type() == QEvent::ToolTip) {
-		QPoint pos = ((QHelpEvent*) e)->pos();
+		const QPoint pos = static_cast<QHelpEvent *>(e)->pos();
 		e->setAccepted(maybeTip(pos));
 		return true;
 	}
@@ -333,7 +334,7 @@ void GCUserView::qlv_doubleClicked(QTreeWidgetItem *i)
 	if (!i || !i->parent())
 		return;
 
-	GCUserViewItem *lvi = (GCUserViewItem *)i;
+	auto *lvi = static_cast<GCUserViewItem *>(i);
 	if (option.defaultAction == 0)
 		emit action(lvi->text(0), lvi->s, 0);
 	else
@@ -346,30 +347,30 @@ void GCUserView::qlv_contextMenuRequested(const QPoint &pos)
 	if (!i || !i->parent() || !gcDlg_)
 		return;
 
-	QPointer<GCUserViewItem> lvi = (GCUserViewItem *)i;
-	bool self = gcDlg_->nick() == i->text(0);
-	GCUserViewItem* c = (GCUserViewItem*) findEntry(gcDlg_->nick());
+	QPointer<GCUserViewItem> lvi = static_cast<GCUserViewItem *>(i);
+	const bool self = gcDlg_->nick() == i->text(0);
+	auto *c = dynamic_cast<GCUserViewItem *>(findEntry(gcDlg_->nick()));
 	if (!c) {
-		qWarning(QString("groupchatdlg.cpp: Self ('%1') not found in contactlist").arg(gcDlg_->nick()).toLatin1());
+		qWarning().noquote() << QString("groupchatdlg.cpp: Self ('%1') not found in contactlist").arg(gcDlg_->nick());
 		return;
 	}
 
-	QMenu *pm = new QMenu(this);
+	QMenu menu(this);
 	if (PsiOptions::instance()->getOption("options.ui.message.enabled").toBool()) {
-		pm->addAction(IconsetFactory::icon("psi/sendMessage").icon(), tr("Send &message"))->setData(0);
+		menu.addAction(IconsetFactory::icon("psi/sendMessage").icon(), tr("Send &message"))->setData(0);
 	}
-	pm->addAction(IconsetFactory::icon("psi/start-chat").icon(), tr("Open &chat window"))->setData(1);
-	pm->addSeparator();
+	menu.addAction(IconsetFactory::icon("psi/start-chat").icon(), tr("Open &chat window"))->setData(1);
+	menu.addSeparator();
 
-	QAction *kickAct = pm->addAction(tr("&Kick"));
+	QAction *kickAct = menu.addAction(tr("&Kick"));
 	kickAct->setData(10);
 	kickAct->setEnabled(MUCManager::canKick(c->s.mucItem(), lvi->s.mucItem()));
 
-	QAction *banAct = pm->addAction(tr("&Ban"));
+	QAction *banAct = menu.addAction(tr("&Ban"));
 	banAct->setData(11);
 	banAct->setEnabled(MUCManager::canBan(c->s.mucItem(), lvi->s.mucItem()));
 
-	QMenu *rm = new QMenu(tr("Change role"), pm);
+	QMenu *rm = menu.addMenu(tr("Change role"));
 	QAction *visitorAct = rm->addAction(tr("Visitor"));
 	visitorAct->setData(12);
 	visitorAct->setCheckable(true);
@@ -388,16 +389,14 @@ void GCUserView::qlv_contextMenuRequested(const QPoint &pos)
 	moderatorAct->setChecked(lvi->s.mucItem().role() == MUCItem::Moderator);
 	moderatorAct->setEnabled((!self || lvi->s.mucItem().role() == MUCItem::Moderator) && MUCManager::canSetRole(c->s.mucItem(), lvi->s.mucItem(), MUCItem::Moderator));
 
-	pm->addMenu(rm);
-	pm->addSeparator();
+	menu.addSeparator();
 
 #ifndef YAPSI
-	pm->addAction(tr("Check &Status"))->setData(2);
-	pm->addAction(IconsetFactory::icon("psi/vCard").icon(), tr("User &Info"))->setData(3);
+	menu.addAction(tr("Check &Status"))->setData(2);
+	menu.addAction(IconsetFactory::icon("psi/vCard").icon(), tr("User &Info"))->setData(3);
 #endif
 
-	QAction *chosen = pm->exec(mapToGlobal(pos));
-	delete pm;
+	QAction *chosen = menu.exec(mapToGlobal(pos));
 
 	if (!chosen || lvi.isNull())
 		return;

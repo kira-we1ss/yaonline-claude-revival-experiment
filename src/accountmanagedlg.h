@@ -38,7 +38,7 @@ class AccountManageDlg : public QDialog, public Ui::AccountManage
 {
 	Q_OBJECT
 public:
-	AccountManageDlg(PsiCon *);
+	explicit AccountManageDlg(PsiCon *);
 	~AccountManageDlg();
 
 private slots:

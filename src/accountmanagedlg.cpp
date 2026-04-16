@@ -22,6 +22,7 @@
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QButtonGroup>
 #include <QLineEdit>
 #include <QLabel>
 #include <QTreeWidget>
@@ -48,7 +49,7 @@ class AccountRemoveDlg : public QDialog, public Ui::AccountRemove
 {
 	Q_OBJECT
 public:
-	AccountRemoveDlg(ProxyManager *, const UserAccount &, QWidget *parent=0);
+	AccountRemoveDlg(ProxyManager *, const UserAccount &, QWidget *parent = nullptr);
 	~AccountRemoveDlg();
 
 protected:
@@ -85,39 +86,38 @@ public:
 };
 
 AccountRemoveDlg::AccountRemoveDlg(ProxyManager *proxyman, const UserAccount &acc, QWidget *parent)
-:QDialog(parent)
+	: QDialog(parent)
+	, d(new Private)
+	, client(nullptr)
 {
-  	setupUi(this);
+	setupUi(this);
 	setModal(false);
-	d = new Private;
 	d->acc = acc;
 	d->proxyman = proxyman;
 
 	setWindowTitle(CAP(caption()));
 
-	connect(pb_close, SIGNAL(clicked()), SLOT(close()));
-	connect(pb_remove, SIGNAL(clicked()), SLOT(remove()));
+	connect(pb_close, &QAbstractButton::clicked, this, &QWidget::close);
+	connect(pb_remove, &QAbstractButton::clicked, this, &AccountRemoveDlg::remove);
 
-	d->bg = new QButtonGroup(0);
+	d->bg = new QButtonGroup(this);
 	d->bg->addButton(rb_remove, 0);
 	d->bg->addButton(rb_removeAndUnreg, 1);
-	connect(d->bg, SIGNAL(buttonClicked(int)), SLOT(bg_clicked(int)));
+	connect(d->bg, static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked),
+	        this, &AccountRemoveDlg::bg_clicked);
 	rb_remove->setChecked(true);
 	bg_clicked(0);
 
 	pb_close->setFocus();
 
-	client = new MiniClient;
-	connect(client, SIGNAL(handshaken()), SLOT(client_handshaken()));
-	connect(client, SIGNAL(error()), SLOT(client_error()));
-	connect(client, SIGNAL(disconnected()), SLOT(client_disconnected()));
+	client = new MiniClient(this);
+	connect(client, &MiniClient::handshaken, this, &AccountRemoveDlg::client_handshaken);
+	connect(client, &MiniClient::error, this, &AccountRemoveDlg::client_error);
+	connect(client, &MiniClient::disconnected, this, &AccountRemoveDlg::client_disconnected);
 }
 
 AccountRemoveDlg::~AccountRemoveDlg()
 {
-	delete client;
-
-	delete d->bg;
 	delete d;
 }
 
@@ -187,8 +187,8 @@ void AccountRemoveDlg::client_handshaken()
 	client->setErrorOnDisconnect(false);
 
 	// try to unregister an account
-	JT_Register *reg = new JT_Register(client->client()->rootTask());
-	connect(reg, SIGNAL(finished()), SLOT(unreg_finished()));
+	auto *reg = new JT_Register(client->client()->rootTask());
+	connect(reg, &JT_Register::finished, this, &AccountRemoveDlg::unreg_finished);
 	reg->unreg();
 	reg->go(true);
 }
@@ -202,7 +202,10 @@ void AccountRemoveDlg::client_error()
 
 void AccountRemoveDlg::unreg_finished()
 {
-	JT_Register *reg = (JT_Register *)sender();
+	auto *reg = qobject_cast<JT_Register *>(sender());
+
+	if (!reg)
+		return;
 
 	client->close();
 	busy->stop();
@@ -255,32 +258,36 @@ public:
 };
 
 AccountManageDlg::AccountManageDlg(PsiCon *_psi)
-:QDialog(0)
+	: QDialog(nullptr)
+	, psi(_psi)
 {
-  	setupUi(this);
+	setupUi(this);
 	setModal(false);
-	psi = _psi;
 	psi->dialogRegister(this);
 
 	setWindowTitle(CAP(caption()));
 
 	// setup signals
-	connect(pb_add, SIGNAL(clicked()), SLOT(add()));
-	connect(pb_modify, SIGNAL(clicked()), SLOT(modify()));
-	connect(pb_remove, SIGNAL(clicked()), SLOT(remove()));
-	connect(pb_close, SIGNAL(clicked()), SLOT(close()));
+	connect(pb_add, &QAbstractButton::clicked, this, &AccountManageDlg::add);
+	connect(pb_modify, &QAbstractButton::clicked, this, qOverload<>(&AccountManageDlg::modify));
+	connect(pb_remove, &QAbstractButton::clicked, this, &AccountManageDlg::remove);
+	connect(pb_close, &QAbstractButton::clicked, this, &QWidget::close);
 
-	connect(lv_accs, SIGNAL(itemDoubleClicked(QTreeWidgetItem *, int)), SLOT(modify(QTreeWidgetItem *)));
-	connect(lv_accs, SIGNAL(itemSelectionChanged()), SLOT(qlv_selectionChanged()));
-	connect(lv_accs, SIGNAL(itemChanged(QTreeWidgetItem *, int)), SLOT(qlv_itemChanged(QTreeWidgetItem *, int)));
-	connect(psi, SIGNAL(accountAdded(PsiAccount *)), SLOT(accountAdded(PsiAccount *)));
-	connect(psi, SIGNAL(accountUpdated(PsiAccount *)), SLOT(accountUpdated(PsiAccount *)));
-	connect(psi, SIGNAL(accountRemoved(PsiAccount *)), SLOT(accountRemoved(PsiAccount *)));
+	connect(lv_accs, &QTreeWidget::itemDoubleClicked, this,
+	        [this](QTreeWidgetItem *item, int) { modify(item); });
+	connect(lv_accs, &QTreeWidget::itemSelectionChanged,
+	        this, &AccountManageDlg::qlv_selectionChanged);
+	connect(lv_accs, &QTreeWidget::itemChanged,
+	        this, &AccountManageDlg::qlv_itemChanged);
+	connect(psi, &PsiCon::accountAdded, this, &AccountManageDlg::accountAdded);
+	connect(psi, &PsiCon::accountUpdated, this, &AccountManageDlg::accountUpdated);
+	connect(psi, &PsiCon::accountRemoved, this, &AccountManageDlg::accountRemoved);
 
 	lv_accs->setAllColumnsShowFocus(true);
 	lv_accs->header()->setStretchLastSection(true);
 
-	foreach(PsiAccount* pa, psi->contactList()->accounts())
+	const auto accounts = psi->contactList()->accounts();
+	for (PsiAccount *pa : accounts)
 		new AccountManageItem(lv_accs, pa);
 
 	if(lv_accs->topLevelItemCount() > 0)
@@ -296,8 +303,8 @@ AccountManageDlg::~AccountManageDlg()
 
 void AccountManageDlg::qlv_selectionChanged()
 {
-	AccountManageItem *i = (AccountManageItem *)lv_accs->currentItem();
-	bool ok = i ? true : false;
+	auto *i = dynamic_cast<AccountManageItem *>(lv_accs->currentItem());
+	const bool ok = (i != nullptr);
 
 	pb_modify->setEnabled(ok);
 	pb_remove->setEnabled(ok);
@@ -305,10 +312,12 @@ void AccountManageDlg::qlv_selectionChanged()
 
 void AccountManageDlg::qlv_itemChanged(QTreeWidgetItem *lvi, int column)
 {
-	if (column != 0) return;
-	AccountManageItem *i = (AccountManageItem *)lvi;
-	if (!i) return;
-	bool s = (i->checkState(0) == Qt::Checked);
+	if (column != 0)
+		return;
+	auto *i = dynamic_cast<AccountManageItem *>(lvi);
+	if (!i)
+		return;
+	const bool s = (i->checkState(0) == Qt::Checked);
 	if (i->pa->enabled() != s)
 		i->pa->setEnabled(s);
 	i->updateInfo();
@@ -316,7 +325,7 @@ void AccountManageDlg::qlv_itemChanged(QTreeWidgetItem *lvi, int column)
 
 void AccountManageDlg::add()
 {
-	AccountAddDlg *w = new AccountAddDlg(psi, 0);
+	auto *w = new AccountAddDlg(psi, nullptr);
 	w->show();
 }
 
@@ -327,7 +336,7 @@ void AccountManageDlg::modify()
 
 void AccountManageDlg::modify(QTreeWidgetItem *lvi)
 {
-	AccountManageItem *i = (AccountManageItem *)lvi;
+	auto *i = dynamic_cast<AccountManageItem *>(lvi);
 	if(!i)
 		return;
 
@@ -336,7 +345,7 @@ void AccountManageDlg::modify(QTreeWidgetItem *lvi)
 
 void AccountManageDlg::remove()
 {
-	AccountManageItem *i = (AccountManageItem *)lv_accs->currentItem();
+	auto *i = dynamic_cast<AccountManageItem *>(lv_accs->currentItem());
 	if(!i)
 		return;
 
@@ -345,13 +354,11 @@ void AccountManageDlg::remove()
 		return;
 	}
 
-	AccountRemoveDlg *w = new AccountRemoveDlg(psi->proxy(), i->pa->userAccount());
-	int n = w->exec();
+	AccountRemoveDlg w(psi->proxy(), i->pa->userAccount());
+	const int n = w.exec();
 	if(n != QDialog::Accepted) {
-		delete w;
 		return;
 	}
-	delete w;
 	psi->removeAccount(i->pa);
 }
 
@@ -363,8 +370,8 @@ void AccountManageDlg::accountAdded(PsiAccount *pa)
 void AccountManageDlg::accountUpdated(PsiAccount *pa)
 {
 	for (int n = 0; n < lv_accs->topLevelItemCount(); ++n) {
-		AccountManageItem *i = (AccountManageItem *)lv_accs->topLevelItem(n);
-		if (i->pa == pa) {
+		auto *i = dynamic_cast<AccountManageItem *>(lv_accs->topLevelItem(n));
+		if (i && i->pa == pa) {
 			i->updateInfo();
 			return;
 		}
@@ -374,8 +381,8 @@ void AccountManageDlg::accountUpdated(PsiAccount *pa)
 void AccountManageDlg::accountRemoved(PsiAccount *pa)
 {
 	for (int n = 0; n < lv_accs->topLevelItemCount(); ++n) {
-		AccountManageItem *i = (AccountManageItem *)lv_accs->topLevelItem(n);
-		if (i->pa == pa) {
+		auto *i = dynamic_cast<AccountManageItem *>(lv_accs->topLevelItem(n));
+		if (i && i->pa == pa) {
 			delete i;
 			qlv_selectionChanged();
 			return;
