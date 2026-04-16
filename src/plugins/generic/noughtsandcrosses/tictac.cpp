@@ -13,14 +13,13 @@
 #include <QPainter>
 #include <qdrawutil.h>
 #include <QComboBox>
-#include <QCheckBox>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QDebug>
-#include <stdlib.h>                             // rand() function
+#include <stdlib.h>                           // rand() function
 #include <QDateTime>                          // seed for rand()
 
 
@@ -102,7 +101,7 @@ TicTacGameBoard::~TicTacGameBoard()
 // --------------------------------------------------------------------------
 // TicTacGameBoard::computerStarts( bool v )
 //
-// Computer starts if v=TRUE. The human starts by default.
+// Computer starts if v=true. The human starts by default.
 //
 
 void TicTacGameBoard::computerStarts( bool v )
