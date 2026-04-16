@@ -34,7 +34,7 @@ class PsiAccount;
 class EDBItem
 {
 public:
-	EDBItem(PsiEvent *, const QString &id, const QString &nextId, const QString &prevId);
+	EDBItem(PsiEvent *, const QString &id, const QString &prevId, const QString &nextId);
 	~EDBItem();
 
 	PsiEvent *event() const;
@@ -47,10 +47,30 @@ private:
 	PsiEvent *e;
 };
 
-class EDBResult : public QList<EDBItem>
+class EDBResult : public QList<EDBItem *>
 {
 public:
 	EDBResult() {}
+	~EDBResult()
+	{
+		while (!isEmpty())
+			delete takeFirst();
+	}
+
+	const EDBItem &at(int i) const
+	{
+		return *QList<EDBItem *>::at(i);
+	}
+
+	const EDBItem &first() const
+	{
+		return *QList<EDBItem *>::first();
+	}
+
+	const EDBItem &last() const
+	{
+		return *QList<EDBItem *>::last();
+	}
 };
 
 class EDB;

@@ -176,13 +176,8 @@ bool EDBHandle::writeSuccess() const
 void EDBHandle::edb_resultReady(EDBResult *r)
 {
 	d->busy = false;
-	if(r == 0) {
-		delete d->r;
-		d->r = 0;
-	}
-	else {
-		d->r = r;
-	}
+	delete d->r;
+	d->r = r;
 	d->listeningFor = -1;
 	finished();
 }
@@ -214,7 +209,7 @@ class EDB::Private
 public:
 	Private() {}
 
-	QList<EDBHandle> list;
+	QList<EDBHandle *> list;
 	int reqid_base;
 };
 
@@ -226,8 +221,10 @@ EDB::EDB()
 
 EDB::~EDB()
 {
-	d->list.setAutoDelete(true);
+	QList<EDBHandle *> handles = d->list;
 	d->list.clear();
+	while (!handles.isEmpty())
+		delete handles.takeFirst();
 	delete d;
 }
 
@@ -243,7 +240,7 @@ void EDB::reg(EDBHandle *h)
 
 void EDB::unreg(EDBHandle *h)
 {
-	d->list.removeRef(h);
+	d->list.removeOne(h);
 }
 
 int EDB::op_getLatest(const PsiAccount* account, const Jid &j, int len)
@@ -279,9 +276,10 @@ int EDB::op_erase(const PsiAccount* account, const Jid &j)
 void EDB::resultReady(int req, EDBResult *r)
 {
 	// deliver
-	for (EDBHandle &h : d->list) {
-		if(h.listeningFor() == req) {
-			h.edb_resultReady(r);
+	for (int i = 0; i < d->list.count(); ++i) {
+		EDBHandle *h = d->list.at(i);
+		if(h && h->listeningFor() == req) {
+			h->edb_resultReady(r);
 			return;
 		}
 	}
@@ -291,9 +289,10 @@ void EDB::resultReady(int req, EDBResult *r)
 void EDB::writeFinished(int req, bool b)
 {
 	// deliver
-	for (EDBHandle &h : d->list) {
-		if(h.listeningFor() == req) {
-			h.edb_writeFinished(b);
+	for (int i = 0; i < d->list.count(); ++i) {
+		EDBHandle *h = d->list.at(i);
+		if(h && h->listeningFor() == req) {
+			h->edb_writeFinished(b);
 			return;
 		}
 	}
@@ -305,6 +304,31 @@ void EDB::writeFinished(int req, bool b)
 //----------------------------------------------------------------------------
 struct item_file_req
 {
+	enum Type {
+		Type_getLatest = 0,
+		Type_getOldest,
+		Type_get,
+		Type_append,
+		Type_find,
+		Type_erase
+	};
+
+	item_file_req()
+		: account(0)
+		, type(Type_getLatest)
+		, len(0)
+		, dir(0)
+		, id(0)
+		, eventId(-1)
+		, event(0)
+	{
+	}
+
+	~item_file_req()
+	{
+		delete event;
+	}
+
 	const PsiAccount* account;
 	Jid j;
 	int type; // 0 = latest, 1 = oldest, 2 = random, 3 = write
@@ -314,15 +338,6 @@ struct item_file_req
 	int eventId;
 	QString findStr;
 	PsiEvent *event;
-
-	enum Type {
-		Type_getLatest = 0,
-		Type_getOldest,
-		Type_get,
-		Type_append,
-		Type_find,
-		Type_erase
-	};
 };
 
 class EDBFlatFile::Private
@@ -330,8 +345,8 @@ class EDBFlatFile::Private
 public:
 	Private() {}
 
-	QList<File> flist;
-	QList<item_file_req> rlist;
+	QList<File *> flist;
+	QList<item_file_req *> rlist;
 };
 
 EDBFlatFile::EDBFlatFile()
@@ -342,9 +357,10 @@ EDBFlatFile::EDBFlatFile()
 
 EDBFlatFile::~EDBFlatFile()
 {
-	d->rlist.setAutoDelete(true);
-	d->flist.setAutoDelete(true);
-	d->flist.clear();
+	while (!d->rlist.isEmpty())
+		delete d->rlist.takeFirst();
+	while (!d->flist.isEmpty())
+		delete d->flist.takeFirst();
 
 	delete d;
 }
@@ -356,15 +372,10 @@ bool EDBFlatFile::hasPendingRequests() const
 
 void EDBFlatFile::closeHandles()
 {
-	bool autoDelete = d->rlist.autoDelete();
-	d->rlist.setAutoDelete(true);
-	d->rlist.clear();
-	d->rlist.setAutoDelete(autoDelete);
-
-	autoDelete = d->flist.autoDelete();
-	d->flist.setAutoDelete(true);
-	d->flist.clear();
-	d->flist.setAutoDelete(autoDelete);
+	while (!d->rlist.isEmpty())
+		delete d->rlist.takeFirst();
+	while (!d->flist.isEmpty())
+		delete d->flist.takeFirst();
 }
 
 int EDBFlatFile::getLatest(const PsiAccount* account, const Jid &j, int len)
@@ -468,7 +479,7 @@ int EDBFlatFile::erase(const PsiAccount* account, const Jid &j)
 EDBFlatFile::File *EDBFlatFile::findFile(const PsiAccount* account, const Jid &j) const
 {
 	for (int _fi = 0; _fi < d->flist.size(); ++_fi) {
-		File *i = &d->flist[_fi];
+		File *i = d->flist.at(_fi);
 		if(i->account == account && i->j.compare(j, false))
 			return i;
 	}
@@ -515,7 +526,7 @@ bool EDBFlatFile::deleteFile(const PsiAccount* account, const Jid &_j)
 	File *i = findFile(account, j);
 
 	if (i) {
-		d->flist.remove(i);
+		d->flist.removeOne(i);
 		delete i;
 	}
 
@@ -533,12 +544,14 @@ void EDBFlatFile::performRequests()
 		return;
 
 	item_file_req *r = d->rlist.first();
-	d->rlist.removeRef(r);
+	d->rlist.removeOne(r);
 
 	File *f = ensureFile(r->account, r->j);
 	Q_ASSERT(f);
-	if (!f)
+	if (!f) {
+		delete r;
 		return;
+	}
 	int type = r->type;
 	if(type >= item_file_req::Type_getLatest && type <= item_file_req::Type_get) {
 		int id, direction;
@@ -566,6 +579,7 @@ void EDBFlatFile::performRequests()
 		}
 		else {
 			qWarning("EDBFlatFile::performRequests(): Invalid type.");
+			delete r;
 			return;
 		}
 
@@ -584,7 +598,6 @@ void EDBFlatFile::performRequests()
 		}
 
 		EDBResult *result = new EDBResult;
-		result->setAutoDelete(true);
 		for(int n = 0; n < len; ++n) {
 			PsiEvent *e = f->get(id);
 			if(e) {
@@ -606,7 +619,6 @@ void EDBFlatFile::performRequests()
 	}
 	else if(type == item_file_req::Type_append) {
 		writeFinished(r->id, f->append(r->event));
-		delete r->event;
 	}
 	else if(type == item_file_req::Type_find) {
 #ifdef YAPSI
@@ -614,7 +626,6 @@ void EDBFlatFile::performRequests()
 #endif
 		int id = r->eventId;
 		EDBResult *result = new EDBResult;
-		result->setAutoDelete(true);
 		while(1) {
 			PsiEvent *e = f->get(id);
 			if(!e)
@@ -636,6 +647,7 @@ void EDBFlatFile::performRequests()
 				}
 			}
 
+			delete e;
 			if(r->dir == Forward)
 				++id;
 			else
@@ -653,7 +665,7 @@ void EDBFlatFile::performRequests()
 void EDBFlatFile::file_timeout()
 {
 	File *i = (File *)sender();
-	d->flist.remove(i);
+	d->flist.removeOne(i);
 	i->deleteLater();
 }
 
