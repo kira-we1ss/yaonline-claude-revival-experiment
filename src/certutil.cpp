@@ -58,7 +58,7 @@ CertificateCollection CertUtil::allCertificates()
 		}
 
 		// Read in old XML format certificates (DEPRECATED)
-		store.setNameFilter("*.xml");
+		store.setNameFilters(QStringList() << "*.xml");
 		cert_files = store.entryList();
 		for(QStringList::ConstIterator it = cert_files.begin(); it != cert_files.end(); ++it) {
 			qWarning("Loading certificate in obsolete XML format: %s", qPrintable(store.filePath(*it)));
