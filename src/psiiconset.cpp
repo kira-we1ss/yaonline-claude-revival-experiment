@@ -384,8 +384,7 @@ bool PsiIconset::optionsChanged(const Options *old)
 				if ( name == option.defaultRosterIconset )
 					continue;
 
-				it2 = rosterIconsets.find( name );
-				if ( it2 == rosterIconsets.end() ) {
+				if ( !rosterIconsets.contains(name) ) {
 					// remove redundant iconset
 					delete roster.take(name);
 					clear = false;

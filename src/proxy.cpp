@@ -80,12 +80,17 @@ public:
 };
 
 HostPortEdit::HostPortEdit(QWidget *parent, const char *name)
-:QWidget(parent, name)
+: QWidget(parent)
 {
+	if (name)
+		setObjectName(QString::fromLatin1(name));
+
 	d = new Private;
 
 	QLabel *l;
-	QHBoxLayout *hb = new QHBoxLayout(this, 0, 4);
+	QHBoxLayout *hb = new QHBoxLayout(this);
+	hb->setContentsMargins(0, 0, 0, 0);
+	hb->setSpacing(4);
 	l = new QLabel(tr("Host:"), this);
 	hb->addWidget(l);
 	d->le_host = new QLineEdit(this);
@@ -521,12 +526,17 @@ public:
 };
 
 ProxyChooser::ProxyChooser(ProxyManager *m, QWidget *parent, const char *name)
-:QWidget(parent, name)
+: QWidget(parent)
 {
+	if (name)
+		setObjectName(QString::fromLatin1(name));
+
 	d = new Private;
 	d->m = m;
 	connect(m, SIGNAL(settingsChanged()), SLOT(pm_settingsChanged()));
-	QHBoxLayout *hb = new QHBoxLayout(this, 0, 4);
+	QHBoxLayout *hb = new QHBoxLayout(this);
+	hb->setContentsMargins(0, 0, 0, 0);
+	hb->setSpacing(4);
 	d->cb_proxy = new QComboBox(this);
 	QSizePolicy sp = d->cb_proxy->sizePolicy();
 	d->cb_proxy->setSizePolicy( QSizePolicy(QSizePolicy::Expanding, sp.verData()) );

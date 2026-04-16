@@ -140,7 +140,7 @@ void ChatView::keyPressEvent(QKeyEvent *e)
 	else if(e->key() == Qt::Key_I && (e->modifiers() & Qt::ControlModifier))
 		e->ignore(); */
 	/*else*/ if(e->key() == Qt::Key_M && (e->modifiers() & Qt::ControlModifier) && !isReadOnly()) // newline 
-		insert("\n");
+		textCursor().insertText("\n");
 /*	else if(e->key() == Qt::Key_U && (e->modifiers() & Qt::ControlModifier) && !isReadOnly())
 		clear(); */
 	else
