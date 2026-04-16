@@ -57,7 +57,7 @@ make -j$(sysctl -n hw.ncpu)
 open src/yachat.app
 ```
 
-> ⚠️ **Проект находится в активной разработке.** Сборка на данный момент не гарантируется — Layer 3 (удаление Qt3Support) всё ещё в процессе. В `contactview` уже перенесён drop-side drag/decode слой с `Q3UriDrag`/`Q3TextDrag` на `QMimeData`, а source-side text drag больше не зависит от `Q3TextDrag` и формируется как явный `text/plain` payload; `gcuserview` и `accountmanagedlg` уже не выглядят реальными Qt3Support-блокерами, а соседний `psigroupchatdlg` дочищен от части Qt3/Qt4-era обвязки (старый `QDialog` ctor, `Qt::escape`, `TRUE/FALSE`, drag/drop accept-path), но базовый `Q3ListView`/`Q3DragObject` seam в `contactview` и связанная архитектура всё ещё остаются.
+> ⚠️ **Проект находится в активной разработке.** Сборка на данный момент не гарантируется — Layer 3 (удаление Qt3Support) всё ещё в процессе. `contactview` остаётся главным активным блокером: у него уже переведены drop-side drag/decode на `QMimeData`, source-side text drag больше не зависит от `Q3TextDrag`, подтянуты tooltip/tree helpers и несколько локальных Qt5-safe cleanup-швов, но базовый `Q3ListView`/`Q3ListViewItem`/`Q3DragObject` seam всё ещё жив. При этом рядом уже существенно продвинуты `gcuserview`, `accountmanagedlg`, `psigroupchatdlg`, примеры `conntest`/`xmpptest`, плагин `noughtsandcrosses` и standalone/UI-слой `chess`.
 
 ---
 
@@ -102,7 +102,7 @@ open src/yachat.app
 | `Q3MainWindow` (Задача 8) | ✅ | `mainwin.h/cpp` → `QMainWindow`, `mainwin_p.cpp` Q3ToolBar-зависимости убраны |
 | `Q3ListView` в HistoryDlg (Задача 9) | ✅ | `historydlg.h/cpp` → `QTreeWidget` + `QStyledItemDelegate` |
 | `Q3ListView` в EventDlg (Задача 10) | ✅ | `eventdlg.h/cpp` → `QTreeWidget` + `QTreeWidgetItem` |
-| Остальные Q3* (Задача 11) | 🔄 | `searchdlg`, `discodlg`, `pgpkeydlg`, `proxy`, `iconset`, `tabdlg`, `gcuserview` и `accountmanagedlg` завершены как активные Qt3Support-швы; в `contactview` переведён drop-side drag/decode слой на `QMimeData`, source-side text drag больше не использует `Q3TextDrag`, рядом подтянут `psigroupchatdlg` (Qt5-safe drag/drop accept-path, `Qt::escape` → `toHtmlEscaped()`, старый `QDialog` ctor и `TRUE/FALSE` убраны), но `Q3ListView`/`Q3ListViewItem`/`Q3DragObject` и связанная архитектура ещё остаются; следующий заметный активный seam — сам `contactview` |
+| Остальные Q3* (Задача 11) | 🔄 | `searchdlg`, `discodlg`, `pgpkeydlg`, `proxy`, `iconset`, `tabdlg`, `gcuserview`, `accountmanagedlg` и прилегающий `psigroupchatdlg` уже дочищены как локальные Qt5-clean seams; `xmpptest` переведён с `Q3GroupBox`/`Q3TextEdit` на `QGroupBox`/`QTextEdit` и больше не тянет `qt3support`, `noughtsandcrosses` переведён на `QVector` и обычные layout/widget API с удалением `qt3support` из `.pro`, `conntest` и `chess` получили честные локальные Qt API cleanup-пакеты, но в активном приложении главным незакрытым seam всё ещё остаётся `contactview` с его `Q3ListView`/`Q3ListViewItem`/`Q3DragObject` архитектурой |
 | Контрольная сборка (Задача 12) | 🔲 | Первая полная сборка под Qt 5.15 |
 
 ### Слой 4 — QCA 2.3.x + безопасность 🔲 *не начат*
@@ -146,4 +146,4 @@ open src/yachat.app
 
 ---
 
-*Последнее обновление: 2026-04-16 (Layer 3 всё ещё в работе; `gcuserview`, `accountmanagedlg` и прилегающий `psigroupchatdlg` уже дочищены как локальные Qt5-clean seams — new-style signal/slot hookups, `nullptr`, безопасные cast'ы, `std::sort`, stack-owned menu/dialog plumbing, Qt5-safe drag/drop и HTML escaping — но базовый `Q3ListView` seam в `contactview` всё ещё не снят)*
+*Последнее обновление: 2026-04-16 (ночной прогон ChatGPT Codex: дочищены `gcuserview`/`accountmanagedlg`/`psigroupchatdlg`, обновлены `contactview`-seams вокруг drag/drop, tooltip, tree helpers и safety-fixes, `xmpptest` и `noughtsandcrosses` реально ушли от `qt3support`, `conntest` и `chess` получили честные локальные Qt API modernization batches; главный незакрытый Layer 3 seam в активном приложении по-прежнему `contactview`)*
