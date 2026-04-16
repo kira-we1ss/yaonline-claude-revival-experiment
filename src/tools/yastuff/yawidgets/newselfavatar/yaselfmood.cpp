@@ -379,29 +379,29 @@ void YaSelfMoodExtra::createMenu()
 	onlineAction_->setIcon(Ya::VisualUtil::rosterStatusPixmap(XMPP::Status::Online));
 	setActionMood(onlineAction_, statusText());
 	// onlineAction_->setVisible(false);
-	connect(onlineAction_, SIGNAL(activated()), SLOT(setStatus()));
+	connect(onlineAction_, SIGNAL(triggered()), SLOT(setStatus()));
 
 	awayAction_ = new QAction(this);
 	awayAction_->setVisible(true);
 	awayAction_->setProperty("status", QVariant(XMPP::Status::Away));
 	awayAction_->setIcon(Ya::VisualUtil::rosterStatusPixmap(XMPP::Status::Away));
-	connect(awayAction_, SIGNAL(activated()), SLOT(setStatus()));
+	connect(awayAction_, SIGNAL(triggered()), SLOT(setStatus()));
 
 	changeStatusAction_ = new QAction(this);
 	changeStatusAction_->setVisible(true);
-	connect(changeStatusAction_, SIGNAL(activated()), SLOT(setStatus()));
+	connect(changeStatusAction_, SIGNAL(triggered()), SLOT(setStatus()));
 
 	setCustomMoodAction_ = new QAction(this);
 	YaBoldMenu::ensureActionBoldText(setCustomMoodAction_);
 	setCustomMoodAction_->setText(tr("Custom mood..."));
 	setCustomMoodAction_->setVisible(true);
-	connect(setCustomMoodAction_, SIGNAL(activated()), SLOT(setCustomMood()));
+	connect(setCustomMoodAction_, SIGNAL(triggered()), SLOT(setCustomMood()));
 
 	offlineAction_ = new QAction(this);
 	offlineAction_->setProperty("status", QVariant(XMPP::Status::Offline));
 	offlineAction_->setIcon(Ya::VisualUtil::rosterStatusPixmap(XMPP::Status::Offline));
 	offlineAction_->setVisible(true);
-	connect(offlineAction_, SIGNAL(activated()), SLOT(setStatus()));
+	connect(offlineAction_, SIGNAL(triggered()), SLOT(setStatus()));
 
 	menuActions_ << onlineAction_;
 	menuActions_ << awayAction_;
@@ -1030,7 +1030,7 @@ void YaSelfMoodExtra::setMoods(QStringList moods)
 		QAction* action = new QAction(this);
 		menuPastStatuses_->addAction(action);
 		setActionMood(action, mood);
-		connect(action, SIGNAL(activated()), SLOT(setMood()));
+		connect(action, SIGNAL(triggered()), SLOT(setMood()));
 	}
 	menuPastStatuses_->blockSignals(false);
 

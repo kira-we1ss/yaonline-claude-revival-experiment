@@ -470,7 +470,7 @@ void PsiGroupchatDlg::initUi()
 	updateIdentityVisibility();
 
 	d->act_find = new IconAction(tr("Find"), "psi/search", tr("&Find"), 0, this);
-	connect(d->act_find, SIGNAL(activated()), SLOT(openFind()));
+	connect(d->act_find, SIGNAL(triggered()), SLOT(openFind()));
 	ui_.tb_find->setDefaultAction(d->act_find);
 
 #ifndef YAPSI
@@ -487,14 +487,14 @@ void PsiGroupchatDlg::initUi()
 	connect(ui_.lv_users, SIGNAL(action(const QString &, const Status &, int)), SLOT(lv_action(const QString &, const Status &, int)));
 
 	d->act_clear = new IconAction (tr("Clear chat window"), "psi/clearChat", tr("Clear chat window"), 0, this);
-	connect( d->act_clear, SIGNAL( activated() ), SLOT( doClearButton() ) );
+	connect( d->act_clear, SIGNAL( triggered() ), SLOT( doClearButton() ) );
 
 	d->act_configure = new IconAction(tr("Configure Room"), "psi/configure-room", tr("&Configure Room"), 0, this);
-	connect(d->act_configure, SIGNAL(activated()), SLOT(configureRoom()));
+	connect(d->act_configure, SIGNAL(triggered()), SLOT(configureRoom()));
 
 #ifdef WHITEBOARDING
 	d->act_whiteboard = new IconAction(tr("Open a whiteboard"), "psi/whiteboard", tr("Open a &whiteboard"), 0, this);
-	connect(d->act_whiteboard, SIGNAL(activated()), SLOT(openWhiteboard()));
+	connect(d->act_whiteboard, SIGNAL(triggered()), SLOT(openWhiteboard()));
 #endif
 
 	connect(account()->psi()->iconSelectPopup(), SIGNAL(textSelected(QString)), d, SLOT(addEmoticon(QString)));

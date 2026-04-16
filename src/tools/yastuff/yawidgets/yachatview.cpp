@@ -97,18 +97,18 @@ YaChatView::YaChatView(QWidget* parent)
 
 	copyAction_ = new QAction(tr("&Copy"), this);
 	copyAction_->setShortcut(QKeySequence("Ctrl+C"));
-	connect(copyAction_, SIGNAL(activated()), SLOT(copy()));
+	connect(copyAction_, SIGNAL(triggered()), SLOT(copy()));
 	// addAction(copyAction_);
 	copyAsHtmlAction_ = new QAction(tr("Copy as &HTML"), this);
 	copyAsHtmlAction_->setShortcut(QKeySequence("Ctrl+H"));
-	connect(copyAsHtmlAction_, SIGNAL(activated()), SLOT(copyAsHtml()));
+	connect(copyAsHtmlAction_, SIGNAL(triggered()), SLOT(copyAsHtml()));
 	// addAction(copyAction_);
 	selectAllAction_ = new QAction(tr("Select &All"), this);
 	selectAllAction_->setShortcut(QKeySequence("Ctrl+A"));
-	connect(selectAllAction_, SIGNAL(activated()), SLOT(selectAll()));
+	connect(selectAllAction_, SIGNAL(triggered()), SLOT(selectAll()));
 	// addAction(selectAllAction_);
 	lookupYandexAction_ = new QAction(tr("Search in Yandex"), this);
-	connect(lookupYandexAction_, SIGNAL(activated()), SLOT(lookupYandex()));
+	connect(lookupYandexAction_, SIGNAL(triggered()), SLOT(lookupYandex()));
 
 	autoScrollTimer_ = new QTimer(this);
 	autoScrollTimer_->setSingleShot(false);

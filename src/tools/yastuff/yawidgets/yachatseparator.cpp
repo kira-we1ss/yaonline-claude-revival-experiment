@@ -508,7 +508,7 @@ void YaChatEmoticonToolBar::setIconset(const Iconset &iconset)
 		action->setProperty("icon-text", icon->defaultText());
 		action->setText(Ya::emoticonToolTipSimple(icon));
 		action->setToolTip(Ya::emoticonToolTip(icon));
-		connect(action, SIGNAL(activated()), SLOT(actionActivated()));
+		connect(action, SIGNAL(triggered()), SLOT(actionActivated()));
 		addAction(action);
 	}
 

@@ -80,7 +80,7 @@ YaContactListView::YaContactListView(QWidget* parent)
 	, viewportMenu_(0)
 {
 	removeAction_ = new IconAction("", "psi/remove", QString(), ShortcutManager::instance()->shortcuts("contactlist.delete"), this, "act_remove");
-	connect(removeAction_, SIGNAL(activated()), SLOT(removeSelection()));
+	connect(removeAction_, SIGNAL(triggered()), SLOT(removeSelection()));
 	addAction(removeAction_);
 
 	QAbstractItemDelegate* delegate = itemDelegate();

@@ -153,7 +153,7 @@ void MainWin::Private::registerActions()
 	QString aName;
 	for ( i = 0; !(aName = QString(statuslist[i].name)).isEmpty(); i++ ) {
 		IconAction *action = getAction( aName );
-		connect (action, SIGNAL(activated()), statusMapper, SLOT(map()));
+		connect (action, SIGNAL(triggered()), statusMapper, SLOT(map()));
 
 		statusMapper->setMapping(action, statuslist[i].id);
 		statusActions[action] = statuslist[i].id;
@@ -414,7 +414,7 @@ MainWin::~MainWin()
 
 void MainWin::registerAction( IconAction *action )
 {
-	const char* activated  = SIGNAL( activated() );
+	const char* activated  = SIGNAL( triggered() );
 	const char* toggled    = SIGNAL( toggled(bool) );
 	const char* setChecked = SLOT( setChecked(bool) );
 

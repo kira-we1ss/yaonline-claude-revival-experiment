@@ -124,7 +124,7 @@ private:
 		action->setCheckable(true);
 		action->setChecked(selected);
 		action->setProperty("groupName", QVariant(groupName));
-		connect(action, SIGNAL(activated()), SLOT(actionActivated()));
+		connect(action, SIGNAL(triggered()), SLOT(actionActivated()));
 	}
 
 private slots:
@@ -193,7 +193,7 @@ public:
 
 				action->setProperty("groupChat", QVariant(groupChat));
 				action->setProperty("account", QVariant(acc->id()));
-				connect(action, SIGNAL(activated()), SLOT(actionActivated()));
+				connect(action, SIGNAL(triggered()), SLOT(actionActivated()));
 			}
 		}
 	}
@@ -252,39 +252,39 @@ public:
 
 		rename_ = new QAction(tr("Re&name"), this);
 		rename_->setShortcuts(menu->shortcuts("contactlist.rename"));
-		connect(rename_, SIGNAL(activated()), this, SLOT(rename()));
+		connect(rename_, SIGNAL(triggered()), this, SLOT(rename()));
 
 #ifdef YAPSI
 		openChat_ = new QAction(tr("&Chat"), this);
-		connect(openChat_, SIGNAL(activated()), contact_, SLOT(openChat()));
+		connect(openChat_, SIGNAL(triggered()), contact_, SLOT(openChat()));
 
 		openHistory_ = new QAction(tr("&History"), this);
-		connect(openHistory_, SIGNAL(activated()), contact_, SLOT(history()));
+		connect(openHistory_, SIGNAL(triggered()), contact_, SLOT(history()));
 
 		yaProfile_ = new QAction(tr("Pro&file"), this);
-		connect(yaProfile_, SIGNAL(activated()), contact_, SLOT(yaProfile()));
+		connect(yaProfile_, SIGNAL(triggered()), contact_, SLOT(yaProfile()));
 
 		yaPhotos_ = new QAction(tr("&Photos"), this);
-		connect(yaPhotos_, SIGNAL(activated()), contact_, SLOT(yaPhotos()));
+		connect(yaPhotos_, SIGNAL(triggered()), contact_, SLOT(yaPhotos()));
 
 		yaEmail_ = new QAction(tr("Send &E-mail"), this);
-		connect(yaEmail_, SIGNAL(activated()), contact_, SLOT(yaEmail()));
+		connect(yaEmail_, SIGNAL(triggered()), contact_, SLOT(yaEmail()));
 
 		fileUpload_ = new QAction(tr("Send file"), this);
-		connect(fileUpload_, SIGNAL(activated()), contact_, SLOT(sendFile()));
+		connect(fileUpload_, SIGNAL(triggered()), contact_, SLOT(sendFile()));
 
 		add_ = new QAction(tr("&Add"), this);
-		connect(add_, SIGNAL(activated()), SLOT(addContact()));
+		connect(add_, SIGNAL(triggered()), SLOT(addContact()));
 
 		remove_ = new QAction(tr("&Remove"), this);
 		remove_->setShortcuts(ShortcutManager::instance()->shortcuts("contactlist.delete"));
-		connect(remove_, SIGNAL(activated()), SLOT(removeContact()));
+		connect(remove_, SIGNAL(triggered()), SLOT(removeContact()));
 
 		auth_ = new QAction(tr("A&uth"), this);
-		connect(auth_, SIGNAL(activated()), contact_, SLOT(rerequestAuthorizationFrom()));
+		connect(auth_, SIGNAL(triggered()), contact_, SLOT(rerequestAuthorizationFrom()));
 
 		block_ = new QAction(tr("&Block"), this);
-		connect(block_, SIGNAL(activated()), contact_, SLOT(toggleBlockedState()));
+		connect(block_, SIGNAL(triggered()), contact_, SLOT(toggleBlockedState()));
 
 		disableMoodNotifications_ = new QAction(tr("Disable mood notifications"), this);
 		disableMoodNotifications_->setCheckable(true);
@@ -326,22 +326,22 @@ public:
 		bool isAgent   = false;
 
 		IconAction* act_receiveIncomingEvent = new IconAction("", tr("&Receive incoming event"), menu->shortcut("contactlist.event"), this);
-		connect(act_receiveIncomingEvent, SIGNAL(activated()), contact_, SLOT(receiveIncomingEvent()));
+		connect(act_receiveIncomingEvent, SIGNAL(triggered()), contact_, SLOT(receiveIncomingEvent()));
 		IconAction* act_sendMessage = new IconAction("", "psi/sendMessage", tr("Send &message"), menu->shortcut("contactlist.message"), this);
-		connect(act_sendMessage, SIGNAL(activated()), contact_, SLOT(sendMessage()));
+		connect(act_sendMessage, SIGNAL(triggered()), contact_, SLOT(sendMessage()));
 		ResourceMenu* act_sendMessageTo = contact->createResourceMenu(menu);
 		act_sendMessageTo->setTitle(tr("Send message to"));
 		act_sendMessageTo->setEnabled(!act_sendMessageTo->isEmpty());
 		connect(act_sendMessageTo, SIGNAL(resourceActivated(QString)), contact_, SLOT(sendMessageTo(QString)));
 		IconAction* act_openChat = new IconAction("", "psi/start-chat", tr("Open &chat window"), menu->shortcut("contactlist.chat"), this);
-		connect(act_openChat, SIGNAL(activated()), contact_, SLOT(openChat()));
+		connect(act_openChat, SIGNAL(triggered()), contact_, SLOT(openChat()));
 		ResourceMenu* act_openChatTo = contact->createResourceMenu(menu);
 		act_openChatTo->setTitle(tr("Open chat to"));
 		act_openChatTo->setEnabled(!act_openChatTo->isEmpty());
 		connect(act_openChatTo, SIGNAL(resourceActivated(QString)), contact_, SLOT(openChatTo(QString)));
 #ifdef WHITEBOARDING
 		IconAction* act_openWhiteboard = new IconAction("", "psi/start-chat", tr("Open a &whiteboard"), menu->shortcut("contactlist.whiteboard"), this);
-		connect(act_openWhiteboard, SIGNAL(activated()), contact_, SLOT(openWhiteboard()));
+		connect(act_openWhiteboard, SIGNAL(triggered()), contact_, SLOT(openWhiteboard()));
 		ResourceMenu* act_openWhiteboardTo = contact->createResourceMenu(menu);
 		act_openWhiteboardTo->setTitle(tr("Open a whiteboard to"));
 		act_openWhiteboardTo->setEnabled(!act_openChatTo->isEmpty());
@@ -356,7 +356,7 @@ public:
 		act_openActiveChat->setEnabled(!act_openActiveChat->isEmpty());
 		connect(act_openActiveChat, SIGNAL(resourceActivated(QString)), contact_, SLOT(openActiveChat(QString)));
 		IconAction* act_sendFile = new IconAction("", "psi/upload", tr("Send &file"), 0, this);
-		connect(act_sendFile, SIGNAL(activated()), contact_, SLOT(sendFile()));
+		connect(act_sendFile, SIGNAL(triggered()), contact_, SLOT(sendFile()));
 		InviteToGroupChatMenu* act_inviteToGroupchat = new InviteToGroupChatMenu(menu, contact->account());
 		act_inviteToGroupchat->setTitle(tr("Invite to"));
 		act_inviteToGroupchat->setIcon(IconsetFactory::iconPixmap("psi/groupChat"));
@@ -370,33 +370,33 @@ public:
 		IconAction* act_createGroup = new IconAction("", tr("&Create new..."), 0, this);
 		act_group->addAction(act_createGroup);
 		act_createGroup->setEnabled(contact->isEditable());
-		connect(act_createGroup, SIGNAL(activated()), this, SLOT(createGroup()));
+		connect(act_createGroup, SIGNAL(triggered()), this, SLOT(createGroup()));
 
 		// IconAction* act_logon = new IconAction("", tr("&Log on"), menu->shortcut("contactlist.login-transport"), this);
 		// act_logon->setEnabled( !avail && online );
 		// act_logon->setIcon(PsiIconset::instance()->status(e->u.jid(), STATUS_ONLINE));
-		// connect(act_logon, SIGNAL(activated()), contact_, SLOT(logon()));
+		// connect(act_logon, SIGNAL(triggered()), contact_, SLOT(logon()));
 		// IconAction* act_logoff = new IconAction("", tr("Log off"), menu->shortcut("contactlist.logout-transport"), this);
 		// act_logoff->setIcon(PsiIconset::instance()->status(e->u.jid(), STATUS_OFFLINE));
-		// connect(act_logoff, SIGNAL(activated()), contact_, SLOT(logoff()));
+		// connect(act_logoff, SIGNAL(triggered()), contact_, SLOT(logoff()));
 
-		// connect(act_resendAuthorizationTo, SIGNAL(activated()), contact_, SLOT(resendAuthorizationTo()));
-		// connect(act_rerequestAuthorizationFrom, SIGNAL(activated()), contact_, SLOT(rerequestAuthorizationFrom()));
-		// connect(act_removeAuthorizationFrom, SIGNAL(activated()), contact_, SLOT(removeAuthorizationFrom()));
+		// connect(act_resendAuthorizationTo, SIGNAL(triggered()), contact_, SLOT(resendAuthorizationTo()));
+		// connect(act_rerequestAuthorizationFrom, SIGNAL(triggered()), contact_, SLOT(rerequestAuthorizationFrom()));
+		// connect(act_removeAuthorizationFrom, SIGNAL(triggered()), contact_, SLOT(removeAuthorizationFrom()));
 		// IconAction* act_remove = new IconAction("", "psi/remove", tr("Rem&ove"), menu->shortcut("contactlist.delete"), this, "act_remove");
 		// act_remove->setEnabled(contact->isEditable());
-		// connect(act_remove, SIGNAL(activated()), this, SLOT(remove()));
+		// connect(act_remove, SIGNAL(triggered()), this, SLOT(remove()));
 
 		IconAction* act_assignCustomPicture = new IconAction("", tr("&Assign Custom Picture"), menu->shortcut("contactlist.assign-custom-avatar"), this);
-		connect(act_assignCustomPicture, SIGNAL(activated()), contact_, SLOT(assignCustomPicture()));
+		connect(act_assignCustomPicture, SIGNAL(triggered()), contact_, SLOT(assignCustomPicture()));
 		IconAction* act_clearCustomPicture = new IconAction("", tr("&Clear Custom Picture"), menu->shortcut("contactlist.clear-custom-avatar"), this);
 		// act_clearCustomPicture->setEnabled(contact->account()->avatarFactory()->hasManualAvatar(u->jid()));
-		connect(act_clearCustomPicture, SIGNAL(activated()), contact_, SLOT(clearCustomPicture()));
+		connect(act_clearCustomPicture, SIGNAL(triggered()), contact_, SLOT(clearCustomPicture()));
 
 		IconAction* act_userInfo = new IconAction("", "psi/vCard", tr("User &Info"), menu->shortcut("common.user-info"), this);
-		connect(act_userInfo, SIGNAL(activated()), contact_, SLOT(userInfo()));
+		connect(act_userInfo, SIGNAL(triggered()), contact_, SLOT(userInfo()));
 		IconAction* act_history = new IconAction("", "psi/history", tr("&History"), menu->shortcut("common.history"), this);
-		connect(act_history, SIGNAL(activated()), contact_, SLOT(history()));
+		connect(act_history, SIGNAL(triggered()), contact_, SLOT(history()));
 
 		// if(!self && !inList && !isPrivate && !option.lockdown.roster) {
 		// 	pm.insertItem(IconsetFactory::icon("psi/addContact"), tr("Add/Authorize to contact list"), 10);

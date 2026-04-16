@@ -43,27 +43,27 @@ public:
 		
 		tr = qApp->translate("URLLabel", "Open mail composer");
 		act_mailto = new IconAction(tr, "psi/email", tr, 0, this);
-		connect(act_mailto, SIGNAL(activated()), SLOT(popupAction()));
+		connect(act_mailto, SIGNAL(triggered()), SLOT(popupAction()));
 	
 		tr = qApp->translate("URLLabel", "Open web browser");
 		act_browser = new IconAction(tr, "psi/www", tr, 0, this);
-		connect(act_browser, SIGNAL(activated()), SLOT(popupAction()));
+		connect(act_browser, SIGNAL(triggered()), SLOT(popupAction()));
 
 		tr = qApp->translate("URLLabel", "Add to Roster");
 		act_add_to_roster = new IconAction(tr, "psi/addContact", tr, 0, this);
-		connect(act_add_to_roster, SIGNAL(activated()), SLOT(popupAction()));
+		connect(act_add_to_roster, SIGNAL(triggered()), SLOT(popupAction()));
 
 		tr = qApp->translate("URLLabel", "Send massage to");
 		act_send_message = new IconAction(tr, "psi/message", tr, 0, this);
-		connect(act_send_message, SIGNAL(activated()), SLOT(popupAction()));
+		connect(act_send_message, SIGNAL(triggered()), SLOT(popupAction()));
 
 		tr = qApp->translate("URLLabel", "Join groupchat");
 		act_join_groupchat = new IconAction(tr, "psi/groupChat", tr, 0, this);
-		connect(act_join_groupchat, SIGNAL(activated()), SLOT(popupAction()));
+		connect(act_join_groupchat, SIGNAL(triggered()), SLOT(popupAction()));
 
 		tr = qApp->translate("URLLabel", "Copy location");
 		act_copy = new IconAction(tr, tr, 0, this);
-		connect(act_copy, SIGNAL(activated()), SLOT(popupCopy()));
+		connect(act_copy, SIGNAL(triggered()), SLOT(popupCopy()));
 	}
 		
 	QString copyString(QString from)

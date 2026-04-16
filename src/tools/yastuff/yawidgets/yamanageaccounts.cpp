@@ -81,7 +81,7 @@ YaManageAccounts::YaManageAccounts(QWidget* parent)
 
 	removeAction_ = new QAction(this);
 	removeAction_->setShortcuts(ShortcutManager::instance()->shortcuts("contactlist.delete"));
-	connect(removeAction_, SIGNAL(activated()), SLOT(deleteAccount()));
+	connect(removeAction_, SIGNAL(triggered()), SLOT(deleteAccount()));
 	ui_.treeView->addAction(removeAction_);
 
 	ui_.treeView->setModel(model_);

@@ -159,7 +159,7 @@ void PsiChatDlg::updateIdentityVisibility()
 void PsiChatDlg::initToolButtons()
 {
 	act_clear_ = new IconAction(tr("Clear chat window"), "psi/clearChat", tr("Clear chat window"), 0, this);
-	connect(act_clear_, SIGNAL(activated()), SLOT(doClearButton()));
+	connect(act_clear_, SIGNAL(triggered()), SLOT(doClearButton()));
 
 	connect(account()->psi()->iconSelectPopup(), SIGNAL(textSelected(QString)), this, SLOT(addEmoticon(QString)));
 	act_icon_ = new IconAction(tr("Select icon"), "psi/smile", tr("Select icon"), 0, this);
@@ -167,23 +167,23 @@ void PsiChatDlg::initToolButtons()
 	ui_.tb_emoticons->setMenu(account()->psi()->iconSelectPopup());
 
 	act_voice_ = new IconAction(tr("Voice Call"), "psi/voice", tr("Voice Call"), 0, this);
-	connect(act_voice_, SIGNAL(activated()), SLOT(doVoice()));
+	connect(act_voice_, SIGNAL(triggered()), SLOT(doVoice()));
 	act_voice_->setEnabled(false);
 
 	act_file_ = new IconAction(tr("Send file"), "psi/upload", tr("Send file"), 0, this);
-	connect(act_file_, SIGNAL(activated()), SLOT(doFile()));
+	connect(act_file_, SIGNAL(triggered()), SLOT(doFile()));
 
 	act_pgp_ = new IconAction(tr("Toggle encryption"), "psi/cryptoNo", tr("Toggle encryption"), 0, this, 0, true);
 	ui_.tb_pgp->setDefaultAction(act_pgp_);
 
 	act_info_ = new IconAction(tr("User info"), "psi/vCard", tr("User info"), 0, this);
-	connect(act_info_, SIGNAL(activated()), SLOT(doInfo()));
+	connect(act_info_, SIGNAL(triggered()), SLOT(doInfo()));
 
 	act_history_ = new IconAction(tr("Message history"), "psi/history", tr("Message history"), 0, this);
-	connect(act_history_, SIGNAL(activated()), SLOT(doHistory()));
+	connect(act_history_, SIGNAL(triggered()), SLOT(doHistory()));
 
 	act_compact_ = new IconAction(tr("Toggle Compact/Full size"), "psi/compact", tr("Toggle Compact/Full size"), 0, this);
-	connect(act_compact_, SIGNAL(activated()), SLOT(toggleSmallChat()));
+	connect(act_compact_, SIGNAL(triggered()), SLOT(toggleSmallChat()));
 }
 
 void PsiChatDlg::initToolBar()

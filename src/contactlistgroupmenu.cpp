@@ -47,14 +47,14 @@ public:
 		connect(menu, SIGNAL(aboutToShow()), SLOT(updateActions()));
 
 		act_rename = new IconAction("", tr("Re&name"), menu->shortcuts("contactlist.rename"), this, "act_rename");
-		connect(act_rename, SIGNAL(activated()), this, SLOT(rename()));
+		connect(act_rename, SIGNAL(triggered()), this, SLOT(rename()));
 
 		act_removeGroupAndContacts = new QAction(tr("&Remove"), this);
 		act_removeGroupAndContacts->setShortcuts(ShortcutManager::instance()->shortcuts("contactlist.delete"));
-		connect(act_removeGroupAndContacts, SIGNAL(activated()), SLOT(removeGroupAndContacts()));
+		connect(act_removeGroupAndContacts, SIGNAL(triggered()), SLOT(removeGroupAndContacts()));
 
 		act_addGroup = new QAction(tr("&Add group..."), this);
-		connect(act_addGroup, SIGNAL(activated()), SLOT(addGroup()));
+		connect(act_addGroup, SIGNAL(triggered()), SLOT(addGroup()));
 
 		updateActions();
 

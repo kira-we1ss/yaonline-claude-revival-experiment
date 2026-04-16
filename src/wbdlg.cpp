@@ -86,9 +86,9 @@ WbDlg::WbDlg(const Jid &target, const QString &session, const Jid &ownJid, bool 
 	connect(act_fill_, SIGNAL(triggered()), SLOT(setFillColor()));
 	connect(group_widths_, SIGNAL(triggered(QAction *)), SLOT(setStrokeWidth(QAction *)));
 	connect(group_modes_, SIGNAL(triggered(QAction *)), SLOT(setMode(QAction *)));
-	connect(act_end_, SIGNAL(activated()), SLOT(endSession()));
-	connect(act_clear_, SIGNAL(activated()), wbWidget_, SLOT(clear()));
-	connect(act_geometry_, SIGNAL(activated()), SLOT(setGeometry()));
+	connect(act_end_, SIGNAL(triggered()), SLOT(endSession()));
+	connect(act_clear_, SIGNAL(triggered()), wbWidget_, SLOT(clear()));
+	connect(act_geometry_, SIGNAL(triggered()), SLOT(setGeometry()));
 
 	pixmap = QPixmap(2, 2);
 	pixmap.fill(QColor(Qt::black));

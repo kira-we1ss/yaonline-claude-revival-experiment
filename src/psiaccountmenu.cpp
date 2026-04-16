@@ -29,37 +29,37 @@ public:
 
 		IconAction* act_mood = new IconAction("", tr("Mood"), 0, this);
 		act_mood->setEnabled(account->serverInfoManager()->hasPEP());
-		connect(act_mood, SIGNAL(activated()), account, SLOT(actionSetMood()));
+		connect(act_mood, SIGNAL(triggered()), account, SLOT(actionSetMood()));
 		IconAction* act_avatar = new IconAction("", tr("Avatar"), 0, this);
 		act_avatar->setEnabled(account->serverInfoManager()->hasPEP());
-		connect(act_avatar, SIGNAL(activated()), account, SLOT(actionSetAvatar()));
+		connect(act_avatar, SIGNAL(triggered()), account, SLOT(actionSetAvatar()));
 
 		IconAction* act_addContact = new IconAction("", "psi/addContact", tr("&Add a contact"), 0, this);
-		connect(act_addContact, SIGNAL(activated()), SLOT(addContact()));
+		connect(act_addContact, SIGNAL(triggered()), SLOT(addContact()));
 		IconAction* act_serviceDiscovery = new IconAction("", "psi/disco", tr("Service &Discovery"), 0, this);
-		connect(act_serviceDiscovery, SIGNAL(activated()), SLOT(serviceDiscovery()));
+		connect(act_serviceDiscovery, SIGNAL(triggered()), SLOT(serviceDiscovery()));
 		IconAction* act_sendMessage = new IconAction("", "psi/sendMessage", tr("New &blank message"), 0, this);
-		connect(act_sendMessage, SIGNAL(activated()), SLOT(sendMessage()));
+		connect(act_sendMessage, SIGNAL(triggered()), SLOT(sendMessage()));
 		IconAction* act_xmlConsole = new IconAction("", "psi/xml", tr("&XML Console"), 0, this);
-		connect(act_xmlConsole, SIGNAL(activated()), SLOT(xmlConsole()));
+		connect(act_xmlConsole, SIGNAL(triggered()), SLOT(xmlConsole()));
 		IconAction* act_modifyAccount = new IconAction("", "psi/account", tr("&Modify Account..."), 0, this);
-		connect(act_modifyAccount, SIGNAL(activated()), SLOT(modifyAccount()));
+		connect(act_modifyAccount, SIGNAL(triggered()), SLOT(modifyAccount()));
 
 		IconAction* act_onlineUsers = new IconAction("", "psi/disco", tr("Online Users"), 0, this);
 		act_onlineUsers->setEnabled(account->loggedIn());
-		connect(act_onlineUsers, SIGNAL(activated()), SLOT(onlineUsers()));
+		connect(act_onlineUsers, SIGNAL(triggered()), SLOT(onlineUsers()));
 		IconAction* act_sendServerMessage = new IconAction("", "psi/sendMessage", tr("Send server message"), 0, this);
 		act_sendServerMessage->setEnabled(account->loggedIn());
-		connect(act_sendServerMessage, SIGNAL(activated()), SLOT(sendServerMessage()));
+		connect(act_sendServerMessage, SIGNAL(triggered()), SLOT(sendServerMessage()));
 		IconAction* act_setMOTD = new IconAction("", tr("Set MOTD"), 0, this);
 		act_setMOTD->setEnabled(account->loggedIn());
-		connect(act_setMOTD, SIGNAL(activated()), SLOT(setMOTD()));
+		connect(act_setMOTD, SIGNAL(triggered()), SLOT(setMOTD()));
 		IconAction* act_updateMOTD = new IconAction("", tr("Update MOTD"), 0, this);
 		act_updateMOTD->setEnabled(account->loggedIn());
-		connect(act_updateMOTD, SIGNAL(activated()), SLOT(updateMOTD()));
+		connect(act_updateMOTD, SIGNAL(triggered()), SLOT(updateMOTD()));
 		IconAction* act_deleteMOTD = new IconAction("", "psi/remove", tr("Delete MOTD"), 0, this);
 		act_deleteMOTD->setEnabled(account->loggedIn());
-		connect(act_deleteMOTD, SIGNAL(activated()), SLOT(deleteMOTD()));
+		connect(act_deleteMOTD, SIGNAL(triggered()), SLOT(deleteMOTD()));
 
 		menu->addMenu(statusMenu);
 #ifndef YAPSI

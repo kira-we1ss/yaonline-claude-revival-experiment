@@ -53,11 +53,11 @@ public:
 
 		rename_ = new QAction(tr("Re&name"), this);
 		rename_->setShortcuts(menu->shortcuts("contactlist.rename"));
-		connect(rename_, SIGNAL(activated()), this, SLOT(rename()));
+		connect(rename_, SIGNAL(triggered()), this, SLOT(rename()));
 
 		remove_ = new QAction(tr("&Remove"), this);
 		remove_->setShortcuts(ShortcutManager::instance()->shortcuts("contactlist.delete"));
-		connect(remove_, SIGNAL(activated()), SLOT(removeContact()));
+		connect(remove_, SIGNAL(triggered()), SLOT(removeContact()));
 
 		updateActions();
 
