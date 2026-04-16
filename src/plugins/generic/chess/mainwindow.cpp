@@ -51,7 +51,7 @@ MainWindow::MainWindow(QWidget *parent, const char *name)
 		this, SLOT(newGame()), QKeySequence(Qt::CTRL + Qt::Key_N));
 	saveImageAction = game->addAction(xpm, tr("Save image"), this,
 		SLOT(saveImage()), QKeySequence(Qt::CTRL + Qt::Key_S));
-	saveImageAction->setEnabled(FALSE);
+	saveImageAction->setEnabled(false);
 	game->addSeparator();
 	game->addAction(QPixmap((const char **)quit_xpm), tr("Quit"), qApp,
 		SLOT(quit()), QKeySequence(Qt::CTRL + Qt::Key_Q));
@@ -118,7 +118,7 @@ MainWindow::newGame(int sock)
 	QObject::connect(brd, SIGNAL(showStatus(const QString&)),
 		this, SLOT(showStatus(const QString&)));
 	brd->show();
-	saveImageAction->setEnabled(TRUE);
+	saveImageAction->setEnabled(true);
 }
 
 
@@ -139,7 +139,7 @@ MainWindow::about()
 void
 MainWindow::activated(QWidget *w)
 {
-	GameBoard	*brd = (GameBoard *)w;
+	GameBoard	*brd = qobject_cast<GameBoard *>(w);
 
 	saveImageAction->setEnabled(brd != NULL);
 	if (brd != NULL)
@@ -152,7 +152,7 @@ MainWindow::activated(QWidget *w)
 void
 MainWindow::saveImage()
 {
-	GameBoard	*brd = (GameBoard *)wrk->activeWindow();
+	GameBoard	*brd = qobject_cast<GameBoard *>(wrk->activeWindow());
 
 	if (brd != NULL)
 		brd->saveImage();

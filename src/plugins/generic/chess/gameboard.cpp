@@ -670,7 +670,7 @@ GameBoard::GameBoard(GameType g, const QString &h, QWidget *parent,
 	drw = new Drawer(map, &gt, this);
 	drw->setEnabled(FALSE);
 	drw->setFocusPolicy(Qt::NoFocus);
-	box = new Q3GroupBox(tr("Game chat"), this);
+	box = new QGroupBox(tr("Game chat"), this);
 	lst = new Q3ListBox(box);
 	lst->setFocusPolicy(Qt::NoFocus);
 	lst->setVScrollBarMode(Q3ScrollView::AlwaysOff);
@@ -678,7 +678,7 @@ GameBoard::GameBoard(GameType g, const QString &h, QWidget *parent,
 	edt = new QLineEdit(box);
 	edt->setEnabled(FALSE);
 	setFocusProxy(edt);
-	hist = new Q3GroupBox(tr("History"), this);
+	hist = new QGroupBox(tr("History"), this);
 	hist->setAlignment(Qt::AlignHCenter);
 	hist->setFocusPolicy(Qt::NoFocus);
 	hw = new Q3ListBox(hist);
@@ -746,14 +746,14 @@ GameBoard::GameBoard(int sfd, QWidget *parent, const char *name)
 	drw = new Drawer(map, &gt, this);
 	drw->setEnabled(FALSE);
 	drw->setFocusPolicy(Qt::NoFocus);
-	box = new Q3GroupBox(tr("Game chat"), this);
+	box = new QGroupBox(tr("Game chat"), this);
 	lst = new Q3ListBox(box);
 	lst->setFocusPolicy(Qt::NoFocus);
 	lst->setVScrollBarMode(Q3ScrollView::AlwaysOff);
 	lst->setSelectionMode(Q3ListBox::NoSelection);
 	edt = new QLineEdit(box);
 	setFocusProxy(edt);
-	hist = new Q3GroupBox(tr("History"), this);
+	hist = new QGroupBox(tr("History"), this);
 	hist->setAlignment(Qt::AlignHCenter);
 	hist->setFocusPolicy(Qt::NoFocus);
 	hw = new Q3ListBox(hist);

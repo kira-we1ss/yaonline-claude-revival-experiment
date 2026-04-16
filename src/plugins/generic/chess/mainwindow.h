@@ -21,7 +21,6 @@
 #include <QDialog>
 #include <QLabel>
 #include <QComboBox>
-#include <QButtonGroup>
 #include <QRadioButton>
 #include <QGroupBox>
 #include <QPushButton>

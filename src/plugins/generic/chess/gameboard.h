@@ -21,7 +21,7 @@
 #include <q3pointarray.h>
 #include <QDialog>
 #include <q3socket.h>
-#include <q3groupbox.h>
+#include <QGroupBox>
 #include <QLineEdit>
 #include <q3listbox.h>
 #include <QTimer>
@@ -92,7 +92,7 @@ private:
 	FigureType	*map;
 	QString		hst, my_stat;
 	Q3Socket		*sock;
-	Q3GroupBox	*box, *hist;
+	QGroupBox	*box, *hist;
 	Q3ListBox	*lst, *hw, *hb;
 	QLineEdit	*edt;
 	QTimer		*tmr, *tmr2;
