@@ -28,8 +28,8 @@
 // Qt3Support-free replacement for Q3Shared
 class Q3Shared {
 public:
-    Q3Shared() : count(0) {}
-    Q3Shared(const Q3Shared &) : count(0) {}
+    Q3Shared() : count(1) {}         // 1 = sole owner at construction
+    Q3Shared(const Q3Shared &) : count(1) {}
     inline void ref() { ++count; }
     inline bool deref() { return !--count; }
     int count;

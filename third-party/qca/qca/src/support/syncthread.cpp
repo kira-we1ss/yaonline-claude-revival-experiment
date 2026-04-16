@@ -60,7 +60,9 @@ bool invokeMethodWithVariants(QObject *obj, const QByteArray &method, const QVar
 	// get return type
 	int metatype = 0;
 	QByteArray retTypeName = methodReturnType(obj->metaObject(), method, argTypes);
-	if(!retTypeName.isEmpty())
+	// Qt5: QMetaType::type("void") returns QMetaType::Void (non-zero), not 0.
+	// Treat "void" return as no return value, same as Qt4 behaviour.
+	if(!retTypeName.isEmpty() && retTypeName != "void")
 	{
 		metatype = QMetaType::type(retTypeName.data());
 		if(metatype == 0) // lookup failed
