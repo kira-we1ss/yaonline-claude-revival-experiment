@@ -14,13 +14,11 @@
 #include <qdrawutil.h>
 #include <QComboBox>
 #include <QCheckBox>
+#include <QFrame>
+#include <QGridLayout>
+#include <QHBoxLayout>
 #include <QLabel>
-#include <QLayout>
-//Added by qt3to4:
-#include <Q3HBoxLayout>
-#include <Q3GridLayout>
-#include <Q3Frame>
-#include <Q3VBoxLayout>
+#include <QVBoxLayout>
 #include <QDebug>
 #include <stdlib.h>                             // rand() function
 #include <QDateTime>                          // seed for rand()
@@ -66,25 +64,28 @@ TicTacButton::TicTacButton( QWidget *parent ) : QPushButton( parent )
 //
 
 TicTacGameBoard::TicTacGameBoard( bool meFirst, int n, QWidget *parent, const char *name )
-    : QWidget( parent, name ) 
+    : QWidget( parent )
 {
+    if (name)
+        setObjectName(QString::fromLatin1(name));
     st = Init;                                  // initial state
     nBoard = n;
     n *= n;                                     // make square
-    comp_starts = FALSE;                        // human starts
+    comp_starts = false;                        // human starts
     buttons = new TicTacButtons(n);             // create real buttons
     btArray = new TicTacArray(n);               // create button model
-    Q3GridLayout * grid = new Q3GridLayout( this, nBoard, nBoard, 4 );
+    QGridLayout *grid = new QGridLayout(this);
+    grid->setSpacing(4);
 	qDebug("added grid");
     QPalette p( Qt::blue );
     for ( int i=0; i<n; i++ ) {                 // create and connect buttons
         TicTacButton *ttb = new TicTacButton( this );
         ttb->setPalette( p );
-        ttb->setEnabled( FALSE );
+        ttb->setEnabled( false );
         connect( ttb, SIGNAL(clicked()), SLOT(buttonClicked()) );
         grid->addWidget( ttb, i%nBoard, i/nBoard );
-        buttons->insert( i, ttb );
-        btArray->at(i) = TicTacButton::Blank;   // initial button type
+        (*buttons)[i] = ttb;
+        (*btArray)[i] = TicTacButton::Blank;    // initial button type
     }
     QTime t = QTime::currentTime();             // set random seed
     srand( t.hour()*12+t.minute()*60+t.second()*60 );
@@ -140,7 +141,9 @@ void TicTacGameBoard::buttonClicked()
 {
     if ( st != HumansTurn )                     // not ready
         return;
-    int i = buttons->findRef( (TicTacButton*)sender() );
+    const int i = buttons->indexOf(static_cast<TicTacButton *>(sender()));
+    if (i < 0)
+        return;
     TicTacButton *b = buttons->at(i);           // get piece that was pressed
     if ( b->type() == TicTacButton::Blank ) {   // empty piece?
         btArray->at(i) = TicTacButton::Circle;
@@ -214,7 +217,7 @@ int TicTacGameBoard::checkBoard( TicTacArray *a )
 {
     int  t = 0;
     int  row, col;
-    bool won = FALSE;
+    bool won = false;
     for ( row=0; row<nBoard && !won; row++ ) {  // check horizontal
         t = a->at(row*nBoard);
         if ( t == TicTacButton::Blank )
@@ -223,7 +226,7 @@ int TicTacGameBoard::checkBoard( TicTacArray *a )
         while ( col<nBoard && a->at(row*nBoard+col) == t )
             col++;
         if ( col == nBoard )
-            won = TRUE;
+            won = true;
     }
     for ( col=0; col<nBoard && !won; col++ ) {  // check vertical
         t = a->at(col);
@@ -233,7 +236,7 @@ int TicTacGameBoard::checkBoard( TicTacArray *a )
         while ( row<nBoard && a->at(row*nBoard+col) == t )
             row++;
         if ( row == nBoard )
-            won = TRUE;
+            won = true;
     }
     if ( !won ) {                               // check diagonal top left
         t = a->at(0);                           //   to bottom right
@@ -242,7 +245,7 @@ int TicTacGameBoard::checkBoard( TicTacArray *a )
             while ( i<nBoard && a->at(i*nBoard+i) == t )
                 i++;
             if ( i == nBoard )
-                won = TRUE;
+                won = true;
         }
     }
     if ( !won ) {                               // check diagonal bottom left
@@ -255,7 +258,7 @@ int TicTacGameBoard::checkBoard( TicTacArray *a )
                 i++; j--;
             }
             if ( i == nBoard )
-                won = TRUE;
+                won = true;
         }
     }
     if ( !won )                                 // no winner
@@ -276,7 +279,7 @@ void TicTacGameBoard::computerMove()
     int *altv = new int[numButtons];            // buttons alternatives
     int altc = 0;
     int stopHuman = -1;
-    TicTacArray a = btArray->copy();
+    TicTacArray a = *btArray;
     int i;
     for ( i=0; i<numButtons; i++ ) {            // try all positions
         if ( a[i] != TicTacButton::Blank )      // already a piece there
@@ -322,14 +325,17 @@ void TicTacGameBoard::computerMove()
 //
 
 TicTacToe::TicTacToe( bool meFirst, int boardSize, QWidget *parent, const char *name )
-    : QWidget( parent, name )
+    : QWidget( parent )
 {
-    Q3VBoxLayout * l = new Q3VBoxLayout( this, 6 );
+    if (name)
+        setObjectName(QString::fromLatin1(name));
+    QVBoxLayout *l = new QVBoxLayout(this);
+    l->setSpacing(6);
 
     // Create a message label
 
     message = new QLabel( this );
-    message->setFrameStyle( Q3Frame::WinPanel | Q3Frame::Sunken );
+    message->setFrameStyle( QFrame::WinPanel | QFrame::Sunken );
     message->setAlignment( Qt::AlignCenter );
     l->addWidget( message );
 
@@ -342,16 +348,16 @@ TicTacToe::TicTacToe( bool meFirst, int boardSize, QWidget *parent, const char *
 
     // Create a horizontal frame line
 
-    Q3Frame *line = new Q3Frame( this );
-    line->setFrameStyle( Q3Frame::HLine | Q3Frame::Sunken );
+    QFrame *line = new QFrame( this );
+    line->setFrameStyle( QFrame::HLine | QFrame::Sunken );
     l->addWidget( line );
 
     // Create the combo box for deciding who should start, and
     // connect its clicked() signals to the buttonClicked() slot
 
     whoStarts = new QComboBox( this );
-    whoStarts->insertItem( "Opponent starts" );
-    whoStarts->insertItem( "You start" );
+    whoStarts->addItem( "Opponent starts" );
+    whoStarts->addItem( "You start" );
     l->addWidget( whoStarts );
 
 	whoStarts->setEnabled(false);
@@ -366,7 +372,7 @@ TicTacToe::TicTacToe( bool meFirst, int boardSize, QWidget *parent, const char *
 	newGame->setEnabled(false);
     quit = new QPushButton( "Quit", this );
     connect( quit, SIGNAL(clicked()), this, SIGNAL(closing()) );
-    Q3HBoxLayout * b = new Q3HBoxLayout;
+    QHBoxLayout *b = new QHBoxLayout;
     l->addLayout( b );
     b->addWidget( newGame );
     b->addWidget( quit );
@@ -389,7 +395,7 @@ void TicTacToe::theirMove(int space)
 
 void TicTacToe::newGameClicked()
 {
-    board->computerStarts( whoStarts->currentItem() == 0 );
+    board->computerStarts( whoStarts->currentIndex() == 0 );
     board->newGame();
     newState();
 }

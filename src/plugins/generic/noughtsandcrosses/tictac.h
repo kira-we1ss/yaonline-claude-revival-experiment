@@ -14,9 +14,7 @@
 
 
 #include <QPushButton>
-#include <q3ptrvector.h>
-//Added by qt3to4:
-#include <Q3MemArray>
+#include <QVector>
 #include <QLabel>
 
 class QComboBox;
@@ -56,8 +54,8 @@ private:
 // Using template vector to make vector-class of TicTacButton.
 // This vector is used by the TicTacGameBoard class defined below.
 
-typedef Q3PtrVector<TicTacButton>        TicTacButtons;
-typedef Q3MemArray<int>          TicTacArray;
+typedef QVector<TicTacButton *> TicTacButtons;
+typedef QVector<int>             TicTacArray;
 
 
 // --------------------------------------------------------------------------

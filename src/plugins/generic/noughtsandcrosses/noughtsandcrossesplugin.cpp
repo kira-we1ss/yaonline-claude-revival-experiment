@@ -132,7 +132,7 @@ void NoughtsAndCrossesPlugin::message( const PsiAccount* account, const QString&
 void NoughtsAndCrossesPlugin::startGame(QString jid, int size, bool meFirst, const PsiAccount* account)
 {
 	game = new TicTacToe( meFirst, size );
-	game->setCaption(QString("Noughts and Crosses with %1").arg(jid));
+	game->setWindowTitle(QString("Noughts and Crosses with %1").arg(jid));
 	playingWith=jid;
     game->show();
 	account_=(PsiAccount*)account;
