@@ -156,15 +156,15 @@ PsiOptions::PsiOptions()
 
 	if (!load(":/options/default.xml"))
 		qWarning("ERROR: Failed to load default options");
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	if (!load(":/options/macosx.xml"))
 		qWarning("ERROR: Failed to load Mac OS X-specific options");
 #endif
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	if (!load(":/options/windows.xml"))
 		qWarning("ERROR: Failed to load Windows-specific options");
 #endif
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 	if (!load(":/options/x11.xml"))
 		qWarning("ERROR: Failed to load X11-specific options");
 #endif

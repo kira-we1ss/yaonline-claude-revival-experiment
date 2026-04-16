@@ -103,13 +103,13 @@ YaTrayIcon::YaTrayIcon()
 	// not be considered inactive and hidden by Windows
 	updateTimer_->setInterval(1000);
 	connect(updateTimer_, SIGNAL(timeout()), SLOT(updateIcon()));
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	if (QSysInfo::WindowsVersion < QSysInfo::WV_WINDOWS7) {
 		updateTimer_->start();
 	}
 #endif
 
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	setToolTip(tr("Ya.Online"));
 #endif
 }

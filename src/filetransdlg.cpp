@@ -552,7 +552,7 @@ FileRequestDlg::FileRequestDlg(const Jid &jid, PsiCon *psi, PsiAccount *pa, cons
 	setTabOrder(d->te, pb_stop);
 
 	setWindowTitle(tr("Send File"));
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	setWindowIcon(IconsetFactory::icon("psi/upload").icon());
 #endif
 
@@ -644,7 +644,7 @@ FileRequestDlg::FileRequestDlg(const QDateTime &ts, FileTransfer *ft, PsiAccount
 
 	lb_to->setText(tr("From:"));
 	setWindowTitle(tr("Receive File"));
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	setWindowIcon(IconsetFactory::icon("psi/download").icon());
 #endif
 
@@ -1496,7 +1496,7 @@ FileTransDlg::FileTransDlg(PsiCon *psi)
 	connect(&d->t, SIGNAL(timeout()), SLOT(updateItems()));
 
 	setWindowTitle(tr("Transfer Manager"));
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	setWindowIcon(IconsetFactory::icon("psi/filemanager").icon());
 #endif
 

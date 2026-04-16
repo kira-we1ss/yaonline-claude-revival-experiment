@@ -227,7 +227,7 @@ void YaTabBar::updateHiddenTabActions()
 	qSort(hiddenTabs_);
 
 	bool useCheckBoxes = true;
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	// on XP when icons in menus are enabled, checkbox is not shown,
 	// the black square gets drawn outside of icon
 	if (QSysInfo::WindowsVersion == QSysInfo::WV_XP) {

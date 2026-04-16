@@ -31,7 +31,7 @@ class YaOnlineExpansionButton;
 #include "yawindowtheme.h"
 #include "delayedvariable.h"
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include <shobjidl.h>
 #endif
 
@@ -42,20 +42,20 @@ public:
 	YaWin7Window(QWidget* parent, Qt::WindowFlags f);
 	~YaWin7Window();
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	void setOverlayIcon(HICON iconHandle, const QString& accessibilityHint);
 	void setW7ToolTip(const QString& tooltip);
 #endif
 
 protected:
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	bool winEvent(MSG* message, long* result);
 	virtual void taskBarCreated();
 	ITaskbarList3* taskBar() const;
 #endif
 
 private:
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	UINT taskBarCreatedMessage_;
 	ITaskbarList3* taskBar_;
 	HICON iconHandle_;
@@ -84,7 +84,7 @@ protected:
 	virtual void paint(QPainter* p);
 	bool isOnlineVisible() const;
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	bool forceMinimizeOnClose() const;
 	void doMinimize();
 #endif

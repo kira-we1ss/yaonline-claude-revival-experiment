@@ -463,13 +463,13 @@ void UserProfile::reset()
 	bool nix, win, mac;
 	nix = win = mac = false;
 
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 	nix = true;
 #endif
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	win = true;
 #endif
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	mac = true;
 #endif
 
@@ -496,7 +496,7 @@ void UserProfile::reset()
 	prefs.dockDCstyle = win ? true: false;
 	prefs.dockHideMW = false;
 	prefs.dockToolMW = false;
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	prefs.alertStyle = 0;
 #else
 	prefs.alertStyle = 2;
@@ -659,7 +659,7 @@ void UserProfile::reset()
 		}
 
 		bool defaultEnableToolbars;
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 		defaultEnableToolbars = false;
 #else
 		defaultEnableToolbars = true;

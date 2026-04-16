@@ -32,13 +32,13 @@
 #include <QNetworkReply>
 #include <QUrl>
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 extern "C" {
 	#include "carboncocoa.h"
 }
 #endif
 
-#if defined(Q_WS_X11) || defined(Q_WS_MAC)
+#if defined(Q_OS_LINUX) || defined(Q_OS_MAC)
 #include <sys/stat.h> // chmod
 #endif
 
@@ -46,7 +46,7 @@ extern "C" {
 #include <QAxObject>
 #endif
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #if __GNUC__ >= 3
 #	define WINVER    0x0500
 #	define _WIN32_IE 0x0500
@@ -102,11 +102,11 @@ QString YaDayUse::ver()
 
 QString YaDayUse::osId()
 {
-#if defined(Q_WS_WIN)
+#if defined(Q_OS_WIN)
 	return "winnt";
-#elif defined(Q_WS_MAC)
+#elif defined(Q_OS_MAC)
 	return "darwin";
-#elif defined(Q_WS_X11)
+#elif defined(Q_OS_LINUX)
 	return "linux";
 #else
 	Q_ASSERT(false);
@@ -116,7 +116,7 @@ QString YaDayUse::osId()
 
 QString YaDayUse::osVer()
 {
-#if defined(Q_WS_WIN)
+#if defined(Q_OS_WIN)
 	OSVERSIONINFOEX osvi = {0};
 
 	// Try calling GetVersionEx using the OSVERSIONINFOEX structure.
@@ -135,7 +135,7 @@ QString YaDayUse::osVer()
 	       .arg(osvi.dwMajorVersion)
 	       .arg(osvi.dwMinorVersion)
 	       .arg(OsBuildNumber);
-#elif defined(Q_WS_MAC)
+#elif defined(Q_OS_MAC)
 	return QString::fromUtf8(ownSUCurrentSystemVersionString());
 #endif
 	// return SystemInfo::instance()->osVersion();
@@ -190,7 +190,7 @@ void YaDayUse::httpGet(const QString& _url)
 
 QString YaDayUse::uiPath() const
 {
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	QString base = QDir::homePath();
 	WCHAR str[MAX_PATH+1] = { 0 };
 	if (SHGetSpecialFolderPathW(0, str, CSIDL_APPDATA, true))

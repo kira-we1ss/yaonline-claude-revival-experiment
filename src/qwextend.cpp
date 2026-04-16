@@ -1,6 +1,6 @@
 #include "qwextend.h"
 
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 
 #define protected public
 #define private public

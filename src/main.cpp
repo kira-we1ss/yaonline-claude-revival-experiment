@@ -344,7 +344,7 @@ int main(int argc, char *argv[])
 		PsiCli().showVersion();
 		return 0;
 	}
-#ifndef Q_WS_WIN
+#ifndef Q_OS_WIN
 	else if(cmdline.contains("datadir")) {
 		QString datadir = cmdline["datadir"];
 		if (!datadir.isEmpty()) {
@@ -363,7 +363,7 @@ int main(int argc, char *argv[])
 	QApplication::addLibraryPath(ApplicationInfo::homeDir());
 	QApplication::setQuitOnLastWindowClosed(false);
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	QDir dir(QApplication::applicationDirPath());
 	dir.cdUp();
 	dir.cd("Plugins");

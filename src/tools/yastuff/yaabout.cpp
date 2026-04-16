@@ -55,9 +55,9 @@ YaAbout::YaAbout()
 	ui_.label->installEventFilter(this);
 
 	QString osName;
-#if defined(Q_WS_WIN)
+#if defined(Q_OS_WIN)
 	osName = "Windows";
-#elif defined(Q_WS_MAC)
+#elif defined(Q_OS_MAC)
 	osName = "Mac OS X";
 #else
 	osName = "Linux";

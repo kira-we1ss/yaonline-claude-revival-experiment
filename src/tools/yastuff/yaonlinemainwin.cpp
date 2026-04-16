@@ -52,7 +52,7 @@
 YaWin7Window::YaWin7Window(QWidget* parent, Qt::WindowFlags f)
 	: YaWindow(parent, f)
 {
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	taskBarCreatedMessage_ = RegisterWindowMessage(L"TaskbarButtonCreated");
 
 	// HRESULT hr = CoCreateInstance(CLSID_TaskbarList,
@@ -75,14 +75,14 @@ YaWin7Window::YaWin7Window(QWidget* parent, Qt::WindowFlags f)
 
 YaWin7Window::~YaWin7Window()
 {
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	if (taskBar_) {
 		taskBar_->Release();
 	}
 #endif
 }
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 bool YaWin7Window::winEvent(MSG* message, long* result)
 {
 	if (message->message == taskBarCreatedMessage_) {
@@ -279,7 +279,7 @@ void YaOnlineMainWin::doBringToFront()
 	::bringToFront(this);
 }
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 extern bool ForceForegroundWindow(HWND hwnd);
 #endif
 
@@ -680,7 +680,7 @@ void YaOnlineMainWin::changeEvent(QEvent* e)
 
 void YaOnlineMainWin::onlineHideRoster()
 {
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	if (forceMinimizeOnClose()) {
 		doMinimize();
 		return;
@@ -846,7 +846,7 @@ bool YaOnlineMainWin::enableTopLeftBorderResize() const
 }
 #endif
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 bool YaOnlineMainWin::forceMinimizeOnClose() const
 {
 	return (QSysInfo::WindowsVersion >= QSysInfo::WV_WINDOWS7)
@@ -859,7 +859,7 @@ bool YaOnlineMainWin::forceMinimizeOnClose() const
 
 void YaOnlineMainWin::doMinimize()
 {
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	// ONLINE-3509
 	HWND hwnd = GetNextWindow(winId(), GW_HWNDNEXT);
 	if (hwnd) {

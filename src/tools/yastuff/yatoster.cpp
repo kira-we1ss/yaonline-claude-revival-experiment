@@ -52,11 +52,11 @@ const static int TOSTER_HEIGHT = 100;
  *
  *  Hint:
  *  <code>
- *  #ifdef Q_WS_WIN<br/>
+ *  #ifdef Q_OS_WIN<br/>
  *  APPBARDATA abd;<br/>
  *  abd.cbSize = sizeof(abd);<br/>
  *  SHAppBarMessage(ABM_GETTASKBARPOS, &abd);<br/>
- *  #endif // Q_WS_WIN
+ *  #endif // Q_OS_WIN
  *  </code>
  */
 const YaToster::Data YaToster::getTosterData(int w, int h)

@@ -712,7 +712,7 @@ void Ya::VisualUtil::drawTextDashedUnderline(QPainter* painter, const QString& t
 	int y = textRect.top() + ((textRect.height() - painter->fontMetrics().height()) / 2) + painter->fontMetrics().ascent() + 1;
 	Q_ASSERT(flags & Qt::AlignVCenter);
 
-// #ifdef Q_WS_WIN
+// #ifdef Q_OS_WIN
 	y += 1;
 // #endif
 	painter->drawLine(x, y,
@@ -739,7 +739,7 @@ int Ya::VisualUtil::windowShadowSize(const YaWindowTheme& theme)
 
 int Ya::VisualUtil::windowCornerRadius(const YaWindowTheme& theme)
 {
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	// http://trolltech.com/developer/task-tracker/index_html?method=entry&id=201941
 	// currently use of pre-rendered round corners on Mac OS X is quite buggy
 	// as it often results a semi-transparent corner image

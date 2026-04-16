@@ -38,7 +38,7 @@
 #include <QMenu>
 // QMenuItem was removed in Qt5
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include <windows.h>
 #endif
 
@@ -210,13 +210,13 @@ void MainWin::Private::updateMenu(QStringList actions, QMenu *menu)
 // MainWin
 //----------------------------------------------------------------------------
 
-//#ifdef Q_WS_X11
+//#ifdef Q_OS_LINUX
 //#define TOOLW_FLAGS WStyle_Customize
 //#else
 //#define TOOLW_FLAGS ((Qt::WindowFlags) 0)
 //#endif
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #define TOOLW_FLAGS (Qt::WindowMinimizeButtonHint)
 #else
 #define TOOLW_FLAGS ((Qt::WindowFlags) 0)
@@ -249,7 +249,7 @@ MainWin::MainWin(bool _onTop, bool _asTool, PsiCon *psi, const char *name)
 	d->trayMenu = 0;
 	d->statusTip = "";
 	d->nickname = "";
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	d->old_trayicon = false;
 #else
 	d->old_trayicon = PsiOptions::instance()->getOption("options.ui.systemtray.use-old").toBool();
@@ -266,7 +266,7 @@ MainWin::MainWin(bool _onTop, bool _asTool, PsiCon *psi, const char *name)
 	d->cvlist->setModel(d->contactListModel);
 
 	int layoutMargin = 2;
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	layoutMargin = 0;
 #endif
 	d->vb_main->setMargin(layoutMargin);
@@ -290,7 +290,7 @@ MainWin::MainWin(bool _onTop, bool _asTool, PsiCon *psi, const char *name)
 	//add contact view
 	d->vb_main->addWidget(d->cvlist);
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	// Disable the empty vertical scrollbar:
 	// it's here because of weird code in q3scrollview.cpp
 	// Q3ScrollView::updateScrollBars() around line 877
@@ -299,7 +299,7 @@ MainWin::MainWin(bool _onTop, bool _asTool, PsiCon *psi, const char *name)
 
 	d->statusMenu = new QMenu(this);
 	d->optionsMenu = new QMenu(this);
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	d->trayMenu = d->statusMenu;
 #else
 	d->trayMenu = new QMenu(this);
@@ -328,7 +328,7 @@ MainWin::MainWin(bool _onTop, bool _asTool, PsiCon *psi, const char *name)
 	decorateButton(STATUS_OFFLINE);
 
 	// Mac-only menus
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	QMenu *mainMenu = new QMenu(this);
 	mainMenu->setTitle(tr("Menu")); mainMenuBar()->addMenu(mainMenu);
 	d->getAction("menu_options")->addTo(mainMenu);
@@ -360,7 +360,7 @@ MainWin::MainWin(bool _onTop, bool _asTool, PsiCon *psi, const char *name)
 	d->getAction("show_largeicons")->addTo(viewMenu);
 
 	// Mac-only menus
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	d->toolsMenu = new QMenu(this);
 	d->toolsMenu->setTitle(tr("Tools")); mainMenuBar()->addMenu(d->toolsMenu);
 	connect(d->toolsMenu, SIGNAL(aboutToShow()), SLOT(buildToolsMenu()));
@@ -618,7 +618,7 @@ void MainWin::activatedStatusAction(int id)
 
 QMenuBar* MainWin::mainMenuBar() const
 {
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	return psiCon()->defaultMenuBar();
 #else
 	return menuBar();
@@ -837,7 +837,7 @@ void MainWin::activatedAccOption(PsiAccount *pa, int x)
 
 void MainWin::buildTrayMenu()
 {
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	d->trayMenu->clear();
 
 	if(d->nextAmount > 0) {
@@ -926,7 +926,7 @@ void MainWin::tryCloseProgram()
 
 void MainWin::closeEvent(QCloseEvent *e)
 {
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	trayHide();
 	e->accept();
 #else
@@ -948,7 +948,7 @@ void MainWin::closeEvent(QCloseEvent *e)
 
 void MainWin::keyPressEvent(QKeyEvent *e)
 {
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	bool allowed = true;
 #else
 	bool allowed = d->tray ? true: false;
@@ -958,7 +958,7 @@ void MainWin::keyPressEvent(QKeyEvent *e)
 	if(e->key() == Qt::Key_Escape) {
 		closekey = true;
 	}
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	else if(e->key() == Qt::Key_W && e->modifiers() & Qt::ControlModifier) {
 		closekey = true;
 	}
@@ -973,7 +973,7 @@ void MainWin::keyPressEvent(QKeyEvent *e)
 	QWidget::keyPressEvent(e);
 }
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include <windows.h>
 bool MainWin::winEvent(MSG *msg, long *result)
 {
@@ -1017,7 +1017,7 @@ void MainWin::optionsUpdate()
 	d->lastStatus = -2;
 	decorateButton(status);
 
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	if (option.hideMenubar) {
 		mainMenuBar()->hide();
 	}
@@ -1264,7 +1264,7 @@ void MainWin::searchTextEntered(QString const &text)
 	}
 }
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 void MainWin::setWindowIcon(const QPixmap&)
 {
 }
@@ -1276,7 +1276,7 @@ void MainWin::setWindowIcon(const QPixmap& p)
 #endif
 
 #if 0
-#if defined(Q_WS_WIN)
+#if defined(Q_OS_WIN)
 #include <windows.h>
 void MainWin::showNoFocus()
 {

@@ -197,7 +197,7 @@ void YaRosterToolTip::updateTipLabelProperties(PsiTipLabel* label)
 
 void YaRosterToolTip::updateLabel(YaRosterTipLabel* label, const QString& text)
 {
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	bool wasVisible = label->isVisible();
 	// this hack is required on Windows in order to reduce nasty in-tooltip flicker
 	// caused by hiding/showing its internal widgets (while tooltip's updates
@@ -216,7 +216,7 @@ void YaRosterToolTip::updateLabel(YaRosterTipLabel* label, const QString& text)
 
 	contactSelection_ = 0;
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	if (wasVisible) {
 		label->show();
 	}

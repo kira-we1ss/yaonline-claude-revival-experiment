@@ -121,7 +121,7 @@
 #include "networkinterfacemanager.h"
 #include "conferencebookmark.h"
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 #include "mac_dock.h"
 #endif
 
@@ -684,7 +684,7 @@ bool PsiCon::init(bool autoStart)
 	d->mainwin->setUseDock(option.useDock);
 
 #ifdef YAPSI
-// #ifndef Q_WS_MAC
+// #ifndef Q_OS_MAC
 	psiConObject->updateStyleSheet();
 // #else
 // 	QTimer::singleShot(10, psiConObject, SLOT(updateStyleSheet()));
@@ -1569,7 +1569,7 @@ void PsiCon::slotApplyOptions(const Options &opt)
 
 	option = opt;
 
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	if (option.hideMenubar) {
 		// check if all toolbars are disabled
 		bool toolbarsVisible = false;
@@ -1655,7 +1655,7 @@ void PsiCon::queueChanged()
 	if(pa)
 		nextAnim = PsiIconset::instance()->event2icon(pa->eventQueue()->peekNext());
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	{
 		// Update the event count
 		MacDock::overlay(nextAmount ? QString::number(nextAmount) : QString());
@@ -1671,7 +1671,7 @@ void PsiCon::queueChanged()
 
 void PsiCon::startBounce()
 {
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	if (option.bounceDock != Options::NoBounce) {
 		MacDock::startBounce();
 		if (option.bounceDock == Options::BounceOnce) {

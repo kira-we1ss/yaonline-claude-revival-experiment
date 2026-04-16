@@ -26,7 +26,7 @@
 #include <QKeyEvent>
 #include <QSessionManager>
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include <qt_windows.h>
 #endif
 
@@ -36,7 +36,7 @@
 #include <iostream>
 #endif
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 #include <Carbon/Carbon.h>
 #endif
 
@@ -51,7 +51,7 @@
 #include "breakpad.h"
 #endif
 
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 #include <stdio.h>
 #include <time.h>
 #include <sys/time.h>
@@ -87,7 +87,7 @@ const int KeyPress = XKeyPress;
 #endif
 #endif
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include "systemwatch_win.h"
 #endif
 
@@ -98,11 +98,11 @@ const int KeyPress = XKeyPress;
 // This should resolve all bugs with KWin3 and old Qt, but maybe it'll be useful for
 // other window managers?
 
-#ifdef Q_WS_X11
-//#undef Q_WS_X11
+#ifdef Q_OS_LINUX
+//#undef Q_OS_LINUX
 #endif
 
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 void setTrayOwnerWindow(Display *dsp)
 {
 	/* This code is basically trying to mirror what happens in
@@ -133,64 +133,8 @@ void setTrayOwnerWindow(Display *dsp)
 // PsiMacStyle
 //----------------------------------------------------------------------------
 
-#ifdef Q_WS_MAC
-#include <QMacStyle>
-#include <QStyleOptionMenuItem>
-
-/**
- * Custom QStyle that helps to get rid of icons in all kinds of menus
- * on Mac OS X.
- */
-class PsiMacStyle : public QMacStyle
-{
-public:
-	PsiMacStyle() 
-	{
-		extern void qt_mac_set_menubar_icons(bool b); // qmenu_mac.cpp
-		qt_mac_set_menubar_icons(false);
-	}
-	
-	void drawControl(ControlElement ce, const QStyleOption *opt, QPainter *p, const QWidget *w) const
-	{
-		if (disableIconsForMenu(w) && ce == QStyle::CE_MenuItem) {
-			if (const QStyleOptionMenuItem *mi = qstyleoption_cast<const QStyleOptionMenuItem *>(opt)) {
-				QStyleOptionMenuItem newopt(*mi);
-				newopt.maxIconWidth = 0;
-				newopt.icon = QIcon();
-				QMacStyle::drawControl(ce, &newopt, p, w);
-				return;
-		        }
-		}
-
-		QMacStyle::drawControl(ce, opt, p, w);
-	}
-	
-	QSize sizeFromContents(ContentsType ct, const QStyleOption *opt, const QSize &csz, const QWidget *widget) const
-	{
-		if (disableIconsForMenu(widget) && ct == QStyle::CT_MenuItem) {
-			if (const QStyleOptionMenuItem *mi = qstyleoption_cast<const QStyleOptionMenuItem *>(opt)) {
-				QStyleOptionMenuItem newopt(*mi);
-				newopt.maxIconWidth = 0;
-				newopt.icon = QIcon();
-				return QMacStyle::sizeFromContents(ct, &newopt, csz, widget);
-		        }
-		}
-
-		return QMacStyle::sizeFromContents(ct, opt, csz, widget);
-	}
-		
-private:
-	/**
-	 * This function provides means to override the icon-disabling
-	 * behavior. For instance, ResourceMenu's items are shown
-	 * with icons on screen.
-	 */
-	bool disableIconsForMenu(const QWidget *menu) const
-	{
-		return !menu || !dynamic_cast<const ResourceMenu*>(menu);
-	}
-};
-#endif
+// PsiMacStyle removed: QMacStyle public header dropped in Qt5,
+// qt_mac_set_menubar_icons() gone too. macOS handles menu icons natively.
 
 //----------------------------------------------------------------------------
 // PsiApplication
@@ -236,12 +180,10 @@ void PsiApplication::init(bool GUIenabled)
 	setStyle(yaStyle);
 	// setPalette(Ya::Utils::instance().palette());
 #else
-#ifdef Q_WS_MAC
-	setStyle(new PsiMacStyle());
-#endif
+// PsiMacStyle removed (Qt5: QMacStyle no longer public API)
 #endif
 	
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 	if ( GUIenabled ) {
 		const int max = 20;
 		Atom* atoms[max];
@@ -305,7 +247,7 @@ bool PsiApplication::event(QEvent* event)
 
 bool PsiApplication::notify(QObject *receiver, QEvent *event)
 {
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 	if( event->type() == QEvent::Show && receiver->isWidgetType())
 	{
 		QWidget* w = static_cast< QWidget* >( receiver );
@@ -349,7 +291,7 @@ bool PsiApplication::notify(QObject *receiver, QEvent *event)
 	return result;
 }
 
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 bool PsiApplication::x11EventFilter( XEvent *_event )
 {
 	switch ( _event->type ) {
@@ -407,7 +349,7 @@ bool PsiApplication::x11EventFilter( XEvent *_event )
 }
 #endif
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 bool PsiApplication::macEventFilter( EventHandlerCallRef, EventRef inEvent )
 {
 	UInt32 eclass = GetEventClass(inEvent);
@@ -419,7 +361,7 @@ bool PsiApplication::macEventFilter( EventHandlerCallRef, EventRef inEvent )
 }
 #endif
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 bool PsiApplication::winEventFilter(MSG* msg, long* result)
 {
 	if (msg->message == WM_POWERBROADCAST || msg->message == WM_QUERYENDSESSION) {

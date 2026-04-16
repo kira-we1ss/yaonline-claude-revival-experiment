@@ -212,7 +212,7 @@ private:
 	bool staysOnTop_;
 	bool isFixedSize_;
 	QRect previousGeometry_;
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	int previousDesktopWidth_;
 	int previousDesktopHeight_;
 #endif

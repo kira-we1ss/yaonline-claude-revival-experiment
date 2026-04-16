@@ -138,7 +138,7 @@ HistoryDlg::HistoryDlg(const Jid &jid, PsiAccount *pa)
 	d->exp = 0;
 
 	setWindowTitle(d->jid.full());
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	setWindowIcon(IconsetFactory::icon("psi/history").icon());
 #endif
 

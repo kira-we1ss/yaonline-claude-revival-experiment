@@ -117,10 +117,10 @@ QWidget *OptionsTabSound::widget()
 	QWhatsThis::add(d->ck_gcSound,
 		tr("Play sounds for all events in groupchat, not only for mentioning of your nick."));
 
-#if defined(Q_WS_WIN)
+#if defined(Q_OS_WIN)
 	d->lb_player->hide();
 	d->le_player->hide();
-#elif defined(Q_WS_MAC)
+#elif defined(Q_OS_MAC)
 	d->lb_player->hide();
 	d->le_player->hide();
 #endif
@@ -151,9 +151,9 @@ void OptionsTabSound::restoreOptions(const Options *opt)
 
 	OptSoundUI *d = (OptSoundUI *)w;
 
-#if defined(Q_WS_WIN)
+#if defined(Q_OS_WIN)
 	d->le_player->setText(tr("Windows Sound"));
-#elif defined(Q_WS_MAC)
+#elif defined(Q_OS_MAC)
 	d->le_player->setText(tr("Mac OS Sound"));
 #else
 	d->le_player->setText( opt->player );

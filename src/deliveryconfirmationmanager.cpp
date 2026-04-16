@@ -22,7 +22,7 @@
 
 #include <QDomElement>
 #include <QTimer>
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include <QSettings>
 #endif
 

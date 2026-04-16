@@ -37,11 +37,11 @@
 #endif
 
 #include "psinotifierbase.h"
-#if defined(Q_WS_MAC) && defined(HAVE_GROWL)
+#if defined(Q_OS_MAC) && defined(HAVE_GROWL)
 #include "psigrowlnotifier.h"
 #endif
 
-#if defined(Q_WS_X11) && defined(USE_DBUS)
+#if defined(Q_OS_LINUX) && defined(USE_DBUS)
 #include "psidbusnotifier.h"
 #endif
 
@@ -83,9 +83,9 @@ PsiNotifier::PsiNotifier()
 	appName = QObject::tr("Ya.Online");
 #endif
 
-#if defined(Q_WS_MAC) && defined(HAVE_GROWL)
+#if defined(Q_OS_MAC) && defined(HAVE_GROWL)
 	psiNotifier_ = new PsiGrowlNotifier(this, nots, defaults, appName);
-#elif defined(Q_WS_X11) && defined(USE_DBUS)
+#elif defined(Q_OS_LINUX) && defined(USE_DBUS)
 	psiNotifier_ = new PsiDbusNotifier(this, appName);
 #endif
 }

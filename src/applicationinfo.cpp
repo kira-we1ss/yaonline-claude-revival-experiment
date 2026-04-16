@@ -4,11 +4,11 @@
 #include <QSettings>
 #include <QCoreApplication>
 
-#if defined(Q_WS_X11) || defined(Q_WS_MAC)
+#if defined(Q_OS_LINUX) || defined(Q_OS_MAC)
 #include <sys/stat.h> // chmod
 #endif
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #if __GNUC__ >= 3
 #	define WINVER    0x0500
 #	define _WIN32_IE 0x0500
@@ -17,7 +17,7 @@
 #include <shlobj.h>
 #endif
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 #include <CoreServices/CoreServices.h>
 #endif
 
@@ -39,7 +39,7 @@
 #define PROG_OPTIONS_NS "http://online.yandex.ru/options";
 #define PROG_STORAGE_NS "http://online.yandex.ru/storage";
 
-#if defined(Q_WS_X11) && !defined(PSI_DATADIR)
+#if defined(Q_OS_LINUX) && !defined(PSI_DATADIR)
 #define PSI_DATADIR "/usr/local/share/psi"
 #endif
 
@@ -81,11 +81,11 @@ QString ApplicationInfo::storageNS()
 
 QString ApplicationInfo::resourcesDir()
 {
-#if defined(Q_WS_X11)
+#if defined(Q_OS_LINUX)
 	return PSI_DATADIR;
-#elif defined(Q_WS_WIN)
+#elif defined(Q_OS_WIN)
 	return qApp->applicationDirPath();
-#elif defined(Q_WS_MAC)
+#elif defined(Q_OS_MAC)
 	return QCoreApplication::instance()->applicationDirPath() + "/../Resources";
 #endif
 }
@@ -108,7 +108,7 @@ QString ApplicationInfo::homeDir()
 		return proghome.path();
 	}
 
-#if defined(Q_WS_X11) || defined(Q_WS_MAC)
+#if defined(Q_OS_LINUX) || defined(Q_OS_MAC)
 	QDir proghome(QDir::homePath() + "/.yachat");
 	if(!proghome.exists()) {
 		QDir home = QDir::home();
@@ -116,7 +116,7 @@ QString ApplicationInfo::homeDir()
 		chmod(QFile::encodeName(proghome.path()), 0700);
 	}
 	return proghome.path();
-#elif defined(Q_WS_WIN)
+#elif defined(Q_OS_WIN)
 	QString base = QDir::homePath();
 	WCHAR str[MAX_PATH+1] = { 0 };
 	if (SHGetSpecialFolderPathW(0, str, CSIDL_APPDATA, true))
@@ -167,7 +167,7 @@ QString ApplicationInfo::profilesDir()
 
 QString ApplicationInfo::documentsDir()
 {
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	// http://lists.trolltech.com/qt-interest/2006-10/thread00018-0.html
 	// TODO: haven't a better way been added to Qt since?
 	QSettings settings(QSettings::UserScope, "Microsoft", "Windows");

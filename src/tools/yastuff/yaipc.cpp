@@ -23,7 +23,7 @@
 #include <QCoreApplication>
 #include <QWidget>
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include <qt_windows.h>
 #endif
 
@@ -43,7 +43,7 @@ public:
 
 	static bool isRunning()
 	{
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 		return findWindow() != 0;
 #else
 		return false;
@@ -52,7 +52,7 @@ public:
 
 	static void sendMessage(const QString& message)
 	{
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 		// http://www.codeproject.com/thread/ipc_wmcopy.asp
 		if (!findWindow())
 			return;
@@ -83,7 +83,7 @@ private:
 		setWindowTitle(ipcName());
 	}
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	bool winEvent(MSG* msg, long* result)
 	{
 		if (msg->message != WM_COPYDATA)
@@ -125,7 +125,7 @@ bool YaIPC::isRunning()
 
 void YaIPC::initIPC()
 {
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	PsiIPCSingleton* ipc = PsiIPCSingleton::instance();
 	Q_ASSERT(ipc);
 #endif

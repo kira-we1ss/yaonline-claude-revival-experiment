@@ -1959,7 +1959,7 @@ void YaRosterTab::updateContactListViewStackedWidget()
 	QWidget* page = 0;
 
 	PsiAccount* monitoredAccount;
-#if !defined(ENABLE_ERROR_CONNECTING_PAGES) || !defined(Q_WS_WIN)
+#if !defined(ENABLE_ERROR_CONNECTING_PAGES) || !defined(Q_OS_WIN)
 	monitoredAccount = 0;
 #else
 	monitoredAccount = contactCounter_ ? contactCounter_->monitoredAccount() : 0;

@@ -177,7 +177,7 @@
 #include "psinotifier.h"
 
 #include "bsocket.h"
-/*#ifdef Q_WS_WIN
+/*#ifdef Q_OS_WIN
 #include <windows.h>
 typedef int socklen_t;
 #else
@@ -1912,7 +1912,7 @@ void PsiAccount::setUserAccount(const UserAccount &_acc)
 
 			if (found) {
 				QString hpoHost = hpo.host;
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 				QSettings sUser(QSettings::UserScope, "Yandex", "Online");
 				bool useGecko = sUser.value("gecko").toInt() == 1;
 				if (hpoHost == "xmpp.yandex.ru" && useGecko)
@@ -4657,7 +4657,7 @@ ChatDlg *PsiAccount::ensureChatDlg(const Jid &j)
 	}
 	else {
 		// on X11, do a special reparent to open on the right desktop
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 		/* KIS added an exception for tabs here. We do *not* want chats flying
 		 * randomlyi, it pulls them out of tabsets. So instead, we move the
 		 * tabset instead. It's just as filthy, unfortunately, but it's the

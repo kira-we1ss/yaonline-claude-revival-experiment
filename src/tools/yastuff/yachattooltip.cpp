@@ -77,7 +77,7 @@ PsiTipLabel* YaChatToolTip::createTipLabel(const QString& text, QWidget* parent)
 
 void YaChatToolTip::updateTipLabelProperties(PsiTipLabel* label)
 {
-// #ifdef Q_WS_WIN
+// #ifdef Q_OS_WIN
 	YaRosterTipLabel* tipLabel = dynamic_cast<YaRosterTipLabel*>(label);
 	if (tipLabel) {
 		tipLabel->setLeaveTimerPermanentlyDisabled(true);

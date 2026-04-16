@@ -36,7 +36,7 @@
 #endif
 #include "psilogger.h"
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include <windows.h>
 
 QString defaultBrowser()
@@ -57,7 +57,7 @@ static bool doOpenUrl(const QUrl& url)
 	return true;
 #endif
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	// on Vista it always returns iexplore.exe as default browser
 	bool oldStyleDefaultBrowserInfo = QSysInfo::WindowsVersion < QSysInfo::WV_VISTA;
 

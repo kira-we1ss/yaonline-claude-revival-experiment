@@ -68,7 +68,7 @@ YaPreferences::YaPreferences()
 	updateContentsMargins();
 	ui_.preferencesPage->installEventFilter(this);
 
-#if defined(Q_WS_WIN) && !defined(YAPSI_ACTIVEX_SERVER)
+#if defined(Q_OS_WIN) && !defined(YAPSI_ACTIVEX_SERVER)
 	ui_.startAutomatically->show();
 #else
 	ui_.startAutomatically->hide();
@@ -81,7 +81,7 @@ YaPreferences::YaPreferences()
 	ui_.alwaysShowToasters->hide();
 #endif
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	ui_.ctrlEnterSendsChatMessages->setText(ui_.ctrlEnterSendsChatMessages->text().replace("Ctrl+Enter", QString::fromUtf8("⌘↩")));
 #endif
 
@@ -228,7 +228,7 @@ YaPreferences::YaPreferences()
 	preferenceKeyMapping_["always_show_toasters"] = ui_.alwaysShowToasters;
 
 	YaPushButton::initAllButtons(this);
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	resize(646, 386);
 #else
 	resize(601, 346);
@@ -334,7 +334,7 @@ void YaPreferences::restore()
 
 	ui_.ignoreNonRosterContacts->setChecked(option.ignoreNonRoster);
 
-#if defined(Q_WS_WIN) && !defined(YAPSI_ACTIVEX_SERVER)
+#if defined(Q_OS_WIN) && !defined(YAPSI_ACTIVEX_SERVER)
 	QSettings autoStartSettings(QSettings::NativeFormat, QSettings::UserScope, "Microsoft", "Windows");
 	ui_.startAutomatically->setChecked(autoStartSettings.contains(autoStartRegistryKey));
 #else
@@ -405,7 +405,7 @@ void YaPreferences::save()
 
 	option.ignoreNonRoster = ui_.ignoreNonRosterContacts->isChecked();
 
-#if defined(Q_WS_WIN) && !defined(YAPSI_ACTIVEX_SERVER)
+#if defined(Q_OS_WIN) && !defined(YAPSI_ACTIVEX_SERVER)
 	QSettings autoStartSettings(QSettings::NativeFormat, QSettings::UserScope, "Microsoft", "Windows");
 	if (!ui_.startAutomatically->isChecked()) {
 		autoStartSettings.remove(autoStartRegistryKey);
@@ -700,7 +700,7 @@ void YaPreferences::keyPressEvent(QKeyEvent* event)
 		close();
 		return;
 	}
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	else if (event->key() == Qt::Key_W && event->modifiers() & Qt::ControlModifier) {
 		close();
 		return;

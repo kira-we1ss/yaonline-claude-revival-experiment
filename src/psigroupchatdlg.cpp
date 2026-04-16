@@ -77,7 +77,7 @@
 #include "accountlabel.h"
 #include "gcuserview.h"
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include <windows.h>
 #endif
 
@@ -455,7 +455,7 @@ void PsiGroupchatDlg::initUi()
 
 	setAcceptDrops(true);
 
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	setWindowIcon(IconsetFactory::icon("psi/groupChat").icon());
 #endif
 
@@ -479,7 +479,7 @@ void PsiGroupchatDlg::initUi()
 	ui_.tb_emoticons->setIcon(QIcon(":images/chat/smile.png"));
 #endif
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	connect(ui_.log, SIGNAL(selectionChanged()), SLOT(logSelectionChanged()));
 #endif
 

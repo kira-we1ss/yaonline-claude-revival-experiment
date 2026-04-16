@@ -83,7 +83,7 @@ void SimpleCli::defineAlias(const QString& alias, const QString& originalName)
   */
 QMap<QString, QString> SimpleCli::parse(int argc, char* argv[], const QStringList& terminalArgs, int* safeArgc)
 {
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	const bool winmode = true;
 #else
 	const bool winmode = false;

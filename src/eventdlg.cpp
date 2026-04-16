@@ -452,7 +452,7 @@ AddUrlDlg::AddUrlDlg(QWidget *parent)
 	if ( option.brushedMetal )
 		setAttribute(Qt::WA_MacMetalStyle);
 	setupUi(this);
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	setWindowIcon(IconsetFactory::icon("psi/www").icon());
 #endif
 	setModal(true);
@@ -1374,7 +1374,7 @@ void EventDlg::optionsUpdate()
 		d->pb_next->forceSetPsiIcon(d->nextAnim());
 
 	// update the widget icon
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	if(d->composing) {
 		setWindowIcon(IconsetFactory::icon("psi/sendMessage").icon());
 	}

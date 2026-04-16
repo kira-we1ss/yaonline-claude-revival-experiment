@@ -46,18 +46,18 @@
 #include <QMessageBox>
 
 #include <stdio.h>
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 #include <QX11Info>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #endif
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include <windows.h>
 #endif
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <Carbon/Carbon.h> // for HIToolbox/InternetConfig
@@ -258,9 +258,9 @@ void soundPlay(const QString &str)
 	if(!QFile::exists(str))
 		return;
 
-#if HAVE_QSOUND && (defined(Q_WS_WIN) || defined(Q_WS_MAC))
+#if HAVE_QSOUND && (defined(Q_OS_WIN) || defined(Q_OS_MAC))
 	QSound::play(str);
-#elif defined(Q_WS_WIN) || defined(Q_WS_MAC)
+#elif defined(Q_OS_WIN) || defined(Q_OS_MAC)
 	QApplication::beep();
 #else
 	if(!option.player.isEmpty()) {
@@ -358,7 +358,7 @@ void closeDialogs(QWidget *w)
 	}
 }
 
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 #include <X11/Xlib.h>
 #include <X11/Xutil.h> // needed for WM_CLASS hinting
 
@@ -443,7 +443,7 @@ bool currentDesktop(long *desktop)
 }
 #endif
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 // ripped from advwidget.cpp
 extern bool ForceForegroundWindow(HWND hwnd);
 #endif
@@ -453,7 +453,7 @@ void bringToFront(QWidget *widget, bool grabFocus)
 	Q_ASSERT(widget);
 	QWidget* w = widget->window();
 
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 	// If we're not on the current desktop, do the hide/show trick
 	long dsk, curr_dsk;
 	Window win = w->winId();
@@ -476,7 +476,7 @@ void bringToFront(QWidget *widget, bool grabFocus)
 	w->raise();
 	w->activateWindow();
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	// ONLINE-1441
 	bool staysOnTop = GetWindowLong(w->winId(), GWL_EXSTYLE) & WS_EX_TOPMOST;
 	if (!staysOnTop && grabFocus) {

@@ -187,7 +187,7 @@ void YaSelfMoodButton::paintEvent(QPaintEvent*)
 	}
 	// p.drawText(textRect_.adjusted(0, -1, 0, 0), Qt::AlignVCenter | Qt::AlignLeft, p.fontMetrics().elidedText(text(), Qt::ElideRight, textRect_.width()));
 	QRect rect = textRect_;
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	rect.adjust(0, -2, 0, -2);
 #else
 	rect.adjust(0, -1, 0, -1);

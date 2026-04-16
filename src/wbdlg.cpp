@@ -186,7 +186,7 @@ WbDlg::WbDlg(const Jid &target, const QString &session, const Jid &ownJid, bool 
 	le_jid_->setToolTip(target_.full());
 
 	// update the widget icon
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	setWindowIcon(IconsetFactory::icon("psi/whiteboard").icon());
 #endif
 	

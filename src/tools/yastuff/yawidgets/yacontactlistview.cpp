@@ -105,7 +105,7 @@ YaContactListView::YaContactListView(QWidget* parent)
 	setDropIndicatorShown(false); // we're painting it by ourselves
 
 	// There are crashes related to this in Qt 4.2.3. Disabling for now.
-// #ifndef Q_WS_X11
+// #ifndef Q_OS_LINUX
 // 	setAnimated(true);
 // #endif
 

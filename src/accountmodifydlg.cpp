@@ -67,7 +67,7 @@ void AccountModifyDlg::init()
 		pa->dialogRegister(this);
 
 	setWindowTitle(CAP(caption()));
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	setWindowIcon(IconsetFactory::icon("psi/account").icon());
 #endif
 

@@ -44,7 +44,7 @@ static const QString customFrameOptionPath = "options.ya.custom-frame";
 static const QString chatBackgroundOptionPath = "options.ya.chat-background";
 #endif
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include <windows.h>
 #endif
 
@@ -204,7 +204,7 @@ YaWindowBase::YaWindowBase(QWidget* parent)
 	operationMap_.insert(BottomResize, OperationInfo(VResize, Qt::SizeVerCursor));
 	operationMap_.insert(BottomLeftResize,  OperationInfo(HMove | HResize | VResize | HResizeReverse, Qt::SizeBDiagCursor));
 	operationMap_.insert(BottomRightResize, OperationInfo(HResize | VResize,
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	                     Qt::ArrowCursor
 #else
 	                     Qt::SizeFDiagCursor
@@ -280,7 +280,7 @@ void YaWindowBase::setMode(Mode mode)
 void YaWindowBase::getPreviousGeometry()
 {
 	previousGeometry_ = geometry();
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	previousDesktopWidth_  = GetSystemMetrics(SM_CXVIRTUALSCREEN);
 	previousDesktopHeight_ = GetSystemMetrics(SM_CYVIRTUALSCREEN);
 #endif
@@ -545,7 +545,7 @@ void YaWindowBase::mouseDoubleClickEvent(QMouseEvent* e)
 {
 	if (e->button() == Qt::LeftButton && extraButtonsShouldBeVisible()) {
 		if (getRegion(Move).contains(e->pos())) {
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 			showMinimized();
 #else
 			setYaMaximized(!isYaMaximized());
@@ -664,7 +664,7 @@ void YaWindowBase::setNewGeometry(const QPoint& _pos)
 
 void YaWindowBase::invalidateGeometry()
 {
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	// FIXME: Work-around for ONLINE-2155
 	QRect g = geometry();
 	setGeometry(g.adjusted(0, 0, 10, 0));
@@ -783,7 +783,7 @@ QRegion YaWindowBase::getRegion(Operation operation) const
 #endif
 	QRegion fullRegion(ml, mt, width, topRegionHeight);
 	QRegion borders = leftBorder.united(bottomBorder).united(rightBorder);
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	borders = borders.united(topBorder).united(topLeftBorder).united(topRightBorder);
 #endif
 	fullRegion = fullRegion.subtracted(borders);
@@ -792,7 +792,7 @@ QRegion YaWindowBase::getRegion(Operation operation) const
 	bottomBorder = bottomBorder.subtracted(bottomLeftCorner.united(bottomRightCorner));
 	rightBorder = rightBorder.subtracted(bottomRightCorner);
 
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	if (enableTopLeftBorderResize()) {
 		if (operation == LeftResize)
 			return leftBorder;
@@ -925,7 +925,7 @@ Qt::WindowFlags YaWindowBase::desiredWindowFlags()
 	// on windows adds context menu to the window taskbar button
 	wflags |= Qt::WindowSystemMenuHint;
 
-#ifndef Q_WS_WIN
+#ifndef Q_OS_WIN
 	if (mode_ != CustomWindowBorder) {
 #endif
 		// without Qt::WindowMinimizeButtonHint window
@@ -935,12 +935,12 @@ Qt::WindowFlags YaWindowBase::desiredWindowFlags()
 			wflags |= Qt::WindowMinimizeButtonHint;
 		// if (maximizeEnabled())
 			wflags |= Qt::WindowMaximizeButtonHint;
-#ifndef Q_WS_WIN
+#ifndef Q_OS_WIN
 		wflags |= Qt::WindowCloseButtonHint;
 	}
 #endif
 
-#ifndef Q_WS_WIN
+#ifndef Q_OS_WIN
 	if (staysOnTop_)
 		wflags |= Qt::WindowStaysOnTopHint;
 #endif
@@ -961,7 +961,7 @@ bool YaWindowBase::staysOnTop() const
 void YaWindowBase::setStaysOnTop(bool staysOnTop)
 {
 	staysOnTop_ = staysOnTop;
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	// we're using this in order to avoid from deleting and
 	// recreating a handle each time setStaysOnTop() is called
 	SetWindowPos(winId(), staysOnTop_ ? HWND_TOPMOST : HWND_NOTOPMOST,
@@ -990,7 +990,7 @@ void YaWindowBase::updateOpacity()
 #ifdef USE_PSIOPTIONS
 	int maximum_opacity = 100;
 	int opacity = PsiOptions::instance()->getOption(opacityOptionPath_).toInt();
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	// work-around for severe flickering that happens on windows when borderless
 	// windows become completely opaque / non-opaque
 	if (opacity < 100) {
@@ -1014,7 +1014,7 @@ void YaWindowBase::setWindowFlags(Qt::WindowFlags type)
 {
 	QWidget::setWindowFlags(desiredWindowFlags() | type);
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	HMENU sysMenu = GetSystemMenu(winId(), false);
 	if (sysMenu) {
 		// DeleteMenu(sysMenu, SC_MAXIMIZE, MF_BYCOMMAND);
@@ -1219,7 +1219,7 @@ bool YaWindow::showAsActiveWindow() const
 void YaWindow::changeEvent(QEvent* e)
 {
 	if (e->type() == QEvent::ActivationChange) {
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 		activationChangeUpdateTimer_->start();
 #else
 		activationChangeUpdate();

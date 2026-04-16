@@ -100,7 +100,7 @@ enum MainWindowIconType {
 	MWIT_Offline = 2
 };
 
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 static const QIcon& getMainWindowIcon(MainWindowIconType type)
 {
 	static QList<QIcon> windowIcons;
@@ -308,7 +308,7 @@ YaMainWin::YaMainWin(bool _onTop, bool _asTool, PsiCon* psi, const char* name)
 	settingsMenu_->addAction(addGroupAction_);
 	// settingsMenu_->addSeparator();
 	// settingsMenu_->addMenu(statusMenu_);
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	// settingsMenu_->addSeparator();
 	settingsMenu_->addAction(optionsAction_);
 #ifdef YAPSI_ACTIVEX_SERVER
@@ -319,7 +319,7 @@ YaMainWin::YaMainWin(bool _onTop, bool _asTool, PsiCon* psi, const char* name)
 	settingsMenu_->addAction(quitAction_);
 #endif
 
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	settingsButton_ = new YaSettingsButtonExtraButton(extra());
 	settingsButton_->setMenu(settingsMenu_);
 #endif
@@ -339,7 +339,7 @@ YaMainWin::YaMainWin(bool _onTop, bool _asTool, PsiCon* psi, const char* name)
 	trayMenu->addAction(quitAction_);
 
 	tray_->setContextMenu(trayMenu);
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	connect(tray_, SIGNAL(clicked()), SLOT(trayClicked()));
 	connect(tray_, SIGNAL(doubleClicked()), SLOT(trayDoubleClicked()));
 #endif
@@ -394,7 +394,7 @@ YaMainWin::YaMainWin(bool _onTop, bool _asTool, PsiCon* psi, const char* name)
 
 	showDebugConsoleAction_ = new QAction("Show Debug Console", this);
 	connect(showDebugConsoleAction_, SIGNAL(triggered()), debugConsole_, SLOT(activate()));
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	showDebugConsoleAction_->setShortcut(QKeySequence("Ctrl+D"));
 #else
 	showDebugConsoleAction_->setShortcut(QKeySequence("Ctrl+Alt+Shift+D"));
@@ -476,7 +476,7 @@ bool YaMainWin::event(QEvent* event)
 
 void YaMainWin::createMenuBar()
 {
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	QMenu* mainMenu = mainMenuBar()->addMenu("Menu");
 	mainMenu->addAction(optionsAction_);
 	mainMenu->addAction(quitAction_);
@@ -497,7 +497,7 @@ void YaMainWin::createMenuBar()
 
 QMenuBar* YaMainWin::mainMenuBar() const
 {
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	return psi_->defaultMenuBar();
 #else
 	return 0; // menuBar();
@@ -598,7 +598,7 @@ void YaMainWin::accountStateChanged()
 		tray_->setHaveConnectingAccounts(haveConnectingAccounts);
 	}
 
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	MainWindowIconType mwit = statusType() == XMPP::Status::Offline ?
 	                          MWIT_Offline :
 	                          MWIT_Online;
@@ -618,7 +618,7 @@ void YaMainWin::trayShow()
 
 void YaMainWin::trayClicked()
 {
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 	toggleVisible();
 #else
 	setWindowVisible(true);
@@ -637,7 +637,7 @@ void YaMainWin::dockActivated()
 
 void YaMainWin::closeEvent(QCloseEvent* e)
 {
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	if (forceMinimizeOnClose()) {
 		e->ignore();
 		doMinimize();

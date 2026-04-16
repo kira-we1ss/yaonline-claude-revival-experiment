@@ -34,7 +34,7 @@
 #include "psicon.h"
 #include "yacommon.h"
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 // #define SPOTLIGHT_GOOGLE
 #endif
 
@@ -59,7 +59,7 @@ GSpellCheckingTextEdit::GSpellCheckingTextEdit(QWidget* parent)
 	cutAction_ = new QAction(tr("Cut"), this);
 	copyAction_ = new QAction(tr("&Copy"), this);
 	pasteAction_ = new QAction(tr("&Paste"), this);
-// #ifndef Q_WS_MAC
+// #ifndef Q_OS_MAC
 	cutAction_->setShortcuts(QKeySequence::Cut);
 	copyAction_->setShortcuts(QKeySequence::Copy);
 	pasteAction_->setShortcuts(QKeySequence::Paste);

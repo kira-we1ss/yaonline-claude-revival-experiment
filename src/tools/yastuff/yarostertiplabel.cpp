@@ -551,13 +551,13 @@ void YaRosterTipLabel::updateSize(bool force)
 		ui_.statusTypeDescriptionLabel->setFixedSize(helper->ui_.statusTypeDescriptionLabel->maximumSize());
 		ui_.statusTypeDescriptionLabel->verticalScrollBar()->setValue(0);
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 		setFixedSize(newGeometry_.size());
 #endif
 		setGeometry(newGeometry_);
 		setFixedSize(newGeometry_.size());
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 		// unfortunately when window is hidden, sometimes it can't resize
 		// to the size we want. work-around here is to move it away from
 		// screen area, temporarily show it, hide back and set the geometry
@@ -583,7 +583,7 @@ void YaRosterTipLabel::updateSize(bool force)
 	}
 	else {
 		setFixedWidth(265);
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 		// on Tiger font on buttons is too large
 		setFixedWidth(295);
 #endif
@@ -609,7 +609,7 @@ void YaRosterTipLabel::updateSize(bool force)
 		ui_.statusTypeDescriptionLabel->setFixedSize(
 		    QSize(label.maximumWidth(),
 		          label.heightForWidth(label.maximumWidth())
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 		          + 3
 #endif
 		    ));
@@ -909,7 +909,7 @@ void YaRosterTipLabel::setLeaveTimerPermanentlyDisabled(bool permanentlyDisabled
 	if (leaveTimer_->permanentlyDisabled() != permanentlyDisabled) {
 		leaveTimer_->setPermanentlyDisabled(permanentlyDisabled);
 		setWindowFlags(permanentlyDisabled ? Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint : Qt::ToolTip);
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 		if (permanentlyDisabled) {
 			SetWindowLongA(winId(), GWL_EXSTYLE, GetWindowLongA(winId(), GWL_EXSTYLE) | WS_EX_TOOLWINDOW);
 		}

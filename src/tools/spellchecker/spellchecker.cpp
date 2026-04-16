@@ -30,7 +30,7 @@
 #include <QRegExp>
 #include <QtDebug>
 
-#if defined(Q_WS_MAC)
+#if defined(Q_OS_MAC)
 #include "macspellchecker.h"
 #elif defined(HAVE_ASPELL)
 #include "aspellchecker.h"
@@ -67,7 +67,7 @@ SpellChecker* SpellChecker::instance(PsiCon* controller)
 	if (!instance_) {
 		instance_ = new YandexSpeller(controller);
 #if 0
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 		instance_ = new MacSpellChecker(controller);
 #elif defined(HAVE_ASPELL)
 		instance_ = new ASpellChecker(controller);

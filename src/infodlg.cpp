@@ -92,7 +92,7 @@ InfoDlg::InfoDlg(int type, const Jid &j, const VCard &vcard, PsiAccount *pa, QWi
 
 	setWindowTitle(d->jid.full());
 #ifndef YAPSI
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	setWindowIcon(IconsetFactory::icon("psi/vCard").icon());
 #endif
 #endif

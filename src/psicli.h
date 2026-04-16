@@ -12,7 +12,7 @@ class PsiCli : public SimpleCli
 	Q_OBJECT
 public:
 	PsiCli() {
-#ifndef Q_WS_WIN
+#ifndef Q_OS_WIN
 		defineSwitch("datadir", tr("Override data directory."));
 #endif
 
@@ -39,7 +39,7 @@ public:
 	}
 
 	void show(const QString& text) {
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 		QMessageBox::information(0, ApplicationInfo::name(), text);
 #else
 		puts(text.toUtf8());

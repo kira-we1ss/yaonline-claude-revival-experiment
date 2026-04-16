@@ -29,7 +29,7 @@
 #include "jidutil.h"
 #include "psilogger.h"
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include <windows.h>
 #endif
 

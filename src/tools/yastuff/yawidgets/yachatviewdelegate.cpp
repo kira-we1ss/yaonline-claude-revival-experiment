@@ -168,7 +168,7 @@ YaChatViewDelegate::YaChatViewDelegate(QAbstractItemView* parent)
 	noticeFont_ = Ya::VisualUtil::normalFont();
 	ensureDefaultFontSettings(&noticeFont_);
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	nameFont_.setPixelSize(13);
 	timeFont_.setPixelSize(11);
 	dateHeaderFont_.setPixelSize(18);

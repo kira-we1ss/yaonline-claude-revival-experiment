@@ -407,7 +407,7 @@ void YaChatView::mouseMoveEvent(QMouseEvent* e)
 		}
 	}
 
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 	if (hasSelectedText())
 		QApplication::clipboard()->setText(selectedText(), QClipboard::Selection);
 #endif

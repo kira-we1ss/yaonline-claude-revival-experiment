@@ -139,7 +139,7 @@ QPixmap PsiTrayIcon::makeIcon()
 	if ( !icon_ )
 		return QPixmap();
 
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 	// on X11, the KDE dock is 22x22.  let's make our icon_ "seem" bigger.
 	QImage real(22,22,32);
 	QImage in = icon_->image();
@@ -193,7 +193,7 @@ QPixmap PsiTrayIcon::makeIcon()
 
 void PsiTrayIcon::trayicon_activated(QSystemTrayIcon::ActivationReason reason)
 {
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	Q_UNUSED(reason)
 #else
 	if (reason == QSystemTrayIcon::Trigger)
@@ -208,7 +208,7 @@ void PsiTrayIcon::trayicon_activated(QSystemTrayIcon::ActivationReason reason)
 void PsiTrayIcon::animate()
 {
 	if (old_) {
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 		if ( !icon_ )
 			return;
 

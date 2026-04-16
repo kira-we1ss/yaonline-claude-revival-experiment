@@ -112,7 +112,7 @@ void WbManager::messageReceived(const Message &message) {
 	// 				PsiPopup *popup = new PsiPopup(popupType, pa_);
 	// 				popup->setData(j, r, u, e);
 	// 			}
-	// #if defined(Q_WS_MAC) && defined(HAVE_GROWL)
+	// #if defined(Q_OS_MAC) && defined(HAVE_GROWL)
 	// 			PsiGrowlNotifier::instance()->popup(this, popupType, j, r, u, e);
 	// #endif
 			}

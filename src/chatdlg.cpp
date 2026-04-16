@@ -80,7 +80,7 @@
 #include "pgputil.h"
 #endif
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include <windows.h>
 #endif
 
@@ -486,7 +486,7 @@ void ChatDlg::setLooks()
 	updateContact(jid(), false);
 
 	// update the widget icon
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	setWindowIcon(IconsetFactory::icon("psi/start-chat").icon());
 #endif
 

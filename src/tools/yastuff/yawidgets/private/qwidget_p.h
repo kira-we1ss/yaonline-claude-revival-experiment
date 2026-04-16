@@ -68,20 +68,20 @@
 #include "QtGui/qgraphicsview.h"
 #include <private/qgesture_p.h>
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include "QtCore/qt_windows.h"
 #include <private/qdnd_p.h>
-#endif // Q_WS_WIN
+#endif // Q_OS_WIN
 
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 #include "QtGui/qx11info_x11.h"
 #endif
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 #include <private/qt_mac_p.h>
 #endif
 
-#if defined(Q_WS_QWS)
+#if defined(Q_OS_QNX)
 #include "QtGui/qinputcontext.h"
 #include "QtGui/qscreen_qws.h"
 #endif
@@ -96,10 +96,10 @@ QT_BEGIN_NAMESPACE
 // Extra QWidget data
 //  - to minimize memory usage for members that are seldom used.
 //  - top-level widgets have extra extra data to reduce cost further
-#if defined(Q_WS_QWS)
+#if defined(Q_OS_QNX)
 class QWSManager;
 #endif
-#if defined(Q_WS_MAC)
+#if defined(Q_OS_MAC)
 class QCoreGraphicsPaintEnginePrivate;
 #endif
 class QPaintEngine;
@@ -183,7 +183,7 @@ struct QTLWExtra {
     uint embedded : 1;
 
     // *************************** Platform specific values (bit fields first) **********
-#if defined(Q_WS_X11) // <----------------------------------------------------------- X11
+#if defined(Q_OS_LINUX) // <----------------------------------------------------------- X11
     uint spont_unmapped: 1; // window was spontaneously unmapped
     uint dnd : 1; // DND properties installed
     uint validWMState : 1; // is WM_STATE valid?
@@ -197,10 +197,10 @@ struct QTLWExtra {
     qint32 newCounterValueHi;
     quint32 newCounterValueLo;
 #endif
-#elif defined(Q_WS_WIN) // <--------------------------------------------------------- WIN
+#elif defined(Q_OS_WIN) // <--------------------------------------------------------- WIN
     HICON winIconBig; // internal big Windows icon
     HICON winIconSmall; // internal small Windows icon
-#elif defined(Q_WS_MAC) // <--------------------------------------------------------- MAC
+#elif defined(Q_OS_MAC) // <--------------------------------------------------------- MAC
     uint resizer : 4;
     uint isSetGeometry : 1;
     uint isMove : 1;
@@ -209,7 +209,7 @@ struct QTLWExtra {
     WindowGroupRef group;
     IconRef windowIcon; // the current window icon, if set with setWindowIcon_sys.
     quint32 savedWindowAttributesFromMaximized; // Saved attributes from when the calling updateMaximizeButton_sys()
-#elif defined(Q_WS_QWS) // <--------------------------------------------------------- QWS
+#elif defined(Q_OS_QNX) // <--------------------------------------------------------- QWS
 #ifndef QT_NO_QWS_MANAGER
     QWSManager *qwsManager;
 #endif
@@ -255,15 +255,15 @@ struct QWExtra {
     uint hasMask : 1;
 
     // *************************** Platform specific values (bit fields first) **********
-#if defined(Q_WS_WIN) // <----------------------------------------------------------- WIN
+#if defined(Q_OS_WIN) // <----------------------------------------------------------- WIN
 #ifndef QT_NO_DRAGANDDROP
     QOleDropTarget *dropTarget; // drop target
     QList<QPointer<QWidget> > oleDropWidgets;
 #endif
-#elif defined(Q_WS_X11) // <--------------------------------------------------------- X11
+#elif defined(Q_OS_LINUX) // <--------------------------------------------------------- X11
     uint compress_events : 1;
     WId xDndProxy; // XDND forwarding to embedded windows
-#elif defined(Q_WS_MAC) // <------------------------------------------------------ MAC
+#elif defined(Q_OS_MAC) // <------------------------------------------------------ MAC
 #ifdef QT_MAC_USE_COCOA
     // Cocoa Mask stuff
     QImage maskBits;
@@ -634,7 +634,7 @@ public:
         }
     }
 
-#ifndef Q_WS_QWS // Almost cross-platform :-)
+#ifndef Q_OS_QNX // Almost cross-platform :-)
     void setWSGeometry(bool dontShow=false, const QRect &oldRect = QRect());
 
     inline QPoint mapToWS(const QPoint &p) const
@@ -729,7 +729,7 @@ public:
     uint usesDoubleBufferedGLContext : 1;
 
     // *************************** Platform specific ************************************
-#if defined(Q_WS_X11) // <----------------------------------------------------------- X11
+#if defined(Q_OS_LINUX) // <----------------------------------------------------------- X11
     QX11Info xinfo;
     Qt::HANDLE picture;
     static QWidget *mouseGrabber;
@@ -740,7 +740,7 @@ public:
     void setNetWmWindowTypes();
     void x11UpdateIsOpaque();
     bool isBackgroundInherited() const;
-#elif defined(Q_WS_WIN) // <--------------------------------------------------------- WIN
+#elif defined(Q_OS_WIN) // <--------------------------------------------------------- WIN
     uint noPaintOnScreen : 1; // see qwidget_win.cpp ::paintEngine()
     uint nativeGesturePanEnabled : 1;
 
@@ -754,7 +754,7 @@ public:
     void grabMouseWhileInWindow();
     void registerTouchWindow();
     void winSetupGestures();
-#elif defined(Q_WS_MAC) // <--------------------------------------------------------- MAC
+#elif defined(Q_OS_MAC) // <--------------------------------------------------------- MAC
     // This is new stuff
     uint needWindowChange : 1;
 
@@ -819,7 +819,7 @@ public:
     static OSStatus qt_widget_event(EventHandlerCallRef er, EventRef event, void *);
     static bool qt_widget_rgn(QWidget *, short, RgnHandle, bool);
     void registerTouchWindow();
-#elif defined(Q_WS_QWS) // <--------------------------------------------------------- QWS
+#elif defined(Q_OS_QNX) // <--------------------------------------------------------- QWS
     void setMaxWindowState_helper();
     void setFullScreenSize_helper();
     void moveSurface(QWindowSurface *surface, const QPoint &offset);

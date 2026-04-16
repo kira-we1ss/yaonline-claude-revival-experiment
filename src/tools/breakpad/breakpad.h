@@ -24,7 +24,7 @@
 #include <QMap>
 #include <QString>
 
-#if defined(Q_WS_WIN) && !defined(Q_CC_GNU)
+#if defined(Q_OS_WIN) && !defined(Q_CC_GNU)
 #define BREAKPAD_STDCALL __stdcall
 #else
 #define BREAKPAD_STDCALL
@@ -37,7 +37,7 @@ namespace Breakpad {
 	int BREAKPAD_STDCALL handleExceptionCallback(void* exceptionInfo);
 }
 
-#if defined(Q_WS_WIN) && !defined(Q_CC_GNU)
+#if defined(Q_OS_WIN) && !defined(Q_CC_GNU)
 #define BREAKPAD_TRY \
 	__try {
 #define BREAKPAD_EXCEPT \

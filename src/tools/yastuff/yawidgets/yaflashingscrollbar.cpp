@@ -51,7 +51,7 @@ public:
 				option->activeSubControls |= QStyle::SC_ScrollBarAddLine;
 			}
 			if (flashUp || flashDown) {
-// #ifndef Q_WS_MAC
+// #ifndef Q_OS_MAC
 				option->state |= QStyle::State_MouseOver;
 // #else
 // 				option->state |= QStyle::State_Sunken;

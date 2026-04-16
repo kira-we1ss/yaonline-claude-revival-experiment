@@ -92,7 +92,7 @@ public:
 
 	void setWindowIcon(const QIcon& icon)
 	{
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 		Q_UNUSED(icon);
 #else
 		BaseClass::setWindowIcon(icon);
@@ -183,7 +183,7 @@ public:
 
 	void showWidgetOffscreen()
 	{
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 		// smart linux WM's move window to visible area even when
 		// asked to be shown off-screen, so we won't even try
 		BaseClass::setVisible(true);

@@ -22,13 +22,13 @@
 #define PSIAPPLICATION_H
 
 #include <QApplication>
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 #include <Carbon/Carbon.h>
 #endif
 
 class QEvent;
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include <qt_windows.h>
 #endif
 
@@ -42,13 +42,13 @@ public:
 	// reimplemented
 	bool event(QEvent* event);
 	bool notify(QObject *receiver, QEvent *event);
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 	bool x11EventFilter(XEvent *event);
 #endif
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	bool macEventFilter(EventHandlerCallRef, EventRef);
 #endif
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	bool winEventFilter(MSG* msg, long* result);
 #endif
 

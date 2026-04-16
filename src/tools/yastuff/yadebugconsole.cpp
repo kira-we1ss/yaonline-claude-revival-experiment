@@ -36,7 +36,7 @@
 #include "yatransportmanager.h"
 #include "psilogger.h"
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #if __GNUC__ >= 3
 #	define WINVER    0x0500
 #	define _WIN32_IE 0x0500

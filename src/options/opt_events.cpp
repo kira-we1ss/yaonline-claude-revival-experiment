@@ -65,7 +65,7 @@ QWidget *OptionsTabEvents::widget()
 	QWhatsThis::add(d->ck_notifyAuth,
 		tr("Makes Psi notify you when your authorization request was approved."));
 
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
 	d->cb_bounce->hide();
 	d->lb_bounce->hide();
 #endif

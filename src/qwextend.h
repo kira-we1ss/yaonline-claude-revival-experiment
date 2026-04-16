@@ -4,7 +4,7 @@
 #include <QtGlobal>
 #include <Qt>
 
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 class QWidget;
 void reparent_good(QWidget *that, Qt::WFlags f, bool showIt);
 #endif

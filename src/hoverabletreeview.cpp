@@ -23,7 +23,7 @@
 #include <QMouseEvent>
 #include <QScrollBar>
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include <QLibrary>
 #include <windows.h>
 
@@ -128,7 +128,7 @@ void HoverableTreeView::drawRow(QPainter* painter, const QStyleOptionViewItem& o
 void HoverableTreeView::repairMouseTracking()
 {
 	return;
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	// work-around for broken mouse event tracking after context menu gets hidden on Qt 4.3.5
 
 	// copied from qapplication_win.cpp

@@ -29,9 +29,9 @@
 #include <QProcess>
 #include <QCoreApplication>
 
-#if defined(Q_WS_MAC)
+#if defined(Q_OS_MAC)
 #include "client/mac/handler/exception_handler.h"
-#else if defined(Q_WS_WIN)
+#else if defined(Q_OS_WIN)
 #include "client/windows/handler/exception_handler.h"
 #endif
 
@@ -45,11 +45,11 @@ namespace Breakpad {
 static QMap<QString, QString> params;
 static QString debugSuffix;
 
-#if defined(Q_WS_MAC)
+#if defined(Q_OS_MAC)
 bool MDCallback(const char* _dump_dir,
                 const char* _minidump_id,
                 void *context, bool success)
-#else if defined(Q_WS_WIN)
+#else if defined(Q_OS_WIN)
 bool MDCallback(const wchar_t* _dump_dir,
                 const wchar_t* _minidump_id,
                 void* context,
@@ -58,10 +58,10 @@ bool MDCallback(const wchar_t* _dump_dir,
                 bool success)
 #endif
 {
-#if defined(Q_WS_MAC)
+#if defined(Q_OS_MAC)
 	QString dump_dir = QString::fromUtf8(_dump_dir);
 	QString minidump_id = QString::fromUtf8(_minidump_id);
-#else if defined(Q_WS_WIN)
+#else if defined(Q_OS_WIN)
 	Q_UNUSED(assertion);
 	Q_UNUSED(exinfo);
 	Q_UNUSED(context);
@@ -75,9 +75,9 @@ bool MDCallback(const wchar_t* _dump_dir,
 		return true;
 	}
 
-#if defined(Q_WS_MAC)
+#if defined(Q_OS_MAC)
 	QString os = "darwin";
-#else if defined(Q_WS_WIN)
+#else if defined(Q_OS_WIN)
 	QString os = "windows";
 #endif
 
@@ -114,15 +114,15 @@ bool MDCallback(const wchar_t* _dump_dir,
 	arg << QString("-reportEmail=%1").arg(params["report-email"]);
 	arg << QString("-minidump=%1").arg(fi.absoluteFilePath());
 
-#if defined(Q_WS_MAC)
+#if defined(Q_OS_MAC)
 	QString crashReporter = QCoreApplication::applicationDirPath() + "/../Resources/crashreporter";
-#else if defined(Q_WS_WIN)
+#else if defined(Q_OS_WIN)
 	QString crashReporter = QCoreApplication::applicationDirPath() + "/crashreporter.exe";
 #endif
 	qWarning("Starting %s", qPrintable(crashReporter));
 	QProcess::startDetached(crashReporter, arg);
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	TerminateProcess(GetCurrentProcess(), 0);
 #endif
 
@@ -145,9 +145,9 @@ void install(const QString& minidumpPath, const QMap<QString, QString>& params)
 #endif
 
 	handler = new ExceptionHandler(
-#if defined(Q_WS_MAC)
+#if defined(Q_OS_MAC)
 	    minidumpPath.toUtf8().data(),
-#else if defined(Q_WS_WIN)
+#else if defined(Q_OS_WIN)
 	    minidumpPath.toStdWString(),
 #endif
 	    0, MDCallback, 0, true);
@@ -177,7 +177,7 @@ void writeMinidump(const QString& suffix)
 
 int BREAKPAD_STDCALL handleExceptionCallback(void* exceptionInfo)
 {
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	Q_ASSERT(handler);
 	handler->WriteMinidumpForException(static_cast<EXCEPTION_POINTERS*>(exceptionInfo));
 	TerminateProcess(GetCurrentProcess(), 0);

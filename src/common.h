@@ -228,7 +228,7 @@ QString clipStatus(const QString &str, int width, int height);
 void bringToFront(QWidget *w, bool grabFocus = true);
 void replaceWidget(QWidget *, QWidget *);
 void closeDialogs(QWidget *);
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 #include <QWidget>
 void x11wmClass(Display *dsp, WId wid, QString resName);
 #define X11WM_CLASS(x)	x11wmClass(x11Display(), winId(), (x));

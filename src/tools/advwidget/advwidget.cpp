@@ -51,7 +51,7 @@
 #include "yawindow.h"
 #endif
 
-#ifdef Q_WS_X11
+#ifdef Q_OS_LINUX
 #include <X11/Xutil.h>
 #include <QX11Info>
 #endif
@@ -250,7 +250,7 @@ void GAdvancedWidget::Private::doFlash(bool yes)
 	if (parentWidget_->window() != parentWidget_)
 		return;
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	FLASHWINFO fwi;
 	fwi.cbSize = sizeof(fwi);
 	fwi.hwnd = parentWidget_->winId();
@@ -265,7 +265,7 @@ void GAdvancedWidget::Private::doFlash(bool yes)
 	}
 	FlashWindowEx(&fwi);
 
-#elif defined( Q_WS_X11 )
+#elif defined( Q_OS_LINUX )
 	static Atom demandsAttention = None;
 	static Atom wmState = None;
 
@@ -309,7 +309,7 @@ void GAdvancedWidget::Private::moveEvent(QMoveEvent *)
 {
 	if (!parentWidget_->isTopLevel())
 		return;
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 	// because we need to work correctly when dragging window between two adjacent
 	// vertical displays, we can't use desktop()->availableGeometry(parentWidget),
 	// we need to use the combined geometry of all screens, otherwise there will be
@@ -503,7 +503,7 @@ void GAdvancedWidget::moveToCenterOfScreen()
 	                       (r.height() - d->parentWidget_->height()) / 2);
 }
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 // http://groups.google.ru/group/borland.public.cppbuilder.winapi/msg/6eb6f1832d68686d?hl=ru&
 bool ForceForegroundWindow(HWND hwnd)
 {
@@ -571,7 +571,7 @@ bool ForceForegroundWindow(HWND hwnd)
 
 void GAdvancedWidget::forceRaise()
 {
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	Q_ASSERT(d->parentWidget_->isVisible());
 	SetWindowPos(d->parentWidget_->winId(), HWND_TOP, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
 #else
@@ -590,11 +590,11 @@ void GAdvancedWidget::showWithoutActivation()
 	if (d->parentWidget_->isVisible())
 		return;
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	HWND foregroundWindow = GetForegroundWindow();
 #endif
 	d->parentWidget_->show();
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	if (foregroundWindow) {
 		// the first step is to make sure we're the topmost window
 		// otherwise step two doesn't seem to have any effect at all

@@ -4,14 +4,14 @@
 #include <QCoreApplication>
 #include <QSysInfo>
 
-#if defined(Q_WS_X11) || defined(Q_WS_MAC)
+#if defined(Q_OS_LINUX) || defined(Q_OS_MAC)
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/utsname.h>
 #endif
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 #include <windows.h>
 #endif
 
@@ -25,7 +25,7 @@ SystemInfo::SystemInfo() : QObject(QCoreApplication::instance())
 	os_str_ = "Unknown";
 	
 	// Detect
-#if defined(Q_WS_X11) || defined(Q_WS_MAC)
+#if defined(Q_OS_LINUX) || defined(Q_OS_MAC)
 	time_t x;
 	time(&x);
 	char str[256];
@@ -44,7 +44,7 @@ SystemInfo::SystemInfo() : QObject(QCoreApplication::instance())
 	if(strcmp(fmt, str))
 		timezone_str_ = str;
 #endif
-#if defined(Q_WS_X11)
+#if defined(Q_OS_LINUX)
 	struct utsname u;
 	uname(&u);
 	os_str_.sprintf("%s", u.sysname);
@@ -130,7 +130,7 @@ SystemInfo::SystemInfo() : QObject(QCoreApplication::instance())
 			break;
 		}
 	}
-#elif defined(Q_WS_MAC)
+#elif defined(Q_OS_MAC)
 	QSysInfo::MacVersion v = QSysInfo::MacintoshVersion;
 	if(v == QSysInfo::MV_10_3)
 		os_str_ = "Mac OS X 10.3";
@@ -144,7 +144,7 @@ SystemInfo::SystemInfo() : QObject(QCoreApplication::instance())
 		os_str_ = "Mac OS X";
 #endif
 
-#if defined(Q_WS_WIN)
+#if defined(Q_OS_WIN)
 	TIME_ZONE_INFORMATION i;
 	//GetTimeZoneInformation(&i);
 	//timezone_offset_ = (-i.Bias) / 60;

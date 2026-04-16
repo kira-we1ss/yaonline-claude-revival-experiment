@@ -135,7 +135,7 @@ static const QString extraLogMessagesKey = "extra_log_messages";
 static bool isOptionEnabled(const QString& keyName, const QString& fileName)
 {
 	bool enableLogging = false;
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	Q_UNUSED(fileName);
 	QSettings sUser(QSettings::UserScope, "Yandex", "Online");
 	enableLogging = sUser.contains(keyName);
@@ -149,7 +149,7 @@ static bool isOptionEnabled(const QString& keyName, const QString& fileName)
 
 static void setOptionEnabled(bool enable, const QString& keyName, const QString& fileName)
 {
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
 	Q_UNUSED(fileName);
 	QSettings sUser(QSettings::UserScope, "Yandex", "Online");
 	if (enable)
