@@ -23,7 +23,7 @@ namespace JsonQt
 {
 	JsonToVariant::JsonToVariant(){}
 
-	QVariant JsonToVariant::parse(const QString& json) throw(ParseException)
+	QVariant JsonToVariant::parse(const QString& json)
 	{
 		JsonToVariant parser;
 		// Store the start and end of the string
@@ -34,7 +34,7 @@ namespace JsonQt
 		return parser.parseValue();
 	}
 
-	QList<QVariantMap> JsonToVariant::multiParse(const QString& raw) throw(ParseException)
+	QList<QVariantMap> JsonToVariant::multiParse(const QString& raw)
 	{
 		QList<QVariantMap> objects;
 		QString json(raw.trimmed());
@@ -163,7 +163,7 @@ namespace JsonQt
 		tryConsume(':');
 
 		// Lookahead to work out the type of value
-		switch(peekNext().toAscii())
+		switch(peekNext().toLatin1())
 		{
 			case '"':
 				return parseString();
@@ -261,7 +261,7 @@ namespace JsonQt
 		if(*m_sym == '\\')
 		{
 			QString digits;
-			switch(consume().toAscii())
+			switch(consume().toLatin1())
 			{
 				case '"':
 					return '"';
@@ -479,7 +479,7 @@ namespace JsonQt
 		 * 	false
 		 */
 
-		switch(peekNext().toAscii())
+		switch(peekNext().toLatin1())
 		{
 			case 't':
 				consume(QString("true"));
@@ -514,7 +514,7 @@ namespace JsonQt
 		return data;
 	}
 
-	QChar JsonToVariant::consume(bool skipWhitespace) throw(ParseException)
+	QChar JsonToVariant::consume(bool skipWhitespace)
 	{
 		// Read a character...
 		do
@@ -532,7 +532,7 @@ namespace JsonQt
 		return *m_sym;
 	}
 
-	void JsonToVariant::consume(QChar wanted) throw(ParseException)
+	void JsonToVariant::consume(QChar wanted)
 	{
 		// Grab a char(ignoring whitespace), and if it's not what's
 		// expected, throw
@@ -542,13 +542,13 @@ namespace JsonQt
 		}
 	}
 
-	void JsonToVariant::consume(char wanted) throw(ParseException)
+	void JsonToVariant::consume(char wanted)
 	{
 		// Convenience function for the above
 		consume(QChar(wanted));
 	}
 
-	void JsonToVariant::consume(QString wanted) throw(ParseException)
+	void JsonToVariant::consume(QString wanted)
 	{
 		// Keep track of where we start...
 		QString::ConstIterator it = m_sym;
@@ -565,7 +565,7 @@ namespace JsonQt
 			}
 	}
 
-	bool JsonToVariant::tryConsume(QChar wanted) throw()
+	bool JsonToVariant::tryConsume(QChar wanted)
 	{
 		// Grab the next character
 		try
@@ -589,7 +589,7 @@ namespace JsonQt
 		return true;
 	}
 
-	QChar JsonToVariant::peekNext(bool skipWhitespace) throw(ParseException)
+	QChar JsonToVariant::peekNext(bool skipWhitespace)
 	{
 		QString::ConstIterator it = m_sym;
 		do

@@ -28,7 +28,6 @@ namespace JsonQt
 	}
 
 	void JsonToProperties::parse(const QString& json, QObject* object)
-		throw(ParseException)
 	{
 		QVariantMap dataMap = JsonToVariant::parse(json).toMap();
 

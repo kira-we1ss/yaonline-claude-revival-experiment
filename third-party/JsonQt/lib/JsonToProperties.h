@@ -42,8 +42,7 @@ namespace JsonQt
 			 * 	valid JSON (or at least this parser thinks it
 			 * 	isn't ;) )
 			 */
-			static void parse(const QString& json, QObject* object)
-				throw(ParseException);
+			static void parse(const QString& json, QObject* object);
 		private:
 			JsonToProperties();
 	};

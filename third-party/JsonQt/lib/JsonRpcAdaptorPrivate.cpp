@@ -68,7 +68,7 @@ namespace JsonQt
 			if(method.access() != QMetaMethod::Public || method.methodType() != QMetaMethod::Slot) continue;
 
 			QVariantMap proc;
-			QString signature = method.signature();
+			QString signature = QString::fromLatin1(method.methodSignature().constData());
 
 			// Name
 			QString methodName = signature.left(signature.indexOf('('));

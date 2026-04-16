@@ -50,13 +50,13 @@ namespace JsonQt
 			 * 	valid JSON (or at least this parser thinks it
 			 * 	isn't ;) )
 			 */
-			static QVariant parse(const QString& json) throw (ParseException);
+			static QVariant parse(const QString& json);
 
 			/** Parse multiple objects in one string.
 			 * This is useful when working on streams where
 			 * one-chunk-per-json-object is not guaranteed.
 			 */
-			static QList<QVariantMap> multiParse(const QString& json) throw(ParseException);
+			static QList<QVariantMap> multiParse(const QString& json);
 		private:
 			JsonToVariant();
 			// Parsers for types given on JSON.org
@@ -96,8 +96,7 @@ namespace JsonQt
 			 * @throws ParseException if the end of the string is
 			 *	reached.
 			 */
-			QChar consume(bool skipWhitespace = true)
-				throw(ParseException);
+			QChar consume(bool skipWhitespace = true);
 
 			/** Consume the next character, and check for equality
 			 * with the specified character.
@@ -106,10 +105,10 @@ namespace JsonQt
 			 * @throws ParseException if the end of the string is
 			 * 	reached, or the characaters are not equal.
 			 */
-			void consume(QChar wanted) throw(ParseException);
+			void consume(QChar wanted);
 
 			/// Convenience function for consume(QChar).
-			void consume(char wanted) throw(ParseException);
+			void consume(char wanted);
 
 			/** Attempt to consume the specified string.
 			 * This attempts to consume length(wanted) characters,
@@ -121,7 +120,7 @@ namespace JsonQt
 			 * @throws ParseException if the end of the string is
 			 * 	reached, or the string comparisson fails.
 			 */
-			void consume(QString wanted) throw(ParseException);
+			void consume(QString wanted);
 
 			/** Try to consume a single character, without throw.
 			 * This will try to read a single character, and
@@ -133,7 +132,7 @@ namespace JsonQt
 			 * @returns false if the end of the string was reached,
 			 * 	or the characters were not equal.
 			 */
-			bool tryConsume(QChar wanted) throw();
+			bool tryConsume(QChar wanted);
 
 			/** Return the next symbol.
 			 * Optionally skips whitespace.
@@ -143,8 +142,7 @@ namespace JsonQt
 			 * @throws ParseException if the end of the string is
 			 * 	reached.
 			 */
-			QChar peekNext(bool skipWhitespace = true)
-				throw(ParseException);
+			QChar peekNext(bool skipWhitespace = true);
 
 			// Variables
 
