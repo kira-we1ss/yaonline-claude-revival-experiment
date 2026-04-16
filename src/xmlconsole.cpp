@@ -247,12 +247,22 @@ void XmlPrompt::doTransmit()
 		QString msg = tr("You have entered malformed XML input. Are you sure you want to send this ?");
 		QString yes = tr("Yes");
 
+#ifdef YAPSI
 		YaRemoveConfirmationMessageBoxManager::instance()->
 			removeConfirmation(str, this, "transmitMalformedXmlConfirmation",
 			                   title,
 			                   msg,
 			                   this,
 			                   yes);
+#else
+		if (QMessageBox::question(this,
+		                         title,
+		                         msg,
+		                         QMessageBox::Yes | QMessageBox::No,
+		                         QMessageBox::No) == QMessageBox::Yes) {
+			transmitHelper(str);
+		}
+#endif
 		return;
 	}
 
