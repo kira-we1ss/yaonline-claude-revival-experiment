@@ -57,7 +57,7 @@ make -j$(sysctl -n hw.ncpu)
 open src/yachat.app
 ```
 
-> ⚠️ **Проект находится в активной разработке.** Layer 3 (удаление Qt3Support) в финальной стадии. Крупные блокеры устранены: `contactview` полностью портирован с `Q3ListView` → `QTreeWidget` + `ContactViewDelegate`, `mainwin`/`infodlg`/`psiaccount`/`psicon` очищены от Qt4 API. Продолжается дочистка оставшихся файлов (yastuff, JsonQt, psiaccount и др.).
+> ✅ **Layer 3 завершён.** Все исходные файлы компилируются без ошибок. Бинарник `yachat.app` (8.8 МБ) успешно собран. Переходим к Layer 4 (QCA 2.3.x, TLS 1.2+, SCRAM-SHA-256).
 
 ---
 
@@ -94,23 +94,21 @@ open src/yachat.app
 | `conf.pri` | ✅ | `OSSL_097` удалён, добавлены `YANDEX_EXTENSIONS`/`c++17`/`DEPLOYMENT_TARGET` |
 | Расширения Яндекса | ✅ | Весь код `xmpp_yalastmail` обёрнут в `#ifdef YANDEX_EXTENSIONS` |
 
-### Слой 3 — Удаление Qt3Support 🔄 *в процессе (финальная стадия)*
+### Слой 3 — Удаление Qt3Support ✅ *завершён 2026-04-16*
 
 | Задача | Статус | Описание |
 |---|---|---|
-| Массовая замена (Задача 7) | ✅ | 422 строки `#include <qfoo.h>` → `<QFoo>`, `Q3PtrList`/`Q3PopupMenu`/`Q3TextEdit` заменены, 63 итератора → range-for |
-| `Q3MainWindow` (Задача 8) | ✅ | `mainwin.h/cpp` → `QMainWindow`, `mainwin_p.cpp` Q3ToolBar-зависимости убраны |
-| `Q3ListView` в HistoryDlg (Задача 9) | ✅ | `historydlg.h/cpp` → `QTreeWidget` + `QStyledItemDelegate` |
-| `Q3ListView` в EventDlg (Задача 10) | ✅ | `eventdlg.h/cpp` → `QTreeWidget` + `QTreeWidgetItem` |
-| **`Q3ListView` в ContactView** | ✅ | `contactview.h/cpp` полностью портирован: `Q3ListView`→`QTreeWidget`, `Q3ListViewItem`→`QTreeWidgetItem`, `Q3DragObject`→`QDrag/QMimeData`, добавлен `ContactViewDelegate` для кастомного рендеринга |
-| Qt4 API: mainwin, infodlg | ✅ | `QMenuBar::insertItem`→`addMenu`, `caption()`→`windowTitle()`, `setEdited`→убрано, `QPixmap(QImage)`→`fromImage`, `QSignalMapper` конструктор, `TRUE/FALSE`→`true/false` |
-| Qt4 API: psiaccount, psicon | ✅ | `QUrl::queryItems`→`QUrlQuery`, `removeRef`→`removeAll`, `absPath`→`absolutePath`, `QDir::homeDirPath`→`homePath`, `className()`→`metaObject()->className()`, `fromLast()`→`removeLast()` |
-| Qt4 API: misc (eventdb, vcardfactory, rc, serverlistquerier и др.) | ✅ | `QString::find`→`indexOf`, `QFile::setName`→`setFileName`, `setEncoding`→`setCodec`, `QHttp`→`QNetworkAccessManager`, `setOn`→`setChecked`, `QStyleOptionViewItemV2`→`QStyleOptionViewItem`, `qVariantCanConvert`→`.canConvert<T>()`, динамические `throw()`-спеки из JsonQt |
-| Qt4 API: xdata_widget, ahc, contactlistmodel | ✅ | `addMultiCellWidget`→`addWidget(span)`, `QAbstractItemModel::reset()`→`beginResetModel/endResetModel`, `setInsertionPolicy`→`setInsertPolicy`, `QMetaMethod::signature()`→`methodSignature()` |
-| Остальные Q3* (Задача 11) | 🔄 | `yarostertiplabel`, `yachatdlg` — последние незакрытые seam в `tools/yastuff` |
-| Контрольная сборка (Задача 12) | 🔄 | Почти завершена: 1–2 файла yastuff остаются |
+| Массовая замена (Задача 7) | ✅ | `#include <qfoo.h>`→`<QFoo>`, `Q3PtrList`/`Q3PopupMenu`/`Q3TextEdit` заменены, итераторы → range-for |
+| `Q3MainWindow` (Задача 8) | ✅ | `mainwin.h/cpp` → `QMainWindow`, `mainwin_p.cpp` Q3ToolBar убраны |
+| `Q3ListView` в HistoryDlg / EventDlg (Задачи 9–10) | ✅ | `QTreeWidget` + `QStyledItemDelegate`/`QTreeWidgetItem` |
+| **`Q3ListView` в ContactView** | ✅ | Полный порт: `Q3ListView`→`QTreeWidget`, `Q3ListViewItem`→`QTreeWidgetItem`, `Q3DragObject`→`QDrag/QMimeData`, `ContactViewDelegate` |
+| Qt4 API: mainwin/infodlg/psiaccount/psicon | ✅ | `QMenuBar::insertItem`→`addMenu`, `QUrl::queryItems`→`QUrlQuery`, `className()`→`metaObject()->className()`, `removeRef`→`removeAll` и др. |
+| Qt4 API: misc (eventdb, vcardfactory, serverlistquerier, rc, xdata_widget и др.) | ✅ | `QHttp`→`QNetworkAccessManager`, `setEncoding`→`setCodec`, `setOn`→`setChecked`, `QStyleOptionViewItemV4`, JsonQt C++17 throw-спеки |
+| yastuff (все 322 файла) | ✅ | `QTextControl`→`QWidgetTextControl` (через shim), `Qt::escape`→`toHtmlEscaped()`, `WStyle_*`→Qt5 флаги, `QMenuItem` удалён, `Q_WS_MAC`→`Q_OS_MAC` |
+| Статические плагины | ✅ | `Q_IMPORT_PLUGIN` исправлен на правильные имена классов (`ITunesPlugin`, `PsiFilePlugin`) |
+| **Контрольная сборка (Задача 12)** | ✅ | **`yachat.app` собран успешно (8.8 МБ)** — 16 апреля 2026 |
 
-### Слой 4 — QCA 2.3.x + безопасность 🔲 *не начат*
+### Слой 4 — QCA 2.3.x + безопасность 🔄 *следующий*
 
 | Задача | Статус | Описание |
 |---|---|---|
@@ -151,4 +149,4 @@ open src/yachat.app
 
 ---
 
-*Последнее обновление: 2026-04-16 (Claude: Layer 3 финальная волна — `contactview` полностью портирован на `QTreeWidget`+`ContactViewDelegate`, `mainwin`/`infodlg`/`psiaccount`/`psicon`/`serverlistquerier` очищены от Qt4 API, `JsonQt`-спеки `throw()` убраны; осталось 1–2 файла yastuff)*
+*Последнее обновление: 2026-04-16 (Claude: **Layer 3 полностью завершён** — `yachat.app` 8.8 МБ собран без ошибок. Все Qt3/Qt4 API портированы: contactview→QTreeWidget, yastuff Qt::escape/QTextControl/QMenuItem, JsonQt C++17, macspellchecker ARC, статические плагины, ресурсы psi.qrc. Следующий шаг: Layer 4 — QCA 2.3.x, TLS 1.2+, SCRAM-SHA-256)*
