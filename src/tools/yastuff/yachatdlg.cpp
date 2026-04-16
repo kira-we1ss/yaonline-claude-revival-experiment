@@ -206,8 +206,8 @@ void YaChatDlg::contactUpdated(UserListItem* u, int status, const QString& statu
 	}
 
 	lastStatus_ = XMPP::Status(statusType, statusString);
-	alternateContactProfile_ = QString("<div style='white-space:pre'>Self JID: %1</div>").arg(Qt::escape(account()->jid().full()));
-	alternateContactProfile_ += QString("<div style='white-space:pre'>Paired JID: %1</div><br>").arg(Qt::escape(jid().full()));
+	alternateContactProfile_ = QString("<div style='white-space:pre'>Self JID: %1</div>").arg(account()->jid().full().toHtmlEscaped());
+	alternateContactProfile_ += QString("<div style='white-space:pre'>Paired JID: %1</div><br>").arg(jid().full().toHtmlEscaped());
 	alternateContactProfile_ += u ? u->makeTip(true, false) : QString();
 
 	updateModelNotices();
@@ -276,14 +276,14 @@ void YaChatDlg::appendMessageFields(const Message& m)
 {
 	QString txt;
 	if (!m.subject().isEmpty()) {
-		txt += QString("<b>") + tr("Subject:") + "</b> " + QString("%1").arg(Qt::escape(m.subject())) + "<br>";
+		txt += QString("<b>") + tr("Subject:") + "</b> " + QString("%1").arg(m.subject().toHtmlEscaped()) + "<br>";
 	}
 	if (!m.urlList().isEmpty()) {
 		UrlList urls = m.urlList();
 		txt += QString("<i>") + tr("-- Attached URL(s) --") + "</i>" + "<br>";
 		for (QList<Url>::ConstIterator it = urls.begin(); it != urls.end(); ++it) {
 			const Url &u = *it;
-			txt += QString("<b>") + tr("URL:") + "</b> " + QString("%1").arg(TextUtil::linkify(Qt::escape(u.url()))) + "<br>";
+			txt += QString("<b>") + tr("URL:") + "</b> " + QString("%1").arg(TextUtil::linkify(u.url().toHtmlEscaped())) + "<br>";
 			txt += QString("<b>") + tr("Desc:") + "</b> " + QString("%1").arg(u.desc()) + "<br>";
 		}
 	}

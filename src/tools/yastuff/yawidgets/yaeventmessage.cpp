@@ -34,5 +34,5 @@ YaEventMessage::YaEventMessage(QWidget *parent)
 
 void YaEventMessage::setMessage(const QString& msg)
 {
-	TrimmableMultilineLabel::setText(Qt::escape(msg));
+	TrimmableMultilineLabel::setText(msg.toHtmlEscaped());
 }

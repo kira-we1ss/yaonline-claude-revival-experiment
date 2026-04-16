@@ -131,7 +131,7 @@ YaContactListModel::YaContactListModel(PsiContactList* contactList)
 	: ContactListModel(contactList)
 	, singleAccount_(PsiOptions::instance()->getOption("options.ui.account.single").toBool()) // TODO: hook on change notifications
 {
-	setSupportedDragActions(Qt::MoveAction | Qt::CopyAction);
+	// Qt5: setSupportedDragActions() removed; override supportedDragActions() in the class instead
 }
 
 ContactListModel* YaContactListModel::clone() const
@@ -145,7 +145,7 @@ QStringList YaContactListModel::filterContactGroups(QStringList groups) const
 
 	foreach (QString grp, Ya::BOTS_GROUP_NAMES) {
 		if (grs.contains(grp)) {
-			grs.remove(grp);
+			grs.removeAll(grp);
 		}
 	}
 	return grs;
@@ -444,9 +444,9 @@ void YaContactListModel::performContactOperations(const YaContactListModelOperat
 
 		foreach(YaContactListModelOperationList::Operation op, contactOperation.operations) {
 			if (operations.action() == YaContactListModelOperationList::Move) {
-				groups.remove(op.groupFrom);
+			groups.removeAll(op.groupFrom);
 
-				ContactListGroup* group = groupCache()->findGroup(op.groupFrom);
+			ContactListGroup* group = groupCache()->findGroup(op.groupFrom);
 				if (group && groupContactCount.contains(group)) {
 					groupContactCount[group] -= 1;
 				}
@@ -490,7 +490,7 @@ QList<PsiContact*> YaContactListModel::removeIndexesHelper(const QMimeData* data
 		QStringList groups = psiContact->groups();
 
 		foreach(YaContactListModelOperationList::Operation op, contactOperation.operations) {
-			groups.remove(op.groupFrom);
+			groups.removeAll(op.groupFrom);
 		}
 
 		if (!groupsEnabled()) {

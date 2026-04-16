@@ -20,6 +20,7 @@
 
 #include "yadayuse.h"
 
+#include <sys/stat.h>
 #include <QTimer>
 #include <QUuid>
 #include <QFile>
@@ -201,7 +202,7 @@ QString YaDayUse::uiPath() const
 		home.mkdir("Yandex");
 	}
 #else
-	QDir uihome(QDir::homeDirPath() + "/.yandex");
+	QDir uihome(QDir::homePath() + "/.yandex");
 	if(!uihome.exists()) {
 		QDir home = QDir::home();
 		home.mkdir(".yandex");

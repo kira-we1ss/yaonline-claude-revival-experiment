@@ -669,7 +669,7 @@ void YaChatView::contextMenuEvent(QContextMenuEvent* e)
 		menu->addAction(selectAllAction_);
 
 		if (hasSelectedText()) {
-			menu->insertSeparator();
+			menu->addSeparator();
 			menu->addAction(lookupYandexAction_);
 		}
 	}

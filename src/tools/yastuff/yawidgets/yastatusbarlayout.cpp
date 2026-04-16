@@ -23,6 +23,7 @@
 #include "yastatusbarlayout.h"
 
 #include <QtGui>
+#include <QSizeGrip>
 
 #include "yainformerbutton.h"
 

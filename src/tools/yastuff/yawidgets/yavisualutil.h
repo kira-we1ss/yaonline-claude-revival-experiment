@@ -21,6 +21,7 @@
 #ifndef YAVISUALUTIL_H
 #define YAVISUALUTIL_H
 
+#include <QObject>
 #include "xmpp_status.h"
 #include "xmpp_vcard.h"
 

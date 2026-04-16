@@ -625,7 +625,7 @@ QString YaChatViewDelegate::messageSenderNameAsRichText(const QModelIndex& index
 		int id = index.data(YaChatViewModel::GC_IdRole).toInt();
 		result = QString("<font color=\"%1\">%2</font>")
 		         .arg(nickColor(id, id == -1).name())
-		         .arg(Qt::escape(tmp));
+		         .arg(tmp.toHtmlEscaped());
 	}
 	return result;
 }
@@ -1056,7 +1056,7 @@ QString YaChatViewDelegate::selectedMessageHtml(const QModelIndex& index, Select
 	QTextCursor cursor(doc);
 	cursor.insertFragment(data.textControl->textCursor().selection());
 	// Note: make sure that copying emote messages also work
-	QString result = Qt::escape(PsiRichText::convertToPlainText(doc));
+	QString result = PsiRichText::convertToPlainText(doc).toHtmlEscaped();
 	delete doc;
 
 	if (selectedText == SelectedTextWithHeader) {

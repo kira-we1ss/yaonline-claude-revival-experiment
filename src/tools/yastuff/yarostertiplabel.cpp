@@ -28,6 +28,7 @@
 #include <QKeyEvent>
 #include <QClipboard>
 #include <QDesktopWidget>
+#include <QTextFrame>
 #include <QTextFrameFormat>
 #include <QMenu>
 #include <QScrollBar>

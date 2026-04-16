@@ -21,7 +21,7 @@
 #include "yatabbarbase.h"
 
 #include <QPainter>
-#include <QStyleOptionTabV2>
+#include <QStyleOptionTab>
 #include <QTimeLine>
 #include <QEvent>
 #include <QMouseEvent>
@@ -127,7 +127,7 @@ QRect YaTabBarBase::tabTextRect(int index) const
 
 void YaTabBarBase::drawTab(QPainter* painter, int index, const QRect& tabRect)
 {
-	QStyleOptionTabV2 tab = getStyleOption(index);
+	QStyleOptionTab tab = getStyleOption(index);
 	if (!(tab.state & QStyle::State_Enabled)) {
 		tab.palette.setCurrentColorGroup(QPalette::Disabled);
 	}
@@ -244,9 +244,9 @@ void YaTabBarBase::drawTab(QPainter* painter, int index, const QRect& tabRect)
 	}
 }
 
-QStyleOptionTabV2 YaTabBarBase::getStyleOption(int tab) const
+QStyleOptionTab YaTabBarBase::getStyleOption(int tab) const
 {
-	QStyleOptionTabV2 opt;
+	QStyleOptionTab opt;
 	opt.init(this);
 	opt.state &= ~(QStyle::State_HasFocus | QStyle::State_MouseOver);
 	opt.rect = tabRect(tab);

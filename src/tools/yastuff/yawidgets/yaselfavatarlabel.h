@@ -107,4 +107,6 @@ private:
 	void updateBusyWidget();
 };
 
+Q_DECLARE_METATYPE(YaSelfAvatarLabel::AvatarData);
+
 #endif

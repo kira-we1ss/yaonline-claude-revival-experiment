@@ -25,6 +25,7 @@ class QPixmap;
 class QColor;
 
 #include <QDateTime>
+#include <QObject>
 #include <QRect>
 #include <QHash>
 

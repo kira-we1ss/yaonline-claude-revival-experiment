@@ -34,7 +34,7 @@
 #include <QEvent>
 #include <QVBoxLayout>
 #include <QMenu>
-#include <QMenuItem>
+// #include <QMenuItem>  // removed: QMenuItem was dropped in Qt5
 #include <QMessageBox>
 
 #include "im.h"
@@ -162,7 +162,7 @@ private:
 };
 
 YaMainWin::YaMainWin(bool _onTop, bool _asTool, PsiCon* psi, const char* name)
-	: YaOnlineMainWin(psi, 0, (_onTop ? Qt::WStyle_StaysOnTop : Qt::Widget) | (_asTool ? Qt::WStyle_Tool : Qt::Widget))
+	: YaOnlineMainWin(psi, 0, (_onTop ? Qt::WindowStaysOnTopHint : Qt::Widget) | (_asTool ? Qt::Tool : Qt::Widget))
 	, psi_(psi)
 	, informersModel_(0)
 	, tray_(0)

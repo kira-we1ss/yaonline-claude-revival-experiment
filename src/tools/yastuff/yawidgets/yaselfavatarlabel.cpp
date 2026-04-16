@@ -442,8 +442,6 @@ YaSelfAvatarLabel::YaSelfAvatarLabel(QWidget* parent)
 	connect(VCardFactory::instance(), SIGNAL(vcardChanged(const Jid&)), SLOT(update()));
 }
 
-Q_DECLARE_METATYPE(YaSelfAvatarLabel::AvatarData);
-
 YaSelfAvatarLabel::~YaSelfAvatarLabel()
 {
 }

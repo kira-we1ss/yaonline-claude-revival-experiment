@@ -61,7 +61,7 @@ void YaOfficeBackgroundHelper::destroyed(QObject* obj)
 		return;
 	Q_ASSERT(widget);
 	Q_ASSERT(widgets_.contains(widget));
-	widgets_.remove(widget);
+	widgets_.removeOne(widget);
 }
 
 void YaOfficeBackgroundHelper::optionChanged(const QString& optionPath)

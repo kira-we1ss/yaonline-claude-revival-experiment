@@ -2298,9 +2298,9 @@ QStringList YaRoster::contactNamesFor(QList<PsiContact*> contacts) const
 		if (name != contact->jid().full()) {
 			// TODO: ideally it should be wrapped in <nobr></nobr>,
 			// but it breaks layout in Qt 4.3.4
-			name = tr("%1 (%2)").arg(name, Qt::escape(contact->jid().full()));
+			name = tr("%1 (%2)").arg(name, contact->jid().full().toHtmlEscaped());
 		}
-		contactNames << QString("<b>%1</b>").arg(Qt::escape(name));
+		contactNames << QString("<b>%1</b>").arg(name.toHtmlEscaped());
 	}
 	return contactNames;
 }
@@ -2417,7 +2417,7 @@ void YaRoster::removeContact(PsiContact* contact, QMimeData* _selection)
 				else {
 					msg = tr("This will permanently remove<br>"
 					         "%1"
-					         "<br>group and all its contacts from your contact list.").arg(Qt::escape(indexes.first().data().toString()));
+					         "<br>group and all its contacts from your contact list.").arg(indexes.first().data().toString().toHtmlEscaped());
 				}
 			}
 			else if (indexes.count() == 1 && model->indexType(indexes.first()) == ContactListModel::ContactType) {

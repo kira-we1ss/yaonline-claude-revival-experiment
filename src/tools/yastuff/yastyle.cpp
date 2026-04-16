@@ -107,7 +107,7 @@ int YaStyle::styleHint(StyleHint hint, const QStyleOption* option, const QWidget
 	case SH_DrawMenuBarSeparator:
 	case SH_MainWindow_SpaceBelowMenuBar:
 	case SH_MenuBar_AltKeyNavigation:
-	case SH_MenuBar_DismissOnSecondClick:
+	// SH_MenuBar_DismissOnSecondClick removed in Qt5
 	case SH_MenuBar_MouseTracking:
 	case SH_Menu_AllowActiveAndDisabled:
 	case SH_Menu_FillScreenWithScroll:

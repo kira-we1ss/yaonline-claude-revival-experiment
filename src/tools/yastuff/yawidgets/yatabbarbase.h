@@ -24,7 +24,7 @@
 #include <QTabBar>
 #include <QHash>
 
-class QStyleOptionTabV2;
+class QStyleOptionTab;
 class QPainter;
 class QTimeLine;
 class TabbableWidget;
@@ -96,7 +96,7 @@ protected:
 
 	virtual QRect closeButtonRect(int index, const QRect& currentTabRect) const = 0;
 	virtual void drawTab(QPainter* painter, int index, const QRect& tabRect);
-	QStyleOptionTabV2 getStyleOption(int tab) const;
+	QStyleOptionTab getStyleOption(int tab) const;
 	QColor highlightColor() const;
 	QTimeLine* timeLine() const;
 	virtual QColor getCurrentColorGrade(const QColor&, const QColor&, const int, const int) const;

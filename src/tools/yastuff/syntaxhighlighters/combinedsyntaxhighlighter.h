@@ -23,6 +23,7 @@
 
 #include <QSyntaxHighlighter>
 #include <QPointer>
+#include <QTextEdit>
 
 class PsiCon;
 

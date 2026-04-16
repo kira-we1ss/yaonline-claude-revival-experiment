@@ -22,7 +22,7 @@
 
 #include <QApplication>
 #include <QEvent>
-#include <QStyleOptionTabV2>
+#include <QStyleOptionTab>
 #include <QPainter>
 #include <QHelpEvent>
 #include <QAction>
@@ -281,7 +281,7 @@ QRect YaTabBar::closeButtonRect() const
 {
 	int x = 0;
 	foreach(int i, tabDrawOrder_) {
-		QStyleOptionTabV2 tab = getStyleOption(i);
+		QStyleOptionTab tab = getStyleOption(i);
 		QRect tabRect(x, 0, tab.rect.width(), tab.rect.height());
 		x += tabRect.width();
 		if (i == currentIndex())
@@ -360,7 +360,7 @@ bool YaTabBar::drawHighlightChevronBackground() const
 QRect YaTabBar::draggedTabRect() const
 {
 	if (draggedTabIndex_ != -1) {
-		QStyleOptionTabV2 tab = getStyleOption(draggedTabIndex_);
+		QStyleOptionTab tab = getStyleOption(draggedTabIndex_);
 		QRect tabRect(0, 0, tab.rect.width(), tab.rect.height());
 		tabRect.moveLeft(qMin(width() - tabRect.width(),
 		                      qMax(0, dragPosition_.x() - dragOffset_.x())));
@@ -387,7 +387,7 @@ void YaTabBar::paintEvent(QPaintEvent*)
 
 	int x = 0;
 	foreach(int i, tabDrawOrder_) {
-		QStyleOptionTabV2 tab = getStyleOption(i);
+		QStyleOptionTab tab = getStyleOption(i);
 		QRect tabRect(x, 0, tab.rect.width(), tab.rect.height());
 		x += tabRect.width();
 
@@ -463,7 +463,7 @@ void YaTabBar::updateTabDrawOrder()
 		int x = 0;
 		int index = 0;
 		foreach(int i, tabDrawOrder_) {
-			QStyleOptionTabV2 tab = getStyleOption(i);
+			QStyleOptionTab tab = getStyleOption(i);
 			QRect tabRect(x, 0, tab.rect.width(), tab.rect.height());
 			x += tabRect.width();
 

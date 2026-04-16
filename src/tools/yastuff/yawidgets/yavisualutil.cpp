@@ -235,7 +235,7 @@ QString VisualUtil::contactNameAndJid(QString name, QString jid, XMPP::Status::T
 	QString result;
 	result += spanFor(statusColor(status, false),
 	                  contactNameFont(RosterStyleSlim, status),
-	                  Qt::escape(name));
+	                  name.toHtmlEscaped());
 
 	result += QString("&lt;%1&gt;").arg(contactJidAsRichText(jid));
 	return result;
@@ -245,7 +245,7 @@ QString Ya::VisualUtil::contactJidAsRichText(QString jid)
 {
 	QString result = spanFor(statusColor(XMPP::Status::Online, false),
 	                         contactNameFont(RosterStyleSlim, XMPP::Status::Offline),
-	                         Qt::escape(jid));
+	                         jid.toHtmlEscaped());
 	return result;
 }
 

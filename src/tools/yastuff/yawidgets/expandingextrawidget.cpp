@@ -151,7 +151,7 @@ void ExpandingExtraWidget::updateButtonsPositions(const QRect& topButtonsPositio
 
 	if (!visibleButtons.isEmpty() && visibleButtons.last()->isSeparator()) {
 		hideButtons << visibleButtons.last();
-		visibleButtons.remove(visibleButtons.last());
+		visibleButtons.removeLast();
 	}
 
 	QRect buttonRect = topButtonsPosition;
