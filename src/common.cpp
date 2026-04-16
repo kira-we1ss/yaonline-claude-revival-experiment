@@ -222,26 +222,29 @@ bool fileCopy(const QString &src, const QString &dest)
 	QFile out(dest);
 
 	if(!in.open(QIODevice::ReadOnly))
-		return FALSE;
+		return false;
 	if(!out.open(QIODevice::WriteOnly))
-		return FALSE;
+		return false;
 
 	char *dat = new char[16384];
-	int n = 0;
+	qint64 n = 0;
 	while(!in.atEnd()) {
-		n = in.readBlock(dat, 16384);
+		n = in.read(dat, 16384);
 		if(n == -1) {
-			delete dat;
-			return FALSE;
+			delete[] dat;
+			return false;
 		}
-		out.writeBlock(dat, n);
+		if(out.write(dat, n) != n) {
+			delete[] dat;
+			return false;
+		}
 	}
-	delete dat;
+	delete[] dat;
 
 	out.close();
 	in.close();
 
-	return TRUE;
+	return true;
 }
 
 
@@ -295,9 +298,14 @@ XMPP::Status::Type makeSTATUS(const XMPP::Status &s)
 #include <QLayout>
 QLayout *rw_recurseFindLayout(QLayout *lo, QWidget *w)
 {
+	if(!lo)
+		return 0;
+
 	//printf("scanning layout: %p\n", lo);
-	QLayoutIterator it = lo->iterator();
-	for(QLayoutItem *i; (i = it.current()); ++it) {
+	for(int index = 0; index < lo->count(); ++index) {
+		QLayoutItem *i = lo->itemAt(index);
+		if(!i)
+			continue;
 		//printf("found: %p,%p\n", i->layout(), i->widget());
 		QLayout *slo = i->layout();
 		if(slo) {
@@ -328,9 +336,11 @@ void replaceWidget(QWidget *a, QWidget *b)
 
 	if(lo->inherits("QBoxLayout")) {
 		QBoxLayout *bo = (QBoxLayout *)lo;
-		int n = bo->findWidget(a);
-		bo->insertWidget(n+1, b);
-		delete a;
+		int n = bo->indexOf(a);
+		if(n >= 0) {
+			bo->insertWidget(n+1, b);
+			delete a;
+		}
 	}
 }
 
@@ -489,12 +499,12 @@ bool operator!=(const QMap<QString, QString> &m1, const QMap<QString, QString> &
 	if ( m1.size() != m2.size() )
 		return true;
 
-	QMap<QString, QString>::ConstIterator it = m1.begin(), it2;
+	QMap<QString, QString>::const_iterator it = m1.begin(), it2;
 	for ( ; it != m1.end(); ++it) {
 		it2 = m2.find( it.key() );
 		if ( it2 == m2.end() )
 			return true;
-		if ( it.data() != it2.data() )
+		if ( it.value() != it2.value() )
 			return true;
 	}
 
