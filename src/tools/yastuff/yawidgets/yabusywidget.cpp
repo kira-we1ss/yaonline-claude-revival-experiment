@@ -157,6 +157,8 @@ void YaBusyWidget::stop()
 
 void YaBusyWidget::paintEvent(QPaintEvent *)
 {
+	if (state_ == Normal)
+		return; // nothing to draw at rest; window background shows through
 	QPainter p(this);
 	p.drawTiledPixmap(rect(), framePixmap(), QPoint(offset_, 0));
 }
