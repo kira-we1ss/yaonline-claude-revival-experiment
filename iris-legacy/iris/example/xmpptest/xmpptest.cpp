@@ -1,6 +1,6 @@
 #include <QApplication>
-#include <Q3TextEdit>
-#include <Q3GroupBox>
+#include <QTextEdit>
+#include <QGroupBox>
 #include <QLineEdit>
 #include <QLabel>
 #include <QCheckBox>
@@ -12,6 +12,8 @@
 #include <QTimer>
 #include <QMenuBar>
 #include <QTabWidget>
+#include <QTextBlock>
+#include <QTextCursor>
 #include <qca.h>
 #include <QList>
 //#include <iris/xmpp.h>
@@ -126,6 +128,31 @@ static QString resultToString(int result)
 	return s;
 }
 
+static QTextCursor cursorForLineColumn(QTextEdit *edit, int line, int column)
+{
+	QTextBlock block = edit->document()->findBlockByNumber(qMax(0, line));
+	if(!block.isValid())
+		return edit->textCursor();
+
+	QTextCursor cursor(block);
+	const int safeColumn = qBound(0, column, qMax(0, block.length() - 1));
+	cursor.movePosition(QTextCursor::Right, QTextCursor::MoveAnchor, safeColumn);
+	return cursor;
+}
+
+static void setCursorPosition(QTextEdit *edit, int line, int column)
+{
+	edit->setTextCursor(cursorForLineColumn(edit, line, column));
+}
+
+static void setSelection(QTextEdit *edit, int startLine, int startColumn, int endLine, int endColumn)
+{
+	QTextCursor cursor = cursorForLineColumn(edit, startLine, startColumn);
+	QTextCursor endCursor = cursorForLineColumn(edit, endLine, endColumn);
+	cursor.setPosition(endCursor.position(), QTextCursor::KeepAnchor);
+	edit->setTextCursor(cursor);
+}
+
 class TestDebug : public XMPP::Debug
 {
 public:
@@ -165,6 +192,7 @@ public:
 		sb_ssfmax->setRange(0, 256);
 
 		pb_send->setEnabled(false);
+		te_input->setAcceptRichText(false);
 		proxy_activated(0);
 		ck_probe->setChecked(true);
 		ck_mutual->setChecked(false);
@@ -403,12 +431,12 @@ private slots:
 
 	void send()
 	{
-		if(te_input->text().isEmpty())
+		if(te_input->toPlainText().isEmpty())
 			return;
 
 		// construct a "temporary" document to parse the input
 		QString str = "<stream xmlns=\"jabber:client\">\n";
-		str += te_input->text() + '\n';
+		str += te_input->toPlainText() + '\n';
 		str += "</stream>";
 
 		QDomDocument doc;
@@ -419,10 +447,11 @@ private slots:
 			--errLine; // skip the first line
 			if(errLine == lines-1) {
 				errLine = lines-2;
-				errCol = te_input->paragraphLength(errLine-1)+1;
+				const QStringList inputLines = te_input->toPlainText().split('\n', Qt::KeepEmptyParts);
+				errCol = inputLines.value(errLine - 1).length() + 1;
 				errMsg = "incomplete input";
 			}
-			te_input->setCursorPosition(errLine-1, errCol-1);
+			setCursorPosition(te_input, errLine - 1, errCol - 1);
 			QMessageBox::information(this, tr("Error"), tr("Bad XML input (%1,%2): %3\nPlease correct and try again.").arg(errCol).arg(errLine).arg(errMsg));
 			return;
 		}
@@ -455,7 +484,7 @@ private slots:
 			stream->write(*it);
 		}
 
-		te_input->setText("");
+		te_input->clear();
 	}
 
 	void sc_im()
@@ -478,7 +507,7 @@ private slots:
 		s += "<iq type='set' id='sess_1'>\n";
 		s += " <session xmlns='urn:ietf:params:xml:ns:xmpp-session'/>\n";
 		s += "</iq>";
-		te_input->setText(s);
+		te_input->setPlainText(s);
 		te_input->setFocus();
 	}
 
@@ -492,13 +521,12 @@ private slots:
 			s += QString("<message to=\"\">\n");
 		s += " <body>hello world</body>\n";
 		s += "</message>";
-		te_input->setText(s);
+		te_input->setPlainText(s);
 		if(!to.isEmpty()) {
-			te_input->setCursorPosition(1, 7);
-			te_input->setSelection(1, 7, 1, 18);
+			setSelection(te_input, 1, 7, 1, 18);
 		}
 		else
-			te_input->setCursorPosition(0, 13);
+			setCursorPosition(te_input, 0, 13);
 		te_input->setFocus();
 	}
 
@@ -512,13 +540,12 @@ private slots:
 			s += QString("<iq to=\"\" type=\"get\" id=\"abcde\">\n");
 		s += " <query xmlns=\"jabber:iq:version\"/>\n";
 		s += "</iq>";
-		te_input->setText(s);
+		te_input->setPlainText(s);
 		if(!to.isEmpty()) {
-			te_input->setCursorPosition(0, 8);
-			te_input->setSelection(0, 8, 0, 8 + to.length());
+			setSelection(te_input, 0, 8, 0, 8 + to.length());
 		}
 		else
-			te_input->setCursorPosition(0, 8);
+			setCursorPosition(te_input, 0, 8);
 		te_input->setFocus();
 	}
 
