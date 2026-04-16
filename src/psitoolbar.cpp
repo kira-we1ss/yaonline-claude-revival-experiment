@@ -45,7 +45,7 @@ public:
 	QString group;
 	int groupIndex;
 	PsiCon *psi;
-	QList<IconAction> uniqueActions;
+	QList<IconAction*> uniqueActions;
 };
 
 PsiToolBar::Private::Private()
@@ -99,11 +99,11 @@ void PsiToolBar::contextMenuEvent(QContextMenuEvent *e)
 		return;
 
 	QMenu pm;
-	pm.insertItem(IconsetFactory::icon("psi/toolbars").icon(), tr("Configure &Toolbar..."), 0);
+	QAction *configureAction = pm.addAction(IconsetFactory::icon("psi/toolbars").icon(), tr("Configure &Toolbar..."));
 
-	int ret = pm.exec( e->globalPos() );
+	QAction *ret = pm.exec( e->globalPos() );
 
-	if ( ret == 0 ) {
+	if ( ret == configureAction ) {
 		d->psi->doToolbars();
 	}
 }
