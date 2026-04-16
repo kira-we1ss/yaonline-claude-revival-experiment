@@ -1,0 +1,8 @@
+#ifndef YACHAT_QPLASTIQUESTYLE_COMPAT_H
+#define YACHAT_QPLASTIQUESTYLE_COMPAT_H
+
+#include <QProxyStyle>
+
+typedef QProxyStyle QPlastiqueStyle;
+
+#endif
