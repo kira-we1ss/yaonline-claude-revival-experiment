@@ -22,6 +22,7 @@
 
 #include <QTimer>
 #include <QScrollBar>
+#include <QKeyEvent>
 
 #include "psiaccount.h"
 #include "psicon.h"
@@ -131,12 +132,13 @@ bool ChatDlgBase::doSend()
 		return false;
 	}
 
-	if (chatEdit()->text().trimmed().isEmpty()) {
+	const QString text = chatEdit()->toPlainText();
+	if (text.trimmed().isEmpty()) {
 		chatEdit()->clear();
 		return false;
 	}
 
-	if (chatEdit()->text() == "/clear") {
+	if (text == "/clear") {
 		chatEdit()->clear();
 		doClear();
 		return false;
@@ -158,7 +160,7 @@ void ChatDlgBase::scrollDown()
 bool ChatDlgBase::couldSendMessages() const
 {
 	return chatEdit()->isEnabled() &&
-	       !chatEdit()->text().trimmed().isEmpty() &&
+	       !chatEdit()->toPlainText().trimmed().isEmpty() &&
 	       account()->isAvailable();
 }
 
@@ -309,7 +311,7 @@ void ChatDlgBase::addEmoticon(QString text)
 	if (!isActiveTab())
 		return;
 
-	chatEdit()->insert(text + " ");
+	chatEdit()->insertPlainText(text + " ");
 }
 
 
@@ -334,7 +336,7 @@ void ChatDlgBase::keyPressEvent(QKeyEvent *e)
 	else if (key.toString(QKeySequence::PortableText).contains("Enter") ||
 	         key.toString(QKeySequence::PortableText).contains("Return"))
 	{
-		chatEdit()->insert("\n");
+		chatEdit()->insertPlainText("\n");
 	}
 	else {
 		e->ignore();

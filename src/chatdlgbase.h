@@ -32,6 +32,9 @@ typedef ChatView ChatViewClass;
 #endif
 class ChatEdit;
 class YaChatViewModel;
+class QEvent;
+class QKeyEvent;
+class QShowEvent;
 
 class ChatDlgBase : public TabbableWidget
 {
