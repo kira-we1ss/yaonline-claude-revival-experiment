@@ -100,19 +100,19 @@ void ChatDlgBase::initActions()
 {
 	act_send_ = new QAction(tr("Send"), this);
 	addAction(act_send_);
-	connect(act_send_, SIGNAL(activated()), SLOT(doSend()));
+	connect(act_send_, SIGNAL(triggered()), SLOT(doSend()));
 
 	act_close_ = new QAction(this);
 	addAction(act_close_);
-	connect(act_close_, SIGNAL(activated()), SLOT(close()));
+	connect(act_close_, SIGNAL(triggered()), SLOT(close()));
 
 	act_scrollup_ = new QAction(this);
 	addAction(act_scrollup_);
-	connect(act_scrollup_, SIGNAL(activated()), SLOT(scrollUp()));
+	connect(act_scrollup_, SIGNAL(triggered()), SLOT(scrollUp()));
 
 	act_scrolldown_ = new QAction(this);
 	addAction(act_scrolldown_);
-	connect(act_scrolldown_, SIGNAL(activated()), SLOT(scrollDown()));
+	connect(act_scrolldown_, SIGNAL(triggered()), SLOT(scrollDown()));
 }
 
 void ChatDlgBase::setShortcuts()
