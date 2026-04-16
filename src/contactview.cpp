@@ -129,6 +129,15 @@ static Q3DragObject *createContactTextDrag(const QString &text, QWidget *source,
 	return drag;
 }
 
+static int fontMetricsTextWidth(const QFontMetrics &fontMetrics, const QString &text)
+{
+#if QT_VERSION >= 0x050b00
+	return fontMetrics.horizontalAdvance(text);
+#else
+	return fontMetrics.width(text);
+#endif
+}
+
 //----------------------------------------------------------------------------
 // ContactProfile
 //----------------------------------------------------------------------------
@@ -1956,7 +1965,6 @@ public slots:
 	{
 		ContactViewItem *i = cv->itemAtPosition(pos);
 		if(i) {
-			QRect r(cv->itemRect(i));
 			QPoint globalPos = cv->mapToGlobal(pos);
 			if(i->type() == ContactViewItem::Contact)
 				PsiToolTip::showText(globalPos, i->u()->makeTip(true, false), cv);
@@ -2148,8 +2156,7 @@ bool ContactView::filterGroup(ContactViewItem *group, bool refineSearch)
 	}
 	group->setVisible(true); //if not refined search
 	
-	//iterate over children
-	Q3ListViewItemIterator it(group);
+	// iterate over children
 	bool groupContainsAFinding = false;
 	ContactViewItem *item = group->firstChildItem();
 	while(item) {
@@ -3201,7 +3208,7 @@ void ContactViewItem::paintCell(QPainter *p, const QColorGroup & cg, int column,
 		else {
 			QFontMetrics fm(p->font());
 			const QPixmap *pix = pixmap(column);
-			x = fm.width(text(column)) + (pix ? pix->width() : 0) + 8;
+			x = fontMetricsTextWidth(fm, text(column)) + (pix ? pix->width() : 0) + 8;
 		}
 
 		if ( d->u ) {
@@ -3246,7 +3253,7 @@ void ContactViewItem::paintCell(QPainter *p, const QColorGroup & cg, int column,
 
 		QFontMetrics fm(p->font());
 		const QPixmap *pix = pixmap(column);
-		int x = fm.width(text(column)) + (pix ? pix->width() : 0) + 8;
+		int x = fontMetricsTextWidth(fm, text(column)) + (pix ? pix->width() : 0) + 8;
 
 		if(type_ == Profile) {
 			const QPixmap &pix = d->ssl ? IconsetFactory::iconPixmap("psi/cryptoYes") : IconsetFactory::iconPixmap("psi/cryptoNo");
@@ -3270,7 +3277,7 @@ void ContactViewItem::paintCell(QPainter *p, const QColorGroup & cg, int column,
 		p->drawText((info_x > x ? info_x : x), info_y, d->groupInfo);
 
 		if(type_ == Group && option.clNewHeadings && !isSelected()) {
-			x += fm.width(d->groupInfo) + 8;
+			x += fontMetricsTextWidth(fm, d->groupInfo) + 8;
 			if(x < width - 8) {
 				int h = (height() / 2) - 1;
 				p->setPen(QPen(option.color[cGroupBack]));
