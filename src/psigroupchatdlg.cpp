@@ -29,7 +29,6 @@
 #include <QColorGroup>
 #include <QSplitter>
 #include <QTimer>
-#include <q3header.h>
 #include <QToolButton>
 #include <QInputDialog>
 #include <QPointer>
@@ -38,16 +37,20 @@
 #include <QMenu>
 #include <QCursor>
 #include <QCloseEvent>
+#include <QDragEnterEvent>
+#include <QDropEvent>
 #include <QEvent>
 #include <QKeyEvent>
+#include <QMimeData>
 #include <QResizeEvent>
+#include <QScrollBar>
 #include <QHBoxLayout>
 #include <QFrame>
 #include <QList>
+#include <QTextBlockFormat>
 #include <QVBoxLayout>
 #include <QContextMenuEvent>
 #include <QTextCursor>
-#include <QTextDocument> // for Qt::escape()
 
 #include "psicon.h"
 #include "psiaccount.h"
@@ -406,7 +409,7 @@ public:
 			return true;
 
 		if ( obj == mle() && ev->type() == QEvent::KeyPress ) {
-			QKeyEvent *e = (QKeyEvent *)ev;
+			auto *e = static_cast<QKeyEvent *>(ev);
 
 			if ( e->key() == Qt::Key_Tab ) {
 				switch ( typingStatus ) {
@@ -421,12 +424,12 @@ public:
 				}
 
 				doAutoNickInsertion();
-				return TRUE;
+				return true;
 			}
 
 			typingStatus = Typing_Normal;
 
-			return FALSE;
+			return false;
 		}
 
 		return QObject::eventFilter( obj, ev );
@@ -620,8 +623,13 @@ void PsiGroupchatDlg::doClear()
 
 void PsiGroupchatDlg::doClearButton()
 {
-	int n = QMessageBox::information(this, tr("Warning"), tr("Are you sure you want to clear the chat window?\n(note: does not affect saved history)"), tr("&Yes"), tr("&No"));
-	if(n == 0)
+	const QMessageBox::StandardButton button = QMessageBox::question(
+		this,
+		tr("Warning"),
+		tr("Are you sure you want to clear the chat window?\n(note: does not affect saved history)"),
+		QMessageBox::Yes | QMessageBox::No,
+		QMessageBox::No);
+	if (button == QMessageBox::Yes)
 		doClear();
 }
 
@@ -666,12 +674,20 @@ bool PsiGroupchatDlg::doConnect()
 
 void PsiGroupchatDlg::dragEnterEvent(QDragEnterEvent *e)
 {
-	e->accept(e->mimeData()->hasText());
+	if (e->mimeData()->hasText())
+		e->acceptProposedAction();
+	else
+		e->ignore();
 }
 
 void PsiGroupchatDlg::dropEvent(QDropEvent *e)
 {
-	Jid jid(e->mimeData()->text());
+	if (!e->mimeData()->hasText()) {
+		e->ignore();
+		return;
+	}
+
+	const Jid jid(e->mimeData()->text());
 	if (jid.isValid() && !ui_.lv_users->hasJid(jid)) {
 		Message m;
 		m.setTo(this->jid());
@@ -680,7 +696,11 @@ void PsiGroupchatDlg::dropEvent(QDropEvent *e)
 			m.setMUCPassword(password());
 		m.setTimeStamp(QDateTime::currentDateTime());
 		account()->dj_sendMessage(m);
+		e->acceptProposedAction();
+		return;
 	}
+
+	e->ignore();
 }
 
 void PsiGroupchatDlg::error(int, const QString &str)
@@ -992,7 +1012,7 @@ void PsiGroupchatDlg::appendSysMsg(const QString &str, bool alert, const QDateTi
 		time = ts;
 
 	QString timestr = ui_.log->formatTimeStamp(time);
-	ui_.log->appendText(QString("<font color=\"#00A000\">[%1]").arg(timestr) + QString(" *** %1</font>").arg(Qt::escape(str)));
+	ui_.log->appendText(QString("<font color=\"#00A000\">[%1]").arg(timestr) + QString(" *** %1</font>").arg(str.toHtmlEscaped()));
 
 	if(alert)
 		doAlert();
@@ -1069,17 +1089,17 @@ void PsiGroupchatDlg::appendMessage(const Message &m, bool alert)
 		txt = TextUtil::legacyFormat(txt);
 
 	if(emote) {
-		//ui_.log->append(QString("<font color=\"%1\">").arg(color) + QString("[%1]").arg(timestr) + QString(" *%1 ").arg(Qt::escape(who)) + txt + "</font>");
-		ui_.log->appendText(QString("<font color=\"%1\">").arg(nickcolor) + QString("[%1]").arg(timestr) + QString(" *%1 ").arg(Qt::escape(who)) + alerttagso + txt + alerttagsc + "</font>");
+		//ui_.log->append(QString("<font color=\"%1\">").arg(color) + QString("[%1]").arg(timestr) + QString(" *%1 ").arg(who.toHtmlEscaped()) + txt + "</font>");
+		ui_.log->appendText(QString("<font color=\"%1\">").arg(nickcolor) + QString("[%1]").arg(timestr) + QString(" *%1 ").arg(who.toHtmlEscaped()) + alerttagso + txt + alerttagsc + "</font>");
 	}
 	else {
 		if(option.chatSays) {
-			//ui_.log->append(QString("<font color=\"%1\">").arg(color) + QString("[%1] ").arg(timestr) + QString("%1 says:").arg(Qt::escape(who)) + "</font><br>" + txt);
-			ui_.log->appendText(QString("<font color=\"%1\">").arg(nickcolor) + QString("[%1] ").arg(timestr) + QString("%1 says:").arg(Qt::escape(who)) + "</font><br>" + QString("<font color=\"%1\">").arg(textcolor) + alerttagso + txt + alerttagsc + "</font>");
+			//ui_.log->append(QString("<font color=\"%1\">").arg(color) + QString("[%1] ").arg(timestr) + QString("%1 says:").arg(who.toHtmlEscaped()) + "</font><br>" + txt);
+			ui_.log->appendText(QString("<font color=\"%1\">").arg(nickcolor) + QString("[%1] ").arg(timestr) + QString("%1 says:").arg(who.toHtmlEscaped()) + "</font><br>" + QString("<font color=\"%1\">").arg(textcolor) + alerttagso + txt + alerttagsc + "</font>");
 		}
 		else {
-			//ui_.log->append(QString("<font color=\"%1\">").arg(color) + QString("[%1] &lt;").arg(timestr) + Qt::escape(who) + QString("&gt;</font> ") + txt);
-			ui_.log->appendText(QString("<font color=\"%1\">").arg(nickcolor) + QString("[%1] &lt;").arg(timestr) + Qt::escape(who) + QString("&gt;</font> ") + QString("<font color=\"%1\">").arg(textcolor) + alerttagso + txt + alerttagsc +"</font>");
+			//ui_.log->append(QString("<font color=\"%1\">").arg(color) + QString("[%1] &lt;").arg(timestr) + who.toHtmlEscaped() + QString("&gt;</font> ") + txt);
+			ui_.log->appendText(QString("<font color=\"%1\">").arg(nickcolor) + QString("[%1] &lt;").arg(timestr) + who.toHtmlEscaped() + QString("&gt;</font> ") + QString("<font color=\"%1\">").arg(textcolor) + alerttagso + txt + alerttagsc +"</font>");
 		}
 	}
 
@@ -1282,8 +1302,8 @@ void PsiGroupchatDlg::configDlgUpdateSelfAffiliation()
 //----------------------------------------------------------------------------
 // GCFindDlg
 //----------------------------------------------------------------------------
-GCFindDlg::GCFindDlg(const QString &str, QWidget *parent, const char *name)
-	: QDialog(parent, name, false)
+GCFindDlg::GCFindDlg(const QString &str, QWidget *parent)
+	: QDialog(parent)
 {
 	setAttribute(Qt::WA_DeleteOnClose);
 	setWindowTitle(tr("Find"));

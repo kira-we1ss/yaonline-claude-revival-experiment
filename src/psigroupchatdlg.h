@@ -105,7 +105,7 @@ class GCFindDlg : public QDialog
 {
 	Q_OBJECT
 public:
-	GCFindDlg(const QString &, QWidget *parent=0, const char *name=0);
+	explicit GCFindDlg(const QString &, QWidget *parent = nullptr);
 	~GCFindDlg();
 
 	void found();
