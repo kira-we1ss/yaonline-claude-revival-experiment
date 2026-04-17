@@ -69,9 +69,10 @@ private slots:
 
 	void retrieveHistoryFinished();
 
-protected:
+public:
 	void appendMessage(PsiAccount* account, const XMPP::Jid& jid, const YaHistoryCacheManager::Message& message);
 
+protected:
 	QString getHashKey(PsiAccount* account, const XMPP::Jid& jid) const;
 	QString fileName() const;
 

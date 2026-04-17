@@ -6551,6 +6551,7 @@ void PsiAccount::logEvent(const Jid &j, PsiEvent *e)
 			msg.isMood = true;
 		}
 		msg.originLocal = e->originLocal();
+		psi()->yaHistoryCacheManager()->appendMessage(this, j, msg);
 	}
 #endif
 }
