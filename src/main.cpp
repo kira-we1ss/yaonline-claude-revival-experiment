@@ -356,6 +356,20 @@ int main(int argc, char *argv[])
 	// we're storing translations in psi.qrc
 	Q_INIT_RESOURCE(psi);
 
+	// Restrict QCA plugin search to the bundled crypto dir ONLY.
+	// Without this, QCA uses its compiled-in install prefix (/tmp/qca-install/...)
+	// which causes a second QCA::Global instance to load (from /tmp plugins that
+	// reference the /tmp QCA framework), resulting in a SIGSEGV in QMutex::lock()
+	// inside QCA::KeyStoreThread when the uninitialized /tmp QCA::Global is accessed.
+	// QCA_PLUGIN_PATH overrides the compiled-in path; argv[0] is always the real
+	// executable path (Contents/MacOS/yachat), so we can compute crypto/ from it.
+	{
+		QByteArray exePath(argv[0]);
+		int slash = exePath.lastIndexOf('/');
+		if (slash >= 0)
+			qputenv("QCA_PLUGIN_PATH", exePath.left(slash + 1) + "crypto");
+	}
+
 	// it must be initialized first in order for ApplicationInfo::resourcesDir() to work
 	QCA::Initializer init;
 	PsiApplication app(argc, argv);
