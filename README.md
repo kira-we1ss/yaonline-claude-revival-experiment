@@ -127,6 +127,15 @@ open src/yachat.app
 | 7 | **Заменить** PLAIN-без-TLS → блок | 🔲 | Отказывать в PLAIN без установленного TLS; PLAIN поверх TLS допустим |
 | 8 | Тест на Prosody 0.12+ | 🔲 | Подключение, аутентификация SCRAM-SHA-256, обмен сообщениями без fallback на legacy |
 
+### Слой 6 — Исправления UI-рендеринга 🔄 *в процессе*
+
+| Баг | Статус | Описание |
+|-----|--------|----------|
+| A: Чёрный текст на чёрном фоне в чате | ✅ | `YaChatView` viewport + `QTextControl` palette: `Base=white`, `Window=white` |
+| B: Чёрный прямоугольник в окне контактов | ✅ | Два `QStackedWidget(parent=0)` в `YaRosterTab` — `setAutoFillBackground(true)` + белая палитра |
+| C: `#include <QColorGroup>` (убрано в Qt5) | ✅ | Удалён из `psigroupchatdlg.cpp` |
+| D: `QStyleOptionViewItemV2/V4` deprecated | ✅ | 18 замен в 6 файлах → `QStyleOptionViewItem` |
+
 ### Слой 5 — Новые XMPP XEP 🔲 *не начат*
 
 | Задача | Статус | Описание |
