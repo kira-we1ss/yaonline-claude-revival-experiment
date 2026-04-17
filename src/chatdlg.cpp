@@ -637,7 +637,14 @@ bool ChatDlg::doSend()
 
 	Message m(jid());
 	m.setType("chat");
-	m.setBody(chatEdit()->toPlainText());
+	QString inputText = chatEdit()->toPlainText();
+	// XEP-0308: '~' prefix triggers a correction of the last sent message
+	if (inputText.startsWith("~") && !lastSentMsgId_.isEmpty()) {
+		m.setBody(inputText.mid(1).trimmed());
+		m.setReplaceId(lastSentMsgId_);
+	} else {
+		m.setBody(inputText);
+	}
 	sendMessage(m, true);
 	return true;
 }
@@ -704,6 +711,15 @@ void ChatDlg::doSendMessage(const XMPP::Message& m)
 
 void ChatDlg::doneSend(const XMPP::Message& m)
 {
+	// XEP-0308: track the id of the last message we sent for potential correction
+	if (!m.replaceId().isEmpty()) {
+		// This was itself a correction — update lastSentMsgId_ to the new message id
+		// so the user can correct this correction if needed
+		lastSentMsgId_ = m.id();
+	} else if (!m.body().isEmpty()) {
+		lastSentMsgId_ = m.id();
+	}
+
 	appendMessage(m, true);
 	disconnect(chatEdit(), SIGNAL(textChanged()), this, SLOT(setComposing()));
 	if (lastMessageUserAction_) {
@@ -776,7 +792,14 @@ void ChatDlg::incomingMessage(const Message &m)
 			lastReceivedMsgId_ = m.id();
 		}
 
-		appendMessage(m);
+		// XEP-0308: if this is a correction, append a notice
+		if (!m.replaceId().isEmpty()) {
+			Message corrected = m;
+			corrected.setBody(m.body() + tr(" *(edited)*"));
+			appendMessage(corrected);
+		} else {
+			appendMessage(m);
+		}
 	}
 }
 
