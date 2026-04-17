@@ -843,6 +843,7 @@ bool PsiCon::init(bool autoStart)
 #endif
 	registerCaps("ping", QStringList("urn:xmpp:ping"));
 	registerCaps("csi", QStringList("urn:xmpp:csi:0"));
+	registerCaps("carbons", QStringList("urn:xmpp:carbons:2"));
 
 	// load accounts
 	d->contactList->loadAccounts(d->pro.acc);

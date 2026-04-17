@@ -935,6 +935,10 @@ public:
 
 	bool spooled, wasEncrypted;
 
+	// XEP-0280 Message Carbons
+	bool isCarbon_;
+	bool isCarbonSent_; // true = sent copy, false = received copy
+
 	QHash<QString, QDomElement> unknownExtensions;
 };
 
@@ -958,6 +962,8 @@ Message::Message(const Jid &to)
 	d->mucStatus = -1;
 	d->messageReceipt = ReceiptNone;
 	d->messageReceiptId = QString();
+	d->isCarbon_ = false;
+	d->isCarbonSent_ = false;
 #ifdef YAPSI
 	d->spamFlag = 0;
 	d->yaFlags = 0;
@@ -1428,6 +1434,11 @@ void Message::setWasEncrypted(bool b)
 {
 	d->wasEncrypted = b;
 }
+
+// XEP-0280 Message Carbons accessors
+bool Message::isCarbon() const { return d->isCarbon_; }
+bool Message::isCarbonSent() const { return d->isCarbonSent_; }
+void Message::setCarbon(bool isSent) { d->isCarbon_ = true; d->isCarbonSent_ = isSent; }
 
 #ifdef YAPSI
 const YaLastMail& XMPP::Message::lastMailNotify() const
@@ -2050,6 +2061,56 @@ bool Message::fromStanza(const Stanza &s, int timeZoneOffset)
 			if (i.namespaceURI() != s.baseNS()) {
 				// qWarning("unknownExtensions: '%s', '%s'", qPrintable(i.tagName()), qPrintable(i.namespaceURI()));
 				d->unknownExtensions[i.namespaceURI()] = i;
+			}
+		}
+	}
+
+	// XEP-0280 Message Carbons
+	// Check for <sent> or <received> wrapper under urn:xmpp:carbons:2
+	{
+		const QString carbonsNS = "urn:xmpp:carbons:2";
+		const QString forwardNS = "urn:xmpp:forward:0";
+
+		QDomElement carbonEl = root.elementsByTagNameNS(carbonsNS, "sent").item(0).toElement();
+		bool isSent = true;
+		if (carbonEl.isNull()) {
+			carbonEl = root.elementsByTagNameNS(carbonsNS, "received").item(0).toElement();
+			isSent = false;
+		}
+
+		if (!carbonEl.isNull()) {
+			// Find the <forwarded> element
+			QDomElement forwarded = carbonEl.elementsByTagNameNS(forwardNS, "forwarded").item(0).toElement();
+			if (!forwarded.isNull()) {
+				// Extract the inner <message> from the forwarded stanza
+				QDomElement innerMsg = forwarded.elementsByTagName("message").item(0).toElement();
+				if (!innerMsg.isNull()) {
+					d->isCarbon_ = true;
+					d->isCarbonSent_ = isSent;
+
+					// Extract body from inner message
+					QDomElement bodyEl = innerMsg.firstChildElement("body");
+					if (!bodyEl.isNull())
+						d->body[""] = bodyEl.text();
+
+					// Extract from/to from inner message attributes
+					if (!innerMsg.attribute("from").isEmpty())
+						d->from = Jid(innerMsg.attribute("from"));
+					if (!innerMsg.attribute("to").isEmpty())
+						d->to = Jid(innerMsg.attribute("to"));
+
+					// Extract id from inner message
+					if (!innerMsg.attribute("id").isEmpty())
+						d->id = innerMsg.attribute("id");
+
+					// Extract timestamp from <delay xmlns='urn:xmpp:delay'>
+					QDomElement delay = forwarded.elementsByTagNameNS("urn:xmpp:delay", "delay").item(0).toElement();
+					if (!delay.isNull()) {
+						QString stamp = delay.attribute("stamp");
+						if (!stamp.isEmpty())
+							d->timeStamp = QDateTime::fromString(stamp, Qt::ISODate);
+					}
+				}
 			}
 		}
 	}

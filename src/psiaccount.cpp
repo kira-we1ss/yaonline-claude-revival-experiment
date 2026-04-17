@@ -1495,6 +1495,9 @@ PsiAccount::PsiAccount(const UserAccount &acc, PsiContactList *parent, CapsRegis
 	// XEP-0352: Client State Indication — already wired up in constructor
 	d->client->addExtension("csi", Features("urn:xmpp:csi:0"));
 
+	// XEP-0280: Message Carbons — advertise support
+	d->client->addExtension("carbons", Features("urn:xmpp:carbons:2"));
+
 	d->selfContact = new PsiSelfContact(d->self, this);
 
 	// restore cached roster
@@ -2552,6 +2555,19 @@ void PsiAccount::sessionStarted()
 
 	// ask for roster
 	d->client->rosterRequest();
+
+	// XEP-0280: enable message carbons so the server echoes copies of
+	// messages sent/received by other resources to this resource.
+	{
+		QDomDocument doc;
+		QDomElement iq = doc.createElement("iq");
+		iq.setAttribute("type", "set");
+		iq.setAttribute("id", "carbons-enable-1");
+		QDomElement enable = doc.createElementNS("urn:xmpp:carbons:2", "enable");
+		iq.appendChild(enable);
+		doc.appendChild(iq);
+		d->client->send(doc.documentElement());
+	}
 }
 
 void PsiAccount::cs_connectionClosed()
@@ -3675,7 +3691,12 @@ void PsiAccount::processIncomingMessage(const Message &_m)
 	//	m.setType("");
 
 	MessageEvent *me = new MessageEvent(m, this);
-	me->setOriginLocal(false);
+	// XEP-0280: carbon copy of a message WE sent from another resource —
+	// mark as local-origin so no popup/sound alert is fired for our own words.
+	if (m.isCarbon() && m.isCarbonSent())
+		me->setOriginLocal(true);
+	else
+		me->setOriginLocal(false);
 	handleEvent(me, IncomingStanza);
 }
 
