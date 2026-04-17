@@ -805,9 +805,19 @@ public:
     // uniqueness for a session-lifetime cache, and leaks nothing
     // sensitive if it ages out. We cap to kMucEchoCacheMax entries
     // (LIFO evict) so the hash can't grow unbounded in a busy room.
+    //
+    // PERSISTED: saved to muc_echo.json in dataDir on every write and
+    // reloaded on OmemoManager init so that after a restart the MUC
+    // room history replay (which arrives as [This message is OMEMO
+    // encrypted] ciphertext with our iv) can still be resolved to
+    // plaintext. Without persistence every restart turns your own MUC
+    // messages into opaque placeholders forever.
     QHash<QByteArray, QString> mucEchoPlaintext;
     QList<QByteArray> mucEchoIvOrder; // insertion order for LIFO eviction
-    static constexpr int kMucEchoCacheMax = 256;
+    static constexpr int kMucEchoCacheMax = 2048; // ~a few months of chat
+
+    void saveMucEchoCache();
+    void loadMucEchoCache();
 
     QString dataDir;
 
@@ -844,6 +854,12 @@ bool OmemoManager::Private::initialize()
 
     // Try to load existing store
     bool loaded = store.load();
+
+    // MUC own-echo plaintext cache — persists across restarts so that when
+    // the MUC room replays history on re-join, we can resolve our own
+    // ciphertext echoes back to their original plaintext (libsignal can't
+    // decrypt them since self-sessions aren't allowed).
+    loadMucEchoCache();
 
     // Set up signal context
     signal_context_create(&signalCtx, this);
@@ -891,6 +907,54 @@ bool OmemoManager::Private::initialize()
     initialized = true;
     qDebug() << "[OMEMO] Initialized. Device ID:" << store.localDeviceId;
     return true;
+}
+
+void OmemoManager::Private::saveMucEchoCache()
+{
+    if (dataDir.isEmpty()) return;
+
+    QJsonArray arr;
+    // Persist in insertion order so a future LIFO-evict replay is stable.
+    for (const QByteArray& iv : mucEchoIvOrder) {
+        auto it = mucEchoPlaintext.constFind(iv);
+        if (it == mucEchoPlaintext.constEnd()) continue;
+        QJsonObject o;
+        o[QLatin1String("iv")]   = QString::fromLatin1(iv.toBase64());
+        o[QLatin1String("body")] = it.value();
+        arr.append(o);
+    }
+
+    QFile f(dataDir + QLatin1String("/muc_echo.json"));
+    if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        f.write(QJsonDocument(arr).toJson(QJsonDocument::Compact));
+}
+
+void OmemoManager::Private::loadMucEchoCache()
+{
+    if (dataDir.isEmpty()) return;
+
+    QFile f(dataDir + QLatin1String("/muc_echo.json"));
+    if (!f.open(QIODevice::ReadOnly))
+        return;
+
+    QJsonParseError err;
+    QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &err);
+    if (err.error != QJsonParseError::NoError || !doc.isArray())
+        return;
+
+    mucEchoPlaintext.clear();
+    mucEchoIvOrder.clear();
+    for (const QJsonValue& v : doc.array()) {
+        QJsonObject o = v.toObject();
+        QByteArray iv = QByteArray::fromBase64(
+            o.value(QLatin1String("iv")).toString().toLatin1());
+        QString body = o.value(QLatin1String("body")).toString();
+        if (iv.isEmpty()) continue;
+        mucEchoPlaintext.insert(iv, body);
+        mucEchoIvOrder.append(iv);
+    }
+    qDebug() << "[OMEMO] Loaded" << mucEchoPlaintext.size()
+             << "MUC echo plaintext entries from disk";
 }
 
 bool OmemoManager::Private::generateKeysIfNeeded()
@@ -2066,13 +2130,15 @@ void OmemoManager::encryptForMuc(const XMPP::Jid& roomJid, const QString& body,
     // Stash plaintext so the MUC echo (which we cannot Signal-decrypt because
     // libsignal refuses self-sessions) can be displayed as plaintext when it
     // arrives back from the server. Keyed by iv (12B random per send), LIFO
-    // evict past kMucEchoCacheMax to keep the hash bounded.
+    // evict past kMucEchoCacheMax to keep the hash bounded. Persisted to
+    // muc_echo.json so history replay after restart also resolves.
     d->mucEchoPlaintext.insert(iv, body);
     d->mucEchoIvOrder.append(iv);
     while (d->mucEchoIvOrder.size() > Private::kMucEchoCacheMax) {
         QByteArray old = d->mucEchoIvOrder.takeFirst();
         d->mucEchoPlaintext.remove(old);
     }
+    d->saveMucEchoCache();
 
     emit encryptDone(roomJid, encrypted, body, true);
 }
@@ -2100,10 +2166,14 @@ void OmemoManager::decrypt(const XMPP::Jid& from, const QDomElement& encryptedEl
     // This is how our own MUC OMEMO messages render as plaintext in the
     // room history we see. See Private::mucEchoPlaintext for the producer
     // side in encryptForMuc().
+    //
+    // IMPORTANT: we do NOT evict the cache entry on lookup. The MUC server
+    // replays room history on every re-join (after restart, reconnect, or
+    // window re-open), so the same iv may legitimately be decrypted many
+    // times over the client's lifetime. Eviction only happens by LIFO when
+    // the cache grows past kMucEchoCacheMax.
     if (from.bare() == d->accountId && d->mucEchoPlaintext.contains(payload.iv)) {
         QString body = d->mucEchoPlaintext.value(payload.iv);
-        d->mucEchoPlaintext.remove(payload.iv);
-        d->mucEchoIvOrder.removeAll(payload.iv);
         qDebug() << "[OMEMO] Own MUC echo — serving cached plaintext ("
                  << body.size() << "chars)";
         emit decryptDone(from, body, payload.sid, true);
