@@ -199,15 +199,20 @@ bool DeliveryConfirmationManager::processIncomingMessage(const XMPP::Message& m)
 		if (contact && contact->authorized()) {
 			// FIXME: must be careful sending these when we're invisible
 			Message tm(m.from());
-			tm.setId(m.id());
+			// Put the original message id inside <received id='...'> per XEP-0184 §3.2
+			// Don't reuse m.id() as the reply stanza id — let it be auto-generated or empty
+			tm.setMessageReceiptId(m.id()); // id of the message being receipted
 			tm.setMessageReceipt(XMPP::ReceiptReceived);
 			account_->dj_sendMessage(tm, false);
 		}
 	}
 	else if (m.messageReceipt() == XMPP::ReceiptReceived) {
-		emit deliveryConfirmationUpdated(m.id(), YaChatViewModel::DeliveryConfirmation_Verified);
-		if (confirmations_.contains(m.id()))
-			confirmations_.remove(m.id());
+		// Use the id from inside <received id='...'> (XEP-0184 §3.2).
+		// Fall back to stanza id for backward compat with our own pre-fix messages.
+		QString receiptId = m.messageReceiptId().isEmpty() ? m.id() : m.messageReceiptId();
+		emit deliveryConfirmationUpdated(receiptId, YaChatViewModel::DeliveryConfirmation_Verified);
+		if (confirmations_.contains(receiptId))
+			confirmations_.remove(receiptId);
 	}
 
 	updateTimer();

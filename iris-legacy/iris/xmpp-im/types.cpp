@@ -913,6 +913,7 @@ public:
 	QString xencrypted, invite;
 	ChatState chatState;
 	MessageReceipt messageReceipt;
+	QString messageReceiptId; // XEP-0184: id of the message being receipted
 	QString nick;
 	HttpAuthRequest httpAuthRequest;
 	XData xdata;
@@ -956,6 +957,7 @@ Message::Message(const Jid &to)
 	d->chatState = StateNone;
 	d->mucStatus = -1;
 	d->messageReceipt = ReceiptNone;
+	d->messageReceiptId = QString();
 #ifdef YAPSI
 	d->spamFlag = 0;
 	d->yaFlags = 0;
@@ -1299,6 +1301,9 @@ void Message::setMessageReceipt(MessageReceipt messageReceipt)
 	d->messageReceipt = messageReceipt;
 }
 
+QString Message::messageReceiptId() const { return d->messageReceiptId; }
+void Message::setMessageReceiptId(const QString& id) { d->messageReceiptId = id; }
+
 QString Message::xencrypted() const
 {
 	return d->xencrypted;
@@ -1604,9 +1609,13 @@ Stanza Message::toStanza(Stream *stream) const
 			case ReceiptRequest:
 				s.appendChild(s.createElement(messageReceiptNS, "request"));
 				break;
-			case ReceiptReceived:
-				s.appendChild(s.createElement(messageReceiptNS, "received"));
+			case ReceiptReceived: {
+				QDomElement e = s.createElement(messageReceiptNS, "received");
+				if (!d->messageReceiptId.isEmpty())
+					e.setAttribute("id", d->messageReceiptId);
+				s.appendChild(e);
 				break;
+			}
 			default: 
 				break;
 		}
@@ -1888,8 +1897,10 @@ bool Message::fromStanza(const Stanza &s, int timeZoneOffset)
 		d->messageReceipt = ReceiptRequest;
 	XMLHelper::removeNodes(root, t);
 	t = root.elementsByTagNameNS(messageReceiptNS, "received").item(0).toElement();
-	if(!t.isNull())
+	if(!t.isNull()) {
 		d->messageReceipt = ReceiptReceived;
+		d->messageReceiptId = t.attribute("id"); // XEP-0184: the id of the receipted message
+	}
 	XMLHelper::removeNodes(root, t);
 
 	// xencrypted
