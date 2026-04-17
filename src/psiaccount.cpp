@@ -2090,7 +2090,17 @@ void PsiAccount::login()
 void PsiAccount::checkLoginPrerequisites()
 {
 	QString domain = d->nextJid.domain();
-	if (!isYaAccount() && !psi()->contactList()->yaPddManager()->knownDomain(domain)) {
+	// Non-Yandex domains don't need PDD resolution — connect directly via SRV/host.
+	// The PDD manager is Yandex-internal infrastructure and not relevant for
+	// generic XMPP servers; skipping it avoids the infinite reconnect loop.
+	if (!isYaAccount()) {
+		PsiLogger::instance()->log(QString("%1 PsiAccount(%2)::checkLoginPrerequisites(): non-Ya domain '%3', skipping PDD lookup").arg(LOG_THIS)
+		                           .arg(name())
+		                           .arg(domain));
+		continueLogin();
+		return;
+	}
+	if (!psi()->contactList()->yaPddManager()->knownDomain(domain)) {
 		PsiLogger::instance()->log(QString("%1 PsiAccount(%2)::login(); requesting pdd status for '%3'").arg(LOG_THIS)
 		                           .arg(name())
 		                           .arg(domain));
@@ -2125,22 +2135,21 @@ void PsiAccount::continueLogin()
 		// everything should already be set up in setUserAccount
 	}
 	else {
+		// Non-Yandex account: skip PDD lookup entirely.
+		// PDD (Partner Domain) is Yandex-internal infrastructure.
+		// Generic XMPP servers connect via SRV or opt_host directly.
 		QString domain = d->nextJid.domain();
-		if (!psi()->contactList()->yaPddManager()->knownDomain(domain)) {
-			PsiLogger::instance()->log(QString("%1 PsiAccount(%2)::continueLogin(): unknown domain %3").arg(LOG_THIS)
-			                           .arg(name())
-			                           .arg(domain));
-			cs_error(RECONNECT_TIMEOUT_ERROR);
-			return;
+		if (psi()->contactList()->yaPddManager()->knownDomain(domain)) {
+			// Domain happened to be cached (e.g. a previously-tried PDD domain) — use it.
+			YaPddManager::DomainData data = psi()->contactList()->yaPddManager()->domainData(domain);
+			d->isYaPddAccount = data.state == YaPddManager::State_PddThirdParty;
+			if (data.state != YaPddManager::State_Unknown) {
+				d->acc.opt_host = true;
+				d->acc.host = data.connectToHost;
+				d->acc.port = data.connectToPort;
+			}
 		}
-
-		YaPddManager::DomainData data = psi()->contactList()->yaPddManager()->domainData(domain);
-		d->isYaPddAccount = data.state == YaPddManager::State_PddThirdParty;
-		if (data.state != YaPddManager::State_Unknown) {
-			d->acc.opt_host = true;
-			d->acc.host = data.connectToHost;
-			d->acc.port = data.connectToPort;
-		}
+		// else: unknown domain — proceed without PDD override; standard SRV/host applies.
 
 #ifdef YAPSI_ACTIVEX_SERVER
 		if (isOnlineAccount() && !d->isYaPddAccount) {

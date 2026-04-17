@@ -266,7 +266,8 @@ public:
 			capable = true;
 		allow_plain = flags & QCA::SASL::AllowPlain;
 #ifdef YAPSI
-		allow_xFacebookPlatform = flags & QCA::SASL::AllowXFacebookPlatform;
+		// AllowXFacebookPlatform removed in QCA 2.3.x; Facebook XMPP dead since 2015.
+		allow_xFacebookPlatform = false;
 #endif
 	}
 	

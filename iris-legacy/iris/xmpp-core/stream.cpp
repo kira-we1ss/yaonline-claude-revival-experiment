@@ -1133,8 +1133,10 @@ bool ClientStream::handleNeed()
 			if (d->mutualAuth)
 				auth_flags = (QCA::SASL::AuthFlags) (auth_flags | QCA::SASL::RequireMutualAuth);
 #ifdef YAPSI
-			if (d->allowXFacebookPlatform)
-				auth_flags = (QCA::SASL::AuthFlags) (auth_flags | QCA::SASL::AllowXFacebookPlatform);
+			// AllowXFacebookPlatform was a Yandex/Facebook extension removed in QCA 2.3.x.
+			// Facebook XMPP was shut down in 2015 — this flag is a no-op now.
+			// if (d->allowXFacebookPlatform)
+			//     auth_flags = (QCA::SASL::AuthFlags) (auth_flags | QCA::SASL::AllowXFacebookPlatform);
 #endif
 			d->sasl->setConstraints(auth_flags,d->minimumSSF,d->maximumSSF);
 
