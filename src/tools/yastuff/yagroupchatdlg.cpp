@@ -210,40 +210,47 @@ void YaGroupchatDlg::presence(const QString& nick, const Status& s)
 	}
 
 	// XEP-0384 OMEMO MUC: maintain nick → real JID map from MUC presence
-	// <x xmlns='muc#user'><item jid='real@server'/> is exposed via mucItem().jid()
-	qDebug() << "[OMEMO-MUC-presence] room=" << jid().bare()
-	         << "nick=" << nick
-	         << "mucItem.jid=" << s.mucItem().jid().full()
-	         << "hasMUCItem=" << s.hasMUCItem()
-	         << "available=" << s.isAvailable()
-	         << "role=" << (int)s.mucItem().role()
-	         << "aff=" << (int)s.mucItem().affiliation();
+	// <x xmlns='muc#user'><item jid='real@server'/> is exposed via mucItem().jid().
+	//
+	// IMPORTANT: We keep every (nick, realJid) pair we've EVER learned for
+	// this room, including after the occupant leaves (presence unavailable).
+	// That way OMEMO encryption to a peer who's currently offline still
+	// addresses their devices — PEP devicelists persist server-side even
+	// while a peer is offline, and the OMEMO ciphertext will be delivered
+	// to them when they reconnect (via mod_offline / MAM). Removing a
+	// peer from the map on 'available=false' was causing us to stop
+	// including their <key rid=> in outgoing MUC messages, so when they
+	// came back they saw only the fallback body for anything sent during
+	// their absence. The map is bounded by the finite number of real
+	// users who have ever been in the room, so memory is not a concern.
 	if (!nick.isEmpty() && !s.mucItem().jid().isEmpty()) {
 		const XMPP::Jid newReal = s.mucItem().jid().withResource(QString());
 		const bool fresh = !nickToRealJid_.contains(nick) ||
 		                   nickToRealJid_[nick].bare() != newReal.bare();
 		nickToRealJid_[nick] = newReal;
-		qDebug() << "[OMEMO-MUC-presence] Stored map:" << nick << "->" << newReal.bare()
-		         << "(fresh=" << fresh << ", mapSize=" << nickToRealJid_.size() << ")";
 
-		// When a new occupant's real JID becomes known for the first time
-		// (or changes), pre-fetch their OMEMO bundle so we can encrypt to
-		// them on the next send. Without this, encryptForMuc would skip
-		// them for lack of a session and our peers see the fallback body
-		// '[This message is OMEMO encrypted]'. Only fires if OMEMO is on
-		// for this room — otherwise we don't want to burn PEP IQs on
-		// non-OMEMO rooms. ensureMucSessions is idempotent and dedups.
-		if (fresh && account()) {
-			OmemoManager* om = account()->omemoManager();
-			if (om && om->isEnabled(jid()))
-				om->ensureMucSessions(jid(), nickToRealJid_);
+		if (fresh) {
+			qDebug() << "[OMEMO-MUC] Learned real JID in room"
+			         << jid().bare() << ":" << nick << "->" << newReal.bare()
+			         << "(known occupants:" << nickToRealJid_.size() << ")";
+			// When a new occupant's real JID becomes known for the first
+			// time (or changes), pre-fetch their OMEMO bundle so we can
+			// encrypt to them on the next send. Only fires if OMEMO is on
+			// for this room — otherwise we don't want to burn PEP IQs on
+			// non-OMEMO rooms. ensureMucSessions is idempotent.
+			if (account()) {
+				OmemoManager* om = account()->omemoManager();
+				if (om && om->isEnabled(jid()))
+					om->ensureMucSessions(jid(), nickToRealJid_);
+			}
 		}
-	} else if (!nick.isEmpty() && !s.hasMUCItem()) {
-		qDebug() << "[OMEMO-MUC-presence] No MUCItem — presence lacks muc#user wrapper";
-	} else if (!nick.isEmpty() && s.mucItem().jid().isEmpty()) {
-		qDebug() << "[OMEMO-MUC-presence] MUCItem has empty jid — room is semi-anonymous "
-		         << "for our role, cannot map nick to real JID. OMEMO inbound will fail.";
 	}
+	// NOTE: if s.mucItem().jid() is empty the presence either lacks muc#user
+	// (server sent an unwrapped presence — unusual) or the room is semi-
+	// anonymous for our role (only moderators see real JIDs). In either case
+	// there's nothing we can learn from this presence; silent skip. We also
+	// deliberately don't remove the nick from the map on 'unavailable' —
+	// see the comment block above.
 
 	if ((nick.isEmpty()) && (s.getMUCStatuses().contains(100))) {
 		setNonAnonymous(true);

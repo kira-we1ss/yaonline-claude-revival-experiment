@@ -3569,10 +3569,13 @@ void PsiAccount::client_messageReceived(const Message &m)
 	// XEP-0384 OMEMO encrypted message?
 	{
 		QDomElement omemoEl = _m.getExtension(QString::fromLatin1(XmppOmemo::NS));
-		qDebug() << "[OMEMO] client_messageReceived: from=" << _m.from().full()
-		         << "type=" << _m.type()
-		         << "hasOmemoExt=" << !omemoEl.isNull()
-		         << "body[:40]=" << _m.body().left(40);
+		// Only log if the message is actually OMEMO-bearing; empty chat-state
+		// notifications and receipts flood the log otherwise.
+		if (!omemoEl.isNull()) {
+			qDebug() << "[OMEMO] client_messageReceived: from=" << _m.from().full()
+			         << "type=" << _m.type()
+			         << "body[:40]=" << _m.body().left(40);
+		}
 		if (!omemoEl.isNull() && d->omemoManager) {
 			// For MUC messages the 'from' is room@conference/nick.
 			// Signal sessions are keyed by the sender's real bare JID.

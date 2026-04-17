@@ -2238,24 +2238,16 @@ void OmemoManager::ensureMucSessions(const XMPP::Jid& roomJid,
         return;
     }
 
-    // Throttle: don't re-fetch the same contact more than once per 30s.
-    // Prevents storm of PEP IQs when presence bursts happen (e.g. MUC
-    // room join where 50 presences arrive in a second).
-    const qint64 now = QDateTime::currentMSecsSinceEpoch();
-    static constexpr qint64 kFetchThrottleMs = 30000;
-
-    int fetchedCount = 0;
-    int skippedThrottle = 0;
+    int fetchCount = 0;
     int skippedComplete = 0;
-    int skippedPartial = 0;
+    int partialRefetch = 0;
     for (const QString& bareJid : qAsConst(toFetch)) {
         const QList<uint32_t> devices = d->deviceLists.value(bareJid);
 
         // Decide whether this peer is "fully covered": we must have a
         // session for EVERY advertised device id, not just one. Having
-        // just one is what caused the MUC inbound/outbound partial-
-        // coverage bug where multi-device peers (Conversations on
-        // phone + PC) only had one half addressed.
+        // just one is what caused the multi-device partial-coverage bug
+        // (peers on phone + PC only had one half addressed).
         bool fullyCovered = !devices.isEmpty();
         int sessionMisses = 0;
         for (uint32_t devId : devices) {
@@ -2272,37 +2264,28 @@ void OmemoManager::ensureMucSessions(const XMPP::Jid& roomJid,
 
         if (fullyCovered) {
             ++skippedComplete;
-            continue; // already good
-        }
-
-        // Throttle: have we fetched for this peer very recently? Sessions
-        // may simply still be in-flight from a moment ago.
-        const qint64 last = d->lastFetchMs.value(bareJid, 0);
-        if (now - last < kFetchThrottleMs) {
-            ++skippedThrottle;
             continue;
         }
-        d->lastFetchMs[bareJid] = now;
 
-        // Counters for logging: "partial" = we have SOME sessions for
-        // this peer but not all (multi-device user with new device).
         if (!devices.isEmpty() && sessionMisses < devices.size())
-            ++skippedPartial;
+            ++partialRefetch;
 
-        // Async — this issues a PEP devicelist+bundle fetch, builds
-        // sessions for every new device when replies arrive.
-        // fetchContactBundles will merge the returned devicelist into
-        // d->deviceLists so future sends see the full device set.
+        // Delegate throttling to fetchContactBundles itself (it has the
+        // same 30s per-peer window + per-(jid:devId) bundle backoff). We
+        // call it unconditionally — if the fetch is truly throttled the
+        // callee emits sessionsEstablished(true) immediately and we lose
+        // nothing. The previous design pre-recorded lastFetchMs here
+        // which caused fetchContactBundles to then see "0 ms ago" and
+        // short-circuit — a net regression where no PEP IQ ever flew.
         fetchContactBundles(XMPP::Jid(bareJid));
-        ++fetchedCount;
+        ++fetchCount;
     }
 
     qDebug() << "[OMEMO] ensureMucSessions for" << roomJid.bare()
-             << "— participants:" << toFetch.size()
+             << "— known peers:" << toFetch.size()
              << "(fully-covered:" << skippedComplete
-             << ", partial-refetch:" << skippedPartial
-             << ", throttled:" << skippedThrottle
-             << ", fetching:" << fetchedCount << ")";
+             << ", partial:" << partialRefetch
+             << ", refreshing:" << fetchCount << ")";
 }
 
 void OmemoManager::encryptForMuc(const XMPP::Jid& roomJid, const QString& body,
