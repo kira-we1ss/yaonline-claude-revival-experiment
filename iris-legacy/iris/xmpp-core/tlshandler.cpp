@@ -118,7 +118,10 @@ void QCATLSHandler::startClient(const QString &host)
 	d->state = 0;
 	d->err = -1;
 	if (d->internalHostMatch) d->host = host;
-	d->tls->startClient(d->internalHostMatch ? QString() : host);
+	// Always pass the hostname for SNI, even when doing our own cert check.
+	// Passing an empty host disables SNI which breaks TLS with modern servers
+	// (Let's Encrypt, etc.) that rely on SNI to present the correct certificate.
+	d->tls->startClient(host);
 }
 
 void QCATLSHandler::write(const QByteArray &a)

@@ -500,6 +500,8 @@ void SecureStream::startTLSClient(XMPP::TLSHandler *t, const QString &server, co
 
 void SecureStream::closeTLS()
 {
+	if(d->layers.isEmpty())
+		return;
 	SecureLayer *s = d->layers.last();
 	if(s) {
 		if(s->type == SecureLayer::TLS)
@@ -539,9 +541,18 @@ int SecureStream::bytesToWrite() const
 
 void SecureStream::bs_readyRead()
 {
+	// Guard: if the stream is no longer active (e.g. error/close already cleared
+	// the layers list), discard the data to avoid UB from first() on empty QList.
+	if(!d->active)
+		return;
+
 	QByteArray a = d->bs->read();
 
 	// send to the first layer
+	if(d->layers.isEmpty()) {
+		incomingData(a);
+		return;
+	}
 	SecureLayer *s = d->layers.first();
 	if(s) {
 		s->writeIncoming(a);
@@ -571,6 +582,7 @@ void SecureStream::layer_tlsHandshaken()
 void SecureStream::layer_tlsClosed(const QByteArray &)
 {
 	d->active = false;
+	qDeleteAll(d->layers);
 	d->layers.clear();
 	tlsClosed();
 }
@@ -620,6 +632,10 @@ void SecureStream::layer_error(int x)
 void SecureStream::insertData(const QByteArray &a)
 {
 	if(!a.isEmpty()) {
+		if(d->layers.isEmpty()) {
+			incomingData(a);
+			return;
+		}
 		SecureLayer *s = d->layers.last();
 		if(s)
 			s->writeIncoming(a);
