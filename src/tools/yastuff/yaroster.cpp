@@ -1819,7 +1819,21 @@ YaRosterTab::YaRosterTab(const QString& name, bool createToolButtons, YaRoster* 
 	, contactCounter_(0)
 {
 	stackedWidget_ = new QStackedWidget(0);
+	stackedWidget_->setAutoFillBackground(true);
+	{
+		QPalette swPal = stackedWidget_->palette();
+		swPal.setColor(QPalette::Window, Qt::white);
+		swPal.setColor(QPalette::Base,   Qt::white);
+		stackedWidget_->setPalette(swPal);
+	}
 	contactListViewStackedWidget_ = new QStackedWidget(0);
+	contactListViewStackedWidget_->setAutoFillBackground(true);
+	{
+		QPalette clvPal = contactListViewStackedWidget_->palette();
+		clvPal.setColor(QPalette::Window, Qt::white);
+		clvPal.setColor(QPalette::Base,   Qt::white);
+		contactListViewStackedWidget_->setPalette(clvPal);
+	}
 
 	noContactsPage_ = new YaNoContactsPage(0);
 	noContactsPage_->init();
