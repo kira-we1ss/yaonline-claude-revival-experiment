@@ -284,42 +284,38 @@ public:
 
 		mechanism_ = QString();
 		{
-			// Priority: X-FACEBOOK-PLATFORM > SCRAM-SHA-256 > SCRAM-SHA-1 > DIGEST-MD5 > PLAIN
-			static const int PRIO_NONE     = 0;
-			static const int PRIO_PLAIN    = 1;
-			static const int PRIO_DIGESTMD5= 2;
-			static const int PRIO_SCRAM1   = 3;
-			static const int PRIO_SCRAM256 = 4;
-			static const int PRIO_FBPLATFORM = 5;
-			int bestPrio = PRIO_NONE;
+		// Priority: X-FACEBOOK-PLATFORM > SCRAM-SHA-256 > SCRAM-SHA-1 > PLAIN
+		// DIGEST-MD5 removed: deprecated by RFC 6331 (2011) and insecure.
+		static const int PRIO_NONE     = 0;
+		static const int PRIO_PLAIN    = 1;
+		static const int PRIO_SCRAM1   = 2;
+		static const int PRIO_SCRAM256 = 3;
+		static const int PRIO_FBPLATFORM = 4;
+		int bestPrio = PRIO_NONE;
 
-			foreach(QString mech, mechlist) {
+		foreach(QString mech, mechlist) {
 #ifdef YAPSI
-				if (mech == "X-FACEBOOK-PLATFORM" && allow_xFacebookPlatform && bestPrio < PRIO_FBPLATFORM) {
-					mechanism_ = "X-FACEBOOK-PLATFORM";
-					bestPrio = PRIO_FBPLATFORM;
-					break;
-				}
-#endif
-				if (mech == "SCRAM-SHA-256" && bestPrio < PRIO_SCRAM256) {
-					mechanism_ = "SCRAM-SHA-256";
-					bestPrio = PRIO_SCRAM256;
-				}
-				else if (mech == "SCRAM-SHA-1" && bestPrio < PRIO_SCRAM1) {
-					mechanism_ = "SCRAM-SHA-1";
-					bestPrio = PRIO_SCRAM1;
-				}
-				else if (mech == "DIGEST-MD5" && bestPrio < PRIO_DIGESTMD5) {
-					mechanism_ = "DIGEST-MD5";
-					bestPrio = PRIO_DIGESTMD5;
-				}
-#ifdef SIMPLESASL_PLAIN
-				else if (mech == "PLAIN" && allow_plain && bestPrio < PRIO_PLAIN) {
-					mechanism_ = "PLAIN";
-					bestPrio = PRIO_PLAIN;
-				}
-#endif
+			if (mech == "X-FACEBOOK-PLATFORM" && allow_xFacebookPlatform && bestPrio < PRIO_FBPLATFORM) {
+				mechanism_ = "X-FACEBOOK-PLATFORM";
+				bestPrio = PRIO_FBPLATFORM;
+				break;
 			}
+#endif
+			if (mech == "SCRAM-SHA-256" && bestPrio < PRIO_SCRAM256) {
+				mechanism_ = "SCRAM-SHA-256";
+				bestPrio = PRIO_SCRAM256;
+			}
+			else if (mech == "SCRAM-SHA-1" && bestPrio < PRIO_SCRAM1) {
+				mechanism_ = "SCRAM-SHA-1";
+				bestPrio = PRIO_SCRAM1;
+			}
+#ifdef SIMPLESASL_PLAIN
+			else if (mech == "PLAIN" && allow_plain && bestPrio < PRIO_PLAIN) {
+				mechanism_ = "PLAIN";
+				bestPrio = PRIO_PLAIN;
+			}
+#endif
+		}
 		}
 
 		if(!capable || mechanism_.isEmpty()) {
@@ -440,92 +436,10 @@ public:
 			}
 #endif
 
-			// if we still need params, then the app has failed us!
-			if(need.user || need.authzid || need.pass || need.realm) {
-				qWarning("simplesasl.cpp: Did not receive necessary auth parameters");
-				result_ = Error;
-				goto ready;
-			}
-
-			// see if some params are needed
-			if(!have.user)
-				need.user = true;
-			//if(!have.authzid)
-			//	need.authzid = true;
-			if(!have.pass)
-				need.pass = true;
-			if(need.user || need.authzid || need.pass) {
-				result_ = Params;
-				goto ready;
-			}
-
-			// get props
-			QByteArray cs(in_buf);
-			PropList in;
-			if(!in.fromString(cs)) {
-				authCondition_ = QCA::SASL::BadProtocol;
-				result_ = Error;
-				goto ready;
-			}
-			//qDebug() << (QString("simplesasl.cpp: IN: %1").arg(QString(in.toString())));
-
-			// make a cnonce
-			QByteArray a(32, '\0');
-			for(int n = 0; n < (int)a.size(); ++n)
-				a[n] = (char)(256.0*rand()/(RAND_MAX+1.0));
-			QByteArray cnonce = QCA::Base64().arrayToString(a).toLatin1();
-
-			// make other variables
-			if (realm.isEmpty())
-				realm = QString::fromUtf8(in.get("realm"));
-			QByteArray nonce = in.get("nonce");
-			QByteArray nc = "00000001";
-			QByteArray uri = service.toUtf8() + '/' + host.toUtf8();
-			QByteArray qop = "auth";
-
-			// build 'response'
-			QByteArray X = user.toUtf8() + ':' + realm.toUtf8() + ':' + QByteArray(pass.toByteArray());
-			QByteArray Y = QCA::Hash("md5").hash(X).toByteArray();
-			QByteArray tmp = ':' + nonce + ':' + cnonce;
-			if (!authz.isEmpty())
-				tmp += ':' + authz.toUtf8();
-			//qDebug() << (QString(tmp));
-
-			QByteArray A1(Y + tmp);
-			QByteArray A2 = QByteArray("AUTHENTICATE:") + uri;
-			QByteArray HA1 = QCA::Hash("md5").hashToString(A1).toLatin1();
-			QByteArray HA2 = QCA::Hash("md5").hashToString(A2).toLatin1();
-			QByteArray KD = HA1 + ':' + nonce + ':' + nc + ':' + cnonce + ':' + qop + ':' + HA2;
-			QByteArray Z = QCA::Hash("md5").hashToString(KD).toLatin1();
-			
-			//qDebug() << (QString("simplesasl.cpp: A1 = %1").arg(QString(A1)).toAscii());
-			//qDebug() << (QString("simplesasl.cpp: A2 = %1").arg(QString(A2)).toAscii());
-			//qDebug() << (QString("simplesasl.cpp: KD = %1").arg(QString(KD)).toAscii());
-
-			// build output
-			PropList out;
-			out.set("username", user.toUtf8());
-			if (!realm.isEmpty())
-				out.set("realm", realm.toUtf8());
-			out.set("nonce", nonce);
-			out.set("cnonce", cnonce);
-			out.set("nc", nc);
-			//out.set("serv-type", service.toUtf8());
-			//out.set("host", host.toUtf8());
-			out.set("digest-uri", uri);
-			out.set("qop", qop);
-			out.set("response", Z);
-			out.set("charset", "utf-8");
-			if (!authz.isEmpty())
-				out.set("authzid", authz.toUtf8());
-			QByteArray s(out.toString());
-			//qDebug() << (QString("OUT: %1").arg(QString(out.toString())));
-
-			// done
-			out_buf.resize(s.length());
-			memcpy(out_buf.data(), s.data(), out_buf.size());
-			++step;
-			result_ = Continue;
+			// No other mechanisms are supported at step 1; DIGEST-MD5 was removed
+			// (deprecated by RFC 6331; SCRAM-SHA-1/256 are the modern replacements).
+			result_ = Error;
+			authCondition_ = QCA::SASL::NoMechanism;
 		}
 		/*else if (step == 2) {
 			//Commenting this out is Justin's fix for updated QCA.

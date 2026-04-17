@@ -1088,14 +1088,13 @@ bool CoreProtocol::normalStep(const QDomElement &e)
 		// deal with SASL?
 		if(!sasl_authed) {
 			if(!features.sasl_supported) {
-				// SASL MUST be supported
-				//event = EError;
-				//errorCode = ErrProtocol;
-				//return true;
-				
-				// Fall back on auth for non-compliant servers 
-				step = HandleAuthGet;
-				old = true;
+				// Instead of falling back to jabber:iq:auth when SASL is not offered,
+				// fail immediately — legacy non-SASL auth (XEP-0078) is obsolete and
+				// insecure; modern servers (Prosody 0.12+) always offer SASL.
+				errCond = -1;
+				errText = "Server does not support SASL authentication";
+				event = EError;
+				errorCode = ErrProtocol;
 				return true;
 			}
 
