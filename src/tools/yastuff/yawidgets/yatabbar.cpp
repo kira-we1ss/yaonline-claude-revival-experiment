@@ -375,6 +375,11 @@ void YaTabBar::paintEvent(QPaintEvent*)
 	setFont(Ya::VisualUtil::normalFont());
 #endif
 
+	// Ensure caches are populated before any drawTab() calls (Qt5: clearCaches()
+	// may not have been called yet on first paint if relayoutTabs() was skipped).
+	if (cachedTextHeight() == 0)
+		clearCaches();
+
 	QStyleOptionTab tabOverlap;
 	tabOverlap.shape = shape();
 

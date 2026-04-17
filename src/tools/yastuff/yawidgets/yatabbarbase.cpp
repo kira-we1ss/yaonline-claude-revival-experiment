@@ -212,6 +212,10 @@ void YaTabBarBase::drawTab(QPainter* painter, int index, const QRect& tabRect)
 
 	tabIcon(index).paint(painter, tabIconRect(index));
 
+	// Guard: ensure caches are populated before first paint
+	if (cachedTextHeight_ == 0)
+		clearCaches();
+
 	QRect textRect = tabTextRect(index);
 	QString text = tabText(index);
 

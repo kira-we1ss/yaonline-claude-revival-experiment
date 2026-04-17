@@ -28,6 +28,7 @@
 #include <QStyleOption>
 #include <QPlastiqueStyle>
 #include <QApplication>
+#include <QPalette>
 
 #include "msgmle.h"
 #include "yachatseparator.h"
@@ -181,6 +182,16 @@ YaChatEdit::YaChatEdit(QWidget* parent)
 
 	connect(PsiOptions::instance(), SIGNAL(optionChanged(const QString&)), SLOT(optionChanged(const QString&)));
 	optionChanged(sendButtonEnabledOptionPath);
+
+	// Qt5/macOS: force white background on the input container so it's
+	// visually distinct from the message area above.
+	setAutoFillBackground(true);
+	{
+		QPalette pal = palette();
+		pal.setColor(QPalette::Window, Qt::white);
+		pal.setColor(QPalette::Base,   Qt::white);
+		setPalette(pal);
+	}
 }
 
 YaChatEdit::~YaChatEdit()
