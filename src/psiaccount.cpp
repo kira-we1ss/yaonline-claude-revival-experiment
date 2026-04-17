@@ -3528,11 +3528,8 @@ void PsiAccount::client_messageReceived(const Message &m)
 		// body) in the dialog. Other clients (phone Conversations) DO
 		// need to process sent-carbons to stay in sync; this only
 		// suppresses handling on the client that originated the send.
-		if (_m.isCarbonSent()) {
-			qDebug() << "[carbons] Dropping sent-carbon of our own outgoing message (from="
-			         << _m.from().full() << " to=" << _m.to().full() << ")";
+		if (_m.isCarbonSent())
 			return;
-		}
 	}
 
 	// if the sender is already in the queue, then queue this message also
@@ -3569,13 +3566,6 @@ void PsiAccount::client_messageReceived(const Message &m)
 	// XEP-0384 OMEMO encrypted message?
 	{
 		QDomElement omemoEl = _m.getExtension(QString::fromLatin1(XmppOmemo::NS));
-		// Only log if the message is actually OMEMO-bearing; empty chat-state
-		// notifications and receipts flood the log otherwise.
-		if (!omemoEl.isNull()) {
-			qDebug() << "[OMEMO] client_messageReceived: from=" << _m.from().full()
-			         << "type=" << _m.type()
-			         << "body[:40]=" << _m.body().left(40);
-		}
 		if (!omemoEl.isNull() && d->omemoManager) {
 			// For MUC messages the 'from' is room@conference/nick.
 			// Signal sessions are keyed by the sender's real bare JID.
@@ -3588,28 +3578,17 @@ void PsiAccount::client_messageReceived(const Message &m)
 					XMPP::Jid realJid = muc->realJidForNick(nick);
 					if (!realJid.isEmpty()) {
 						decryptFrom = realJid;
-						qDebug() << "[OMEMO-MUC] Resolved nick" << nick
-						         << "-> real JID" << realJid.bare()
-						         << "(room" << _m.from().userHost() << ")";
 					} else {
-						// Real JID unknown — non-anonymous room not yet seen presence
-						// or anonymous room. Fall through to plain display.
-						qWarning() << "[OMEMO-MUC] Cannot decrypt MUC message from nick"
-						           << nick << ": real JID not in map. "
-						           << "Either (a) room is semi-anonymous and we can't "
-						           << "see real JIDs, (b) presence from this occupant "
-						           << "hasn't been processed yet, or (c) nick casing "
-						           << "mismatch. Map has"
-						           << muc->nickToRealJidMap().size() << "entries:"
-						           << muc->nickToRealJidMap().keys().join(',');
+						// Real JID unknown — semi-anonymous room or we
+						// haven't processed the sender's presence yet.
+						// Show the fallback body; user will see the live
+						// content once presence arrives or if room is
+						// reconfigured non-anonymous.
 						processIncomingMessage(_m);
 						return;
 					}
 				} else {
-					// No MUC dialog found — fall through.
-					qWarning() << "[OMEMO-MUC] No GCMainDlg found for MUC"
-					           << _m.from().userHost() << "nick=" << nick
-					           << "- cannot decrypt OMEMO message. Fallback shown.";
+					// No MUC dialog (closed between receive and here).
 					processIncomingMessage(_m);
 					return;
 				}
@@ -7775,32 +7754,27 @@ void PsiAccount::omemo_decryptFinished(const XMPP::Jid& from, const QString& pla
             Message m = d->omemoQueue.takeAt(i);
             if (success) {
                 if (plainBody.isEmpty()) {
-                    // Key-only handshake / session-advance message — no body to display.
-                    // Drop silently so user doesn't see empty or fallback stanza text.
-                    qDebug() << "[OMEMO] key-only message (no body) from" << from.bare()
-                             << "— dropping silently";
+                    // Key-only handshake / session-advance message — no
+                    // body to display. Drop silently so user doesn't see
+                    // empty or fallback stanza text.
                     return;
                 }
                 m.setBody(plainBody);
                 m.setWasEncrypted(true);
-                qDebug() << "[OMEMO] decryption success: displaying decrypted message from" << from.bare();
             } else {
-                qWarning() << "[OMEMO] decryption failed from" << from.bare()
-                           << "— keeping fallback body for display";
-                // Still mark as encrypted so the chat UI doesn't toggle
-                // the 'Encryption Disabled' banner just because one old
-                // replayed message couldn't be decrypted. The message was
-                // genuinely OMEMO-encrypted — we just can't recover the
-                // plaintext because libsignal refused a replay or we
-                // lost state.
+                // Decrypt failed — keep the fallback body that's already
+                // on m but still mark as encrypted so the chat UI doesn't
+                // toggle the 'Encryption Disabled' banner just because
+                // one old replayed message couldn't be decrypted. The
+                // stanza WAS genuinely OMEMO-encrypted; we just can't
+                // recover the plaintext (libsignal replay-refusal or
+                // state drift).
                 m.setWasEncrypted(true);
             }
             processIncomingMessage(m);
             return;
         }
     }
-    // If no match found, just log (can happen if queue was cleared)
-    qDebug() << "[OMEMO] omemo_decryptFinished: no queued message found for" << from.bare();
 }
 
 #include "psiaccount.moc"

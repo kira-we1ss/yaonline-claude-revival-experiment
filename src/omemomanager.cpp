@@ -1681,7 +1681,6 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
     }
 
     if (allHaveSessions) {
-        qDebug() << "[OMEMO] fetchContactBundles: sessions already established for" << bareJid;
         emit sessionsEstablished(contact, true);
         return;
     }
@@ -1698,11 +1697,9 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
         const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
         const qint64 last = d->lastFetchMs.value(bareJid, 0);
         if (last && (nowMs - last) < 30000) {
-            qDebug() << "[OMEMO] fetchContactBundles: throttled for" << bareJid
-                     << "(last fetch" << (nowMs - last) << "ms ago)";
-            // Emit success so callers (encrypt() etc.) proceed using
-            // whatever sessions we already have. New sessions from the
-            // in-flight or recently-completed fetch will be there.
+            // Recently fetched — emit success so callers (encrypt() etc.)
+            // proceed using whatever sessions we already have. New
+            // sessions from the in-flight fetch will arrive soon.
             emit sessionsEstablished(contact, true);
             return;
         }
@@ -1862,13 +1859,9 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
                          << "min)";
 
             if (needSession.isEmpty()) {
-                qDebug() << "[OMEMO] All sessions already established for" << state->bareJid;
                 finishFetch(true);
                 return;
             }
-
-            qDebug() << "[OMEMO] Need to fetch bundles for" << needSession.size()
-                     << "devices of" << state->bareJid;
 
             state->pendingBundles = needSession.size();
             state->anySuccess = false;
@@ -1976,7 +1969,6 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
             for (uint32_t devId : needSession) {
                 QString bundleNode = QString::fromLatin1(XmppOmemo::NS_BUNDLES)
                                      + QLatin1Char(':') + QString::number(devId);
-                qDebug() << "[OMEMO] Fetching bundle node" << bundleNode << "for" << state->bareJid;
                 d->pepManager->get(state->contact, bundleNode, QLatin1String("current"));
             }
         });
@@ -2038,9 +2030,6 @@ void OmemoManager::encrypt(const XMPP::Jid& to, const QString& body)
     }
 
     QList<uint32_t> deviceIds = targetDevices.values();
-    qDebug() << "[OMEMO] encrypt() for" << toJid << "— target devices:" << deviceIds.size()
-             << "(advertised:" << d->deviceLists.value(toJid).size()
-             << " stored sessions:" << (deviceIds.size() - d->deviceLists.value(toJid).size()) << ")";
 
     if (deviceIds.isEmpty()) {
         // No known devices AND no stored sessions — can't encrypt.
@@ -2120,9 +2109,6 @@ void OmemoManager::encrypt(const XMPP::Jid& to, const QString& body)
                             static_cast<int>(signal_buffer_len(serialized)));
         k.prekey = (ciphertext_message_get_type(encryptedKey) == CIPHERTEXT_PREKEY_TYPE);
         keys.append(k);
-        qDebug() << "[OMEMO]   -> encrypted for" << jid << "device" << devId
-                 << (k.prekey ? "(PreKey)" : "(SignalMsg)") << k.data.size() << "bytes";
-
         SIGNAL_UNREF(encryptedKey);
     };
 
@@ -2151,14 +2137,9 @@ void OmemoManager::encrypt(const XMPP::Jid& to, const QString& body)
                 if (ok) ownDevSet.insert(devId);
             }
         }
-        qDebug() << "[OMEMO] encrypt(): own other-devices to address:" << ownDevSet.size()
-                 << "(advertised:" << d->deviceLists.value(ourJid).size()
-                 << " stored sessions:" << (ownDevSet.size() - d->deviceLists.value(ourJid).size()) << ")";
         for (uint32_t devId : ownDevSet) {
-            if (devId == d->store.localDeviceId) {
-                qDebug() << "[OMEMO] encrypt(): skipping own localDeviceId" << devId;
-                continue;
-            }
+            if (devId == d->store.localDeviceId)
+                continue; // libsignal refuses self-sessions
             encryptToDevice(ourJid, devId);
         }
     }
@@ -2231,16 +2212,9 @@ void OmemoManager::ensureMucSessions(const XMPP::Jid& roomJid,
         toFetch.insert(bareJid);
     }
 
-    if (toFetch.isEmpty()) {
-        qDebug() << "[OMEMO] ensureMucSessions: no resolvable real JIDs yet for"
-                 << roomJid.bare()
-                 << "(semi-anonymous room? or presence not processed)";
-        return;
-    }
+    if (toFetch.isEmpty())
+        return; // semi-anonymous room or no presence processed yet
 
-    int fetchCount = 0;
-    int skippedComplete = 0;
-    int partialRefetch = 0;
     for (const QString& bareJid : qAsConst(toFetch)) {
         const QList<uint32_t> devices = d->deviceLists.value(bareJid);
 
@@ -2249,7 +2223,6 @@ void OmemoManager::ensureMucSessions(const XMPP::Jid& roomJid,
         // just one is what caused the multi-device partial-coverage bug
         // (peers on phone + PC only had one half addressed).
         bool fullyCovered = !devices.isEmpty();
-        int sessionMisses = 0;
         for (uint32_t devId : devices) {
             const QByteArray jidUtf8 = bareJid.toUtf8();
             signal_protocol_address addr;
@@ -2258,17 +2231,12 @@ void OmemoManager::ensureMucSessions(const XMPP::Jid& roomJid,
             addr.device_id = static_cast<int32_t>(devId);
             if (!sess_contains_session(&addr, &d->store)) {
                 fullyCovered = false;
-                ++sessionMisses;
+                break;
             }
         }
 
-        if (fullyCovered) {
-            ++skippedComplete;
+        if (fullyCovered)
             continue;
-        }
-
-        if (!devices.isEmpty() && sessionMisses < devices.size())
-            ++partialRefetch;
 
         // Delegate throttling to fetchContactBundles itself (it has the
         // same 30s per-peer window + per-(jid:devId) bundle backoff). We
@@ -2278,14 +2246,7 @@ void OmemoManager::ensureMucSessions(const XMPP::Jid& roomJid,
         // which caused fetchContactBundles to then see "0 ms ago" and
         // short-circuit — a net regression where no PEP IQ ever flew.
         fetchContactBundles(XMPP::Jid(bareJid));
-        ++fetchCount;
     }
-
-    qDebug() << "[OMEMO] ensureMucSessions for" << roomJid.bare()
-             << "— known peers:" << toFetch.size()
-             << "(fully-covered:" << skippedComplete
-             << ", partial:" << partialRefetch
-             << ", refreshing:" << fetchCount << ")";
 }
 
 void OmemoManager::encryptForMuc(const XMPP::Jid& roomJid, const QString& body,
@@ -2384,18 +2345,11 @@ void OmemoManager::encryptForMuc(const XMPP::Jid& roomJid, const QString& body,
             keys.append(k);
             anyForThisPeer = true;
 
-            qDebug() << "[OMEMO] encryptForMuc   -> " << bareJid << "device" << devId
-                     << (k.prekey ? "(PreKey)" : "(SignalMsg)") << k.data.size() << "bytes";
-
             SIGNAL_UNREF(encryptedKey);
         }
 
-        if (!anyForThisPeer && bareJid != d->accountId) {
+        if (!anyForThisPeer && bareJid != d->accountId)
             ++missingParticipants;
-            qDebug() << "[OMEMO] encryptForMuc: NO session for participant"
-                     << bareJid << "— they will see fallback body. "
-                     << "Retry once ensureMucSessions has fetched bundles.";
-        }
     }
 
     if (keys.isEmpty()) {
@@ -2461,10 +2415,7 @@ void OmemoManager::decrypt(const XMPP::Jid& from, const QDomElement& encryptedEl
     // times over the client's lifetime. Eviction only happens by LIFO when
     // the cache grows past kMucEchoCacheMax.
     if (from.bare() == d->accountId && d->mucEchoPlaintext.contains(payload.iv)) {
-        QString body = d->mucEchoPlaintext.value(payload.iv);
-        qDebug() << "[OMEMO] Own MUC echo — serving cached plaintext ("
-                 << body.size() << "chars)";
-        emit decryptDone(from, body, payload.sid, true);
+        emit decryptDone(from, d->mucEchoPlaintext.value(payload.iv), payload.sid, true);
         return;
     }
 
@@ -2480,11 +2431,7 @@ void OmemoManager::decrypt(const XMPP::Jid& from, const QDomElement& encryptedEl
     {
         const QByteArray peerKey = d->mucPeerKey(from.bare(), payload.iv);
         if (d->mucPeerPlaintext.contains(peerKey)) {
-            QString body = d->mucPeerPlaintext.value(peerKey);
-            qDebug() << "[OMEMO] Peer MUC replay — serving cached plaintext"
-                     << "(from=" << from.bare() << ","
-                     << body.size() << "chars)";
-            emit decryptDone(from, body, payload.sid, true);
+            emit decryptDone(from, d->mucPeerPlaintext.value(peerKey), payload.sid, true);
             return;
         }
     }
@@ -2512,12 +2459,6 @@ void OmemoManager::decrypt(const XMPP::Jid& from, const QDomElement& encryptedEl
     addr.name = fromJidUtf8.constData();
     addr.name_len = static_cast<size_t>(fromJidUtf8.size());
     addr.device_id = static_cast<int32_t>(payload.sid);
-
-    qDebug() << "[OMEMO] decrypt: from=" << fromJid << "sid=" << payload.sid
-             << "isPreKey=" << ourKey->prekey
-             << "keyBytes=" << ourKey->data.size()
-             << "ivB64=" << QString::fromLatin1(payload.iv.toBase64())
-             << "payloadBytes=" << payload.payload.size();
 
     session_cipher* cipher = nullptr;
     if (session_cipher_create(&cipher, d->storeCtx, &addr, d->signalCtx) != SG_SUCCESS) {
@@ -2593,9 +2534,6 @@ void OmemoManager::decrypt(const XMPP::Jid& from, const QDomElement& encryptedEl
                             static_cast<int>(signal_buffer_len(decryptedKeyBuf)));
     signal_buffer_free(decryptedKeyBuf);
 
-    qDebug() << "[OMEMO] Decrypted key material from" << fromJid
-             << "— size:" << keyMaterial.size() << "bytes";
-
     // Key-only handshake messages (used by Conversations/Cheogram to sync sessions
     // and pre-establish ratchets) have NO <payload>, and the key material may be
     // as small as 16 bytes or as large as 32. These are NOT errors — successful
@@ -2603,8 +2541,6 @@ void OmemoManager::decrypt(const XMPP::Jid& from, const QDomElement& encryptedEl
     // success-but-empty so psiaccount drops the stanza (instead of showing the
     // fallback "I sent you an OMEMO encrypted message" body).
     if (payload.payload.isEmpty()) {
-        qDebug() << "[OMEMO] Key-only handshake from" << fromJid
-                 << "(keyMat=" << keyMaterial.size() << "B) — session advanced";
         emit decryptDone(from, QString(), payload.sid, true);
         return;
     }
@@ -2637,8 +2573,6 @@ void OmemoManager::decrypt(const XMPP::Jid& from, const QDomElement& encryptedEl
     }
 
     QString body = QString::fromUtf8(plaintext);
-    qDebug() << "[OMEMO] Decrypted message from" << fromJid << "(device" << payload.sid
-             << "):" << body.left(50);
 
     // Cache plaintext keyed by (fromBareJid, iv) so a subsequent
     // DUPLICATE_MESSAGE from the MUC server replaying history can be
