@@ -23,6 +23,10 @@
 #include <QMessageBox>
 #include <QMutableListIterator>
 #include <QPalette>
+#include <QToolButton>
+#include <QVBoxLayout>
+
+#include "omemomanager.h"
 
 #include "yachatviewmodel.h"
 #include "psiaccount.h"
@@ -47,6 +51,7 @@ YaGroupchatDlg::YaGroupchatDlg(const Jid& jid, PsiAccount* acc, TabManager* tabM
 	, doTrackbar_(false)
 	, contactStatusRecreated_(false)
 	, subjectCanBeModified_(true)
+	, omemoButton_(0)
 {
 	contactList_ = new YaGroupchatContactListModel(this);
 	connect(contactList_, SIGNAL(insertNick(const QString&)), SLOT(insertNick(const QString&)));
@@ -126,6 +131,32 @@ void YaGroupchatDlg::initUi()
 	PsiToolTip::install(ui_.editSubjectButton);
 	ui_.favoriteButton->setToolTip(tr("Add to Favorites"));
 	ui_.editSubjectButton->setToolTip(tr("Edit Subject"));
+
+	// XEP-0384: OMEMO padlock toggle button — mirror of YaChatDlg's button.
+	// chatTopFrame → QHBoxLayout → inner QHBoxLayout (item 0) → right QVBoxLayout (item 2)
+	// contains: spacer, contactInfo (Settings), spacer — insert omemoButton_ before contactInfo.
+	omemoButton_ = new QToolButton(ui_.chatTopFrame);
+	omemoButton_->setToolTip(tr("OMEMO encryption"));
+	omemoButton_->setCheckable(true);
+	omemoButton_->setFixedSize(24, 24);
+	{
+		QLayout* topFrameLayout = ui_.chatTopFrame->layout();
+		if (topFrameLayout && topFrameLayout->count() > 0) {
+			QLayoutItem* innerItem = topFrameLayout->itemAt(0);
+			QLayout* innerLayout = innerItem ? innerItem->layout() : 0;
+			if (innerLayout) {
+				// Right-side VBox is the third item (index 2) in the inner HBox
+				QLayoutItem* rightItem = innerLayout->count() > 2 ? innerLayout->itemAt(2) : 0;
+				QVBoxLayout* rightVBox = rightItem ? qobject_cast<QVBoxLayout*>(rightItem->layout()) : 0;
+				if (rightVBox) {
+					// Insert before the first spacer at index 0 (spacer, contactInfo, spacer)
+					rightVBox->insertWidget(0, omemoButton_);
+				}
+			}
+		}
+	}
+	connect(omemoButton_, SIGNAL(clicked(bool)), this, SLOT(toggleOmemo()));
+	updateOmemoButton();
 
 	resize(sizeHint());
 	doClear();
@@ -693,4 +724,31 @@ void YaGroupchatDlg::setBookmarkName(const QString& bookmarkName)
 	GCMainDlg::setBookmarkName(bookmarkName);
 	bookmarkName_ = bookmarkName;
 	updateRoomTitle();
+}
+
+void YaGroupchatDlg::updateOmemoButton()
+{
+	if (!omemoButton_)
+		return;
+	OmemoManager* mgr = account() ? account()->omemoManager() : 0;
+	bool enabled = mgr && mgr->isEnabled(jid());
+	omemoButton_->setChecked(enabled);
+	if (enabled) {
+		omemoButton_->setStyleSheet(
+			"QToolButton { background: #4CAF50; border-radius: 4px; color: white; font-size: 14px; }");
+		omemoButton_->setText(QString::fromUtf8("\xF0\x9F\x94\x92")); // 🔒
+	} else {
+		omemoButton_->setStyleSheet(
+			"QToolButton { background: #9E9E9E; border-radius: 4px; color: white; font-size: 14px; }");
+		omemoButton_->setText(QString::fromUtf8("\xF0\x9F\x94\x93")); // 🔓
+	}
+}
+
+void YaGroupchatDlg::toggleOmemo()
+{
+	OmemoManager* mgr = account() ? account()->omemoManager() : 0;
+	if (mgr) {
+		mgr->setEnabled(jid(), !mgr->isEnabled(jid()));
+		updateOmemoButton();
+	}
 }

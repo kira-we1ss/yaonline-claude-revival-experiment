@@ -23,6 +23,7 @@
 
 #include "groupchatdlg.h"
 #include <QPointer>
+#include <QToolButton>
 
 #include "ui_yagroupchatdialog.h"
 
@@ -74,6 +75,8 @@ private slots:
 	void doTrackbar();
 	void discoInfoFinished();
 	void updateRoomTitle();
+	void updateOmemoButton();
+	void toggleOmemo();
 
 private:
 	// reimplemented
@@ -88,6 +91,7 @@ private:
 	bool subjectCanBeModified_;
 	QString title_;
 	QString bookmarkName_;
+	QToolButton* omemoButton_;
 
 	virtual void initUi();
 	void recreateContactStatus();
