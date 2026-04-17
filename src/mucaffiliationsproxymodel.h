@@ -9,8 +9,12 @@ class MUCAffiliationsProxyModel : public QSortFilterProxyModel
 public:
 	MUCAffiliationsProxyModel(QObject* parent = 0);
 
+	// Override to enable dynamicSortFilter only after source model is set,
+	// avoiding a Qt5 null-deref in mapToSource during construction.
+	void setSourceModel(QAbstractItemModel* sourceModel) override;
+
 protected:
-	bool filterAcceptsRow(int sourceRow, const QModelIndex& sourceParent) const;
+	bool filterAcceptsRow(int sourceRow, const QModelIndex& sourceParent) const override;
 };
 
 #endif
