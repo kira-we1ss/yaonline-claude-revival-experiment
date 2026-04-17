@@ -1859,18 +1859,30 @@ void PsiAccount::setUserAccount(const UserAccount &_acc)
 
 #ifdef YAPSI
 	{
-		// store password, auto-reconnect and stuff
+		// store password, auto-reconnect and stuff. YAPSI's userAccount()
+		// returns d->realAcc (not d->acc) for the save-to-XML path, so we
+		// MUST mirror these flags onto d->realAcc too. Without the mirror
+		// the saved config.xml lacked the <password> element entirely and
+		// the next launch couldn't auto-login (user had to retype the
+		// password every single time). Same for opt_auto/opt_reconn which
+		// control the 'auto' and 'reconn' XML attributes.
 		acc.opt_pass   = true;
 		acc.opt_auto   = true;
 		acc.opt_reconn = true;
+		d->realAcc.opt_pass   = true;
+		d->realAcc.opt_auto   = true;
+		d->realAcc.opt_reconn = true;
+		d->realAcc.pass       = acc.pass;
 
 		// we can't rely on other servers using kosher SSL certificates all the time
 		acc.opt_ignoreSSLWarnings = true;
+		d->realAcc.opt_ignoreSSLWarnings = true;
 
 		// Allow PLAIN only over TLS — PLAIN without encryption is insecure.
 		// The original comment about ya.ru/gmail plain-text services is obsolete;
 		// all modern servers require TLS. PLAIN over TLS is fine.
 		acc.allow_plain = ClientStream::AllowPlainOverTLS;
+		d->realAcc.allow_plain = ClientStream::AllowPlainOverTLS;
 
 		XMPP::Jid ajid(acc.jid);
 		if (hostPortOverride().contains(ajid.host())) {
