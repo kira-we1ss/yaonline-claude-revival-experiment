@@ -730,6 +730,18 @@ void ChatDlg::sendMessage(XMPP::Message m, bool userAction)
 						    "but your client doesn't seem to support that. "
 						    "https://conversations.im/omemo"));
 						em.addExtension(enc);
+						// XEP-0280 §4.1 + XEP-0384: encrypted messages
+						// MUST NOT be carbon-copied in cleartext to our
+						// other resources that don't have OMEMO sessions
+						// (would leak or just be noise). Tell the server
+						// not to carbon this message.
+						{
+							QDomDocument privDoc;
+							QDomElement priv = privDoc.createElementNS(
+							    QStringLiteral("urn:xmpp:carbons:2"),
+							    QStringLiteral("private"));
+							em.addExtension(priv);
+						}
 						emit aSend(em);
 						doneSend(m); // log original plaintext locally
 					} else {

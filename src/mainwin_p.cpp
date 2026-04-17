@@ -447,7 +447,10 @@ bool MAction::addTo(QWidget *w)
 		if ( d->psi->contactList()->enabledAccounts().count() < 2 ) {
 			QAction *act = menu->addAction(icon(), text());
 			act->setEnabled(isEnabled());
-			connect(act, &QAction::triggered, [this]() { itemActivated(0); });
+			// Pass `this` as context: without it, the QAction may outlive
+			// this PopupAction (e.g. if the menu lives longer than its
+			// owner), and triggering it would dereference a dangling 'this'.
+			connect(act, &QAction::triggered, this, [this]() { itemActivated(0); });
 		}
 		else
 			menu->addMenu(d->subMenu(w))->setText(text());

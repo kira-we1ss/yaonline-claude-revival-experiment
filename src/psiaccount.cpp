@@ -502,6 +502,10 @@ public:
 	QList<Message> omemoQueue; // messages awaiting OMEMO decryption
 	bool omemoBundlePublished = false; // guard: publish bundle at most once per session
 
+	// XEP-0280 Carbons: guard so we <enable/> at most once per session,
+	// only after server feature advertisement confirms support.
+	bool carbonsEnabled = false;
+
 	QList<GCContact*> gcbank;
 	QStringList groupchats;
 
@@ -2519,6 +2523,8 @@ void PsiAccount::cs_authenticated()
 
 	// XEP-0384: reset publish guard on every new session so bundle is re-published
 	d->omemoBundlePublished = false;
+	// XEP-0280: reset carbons-enabled guard so we re-<enable/> on reconnect
+	d->carbonsEnabled = false;
 
 	//printf("PsiAccount: [%s] authenticated\n", name().toLatin1().constData());
 	d->conn->changePollInterval(10); // for http poll, slow down after login
@@ -2577,18 +2583,11 @@ void PsiAccount::sessionStarted()
 	// ask for roster
 	d->client->rosterRequest();
 
-	// XEP-0280: enable message carbons so the server echoes copies of
-	// messages sent/received by other resources to this resource.
-	{
-		QDomDocument doc;
-		QDomElement iq = doc.createElement("iq");
-		iq.setAttribute("type", "set");
-		iq.setAttribute("id", "carbons-enable-1");
-		QDomElement enable = doc.createElementNS("urn:xmpp:carbons:2", "enable");
-		iq.appendChild(enable);
-		doc.appendChild(iq);
-		d->client->send(doc.documentElement());
-	}
+	// XEP-0280 Message Carbons enable is now deferred until server feature
+	// advertisement confirms urn:xmpp:carbons:2 is available
+	// (serverFeaturesChanged). Sending <enable/> to a server without
+	// mod_carbons produces a service-unavailable error stanza for every
+	// session — pointless noise we now avoid.
 }
 
 void PsiAccount::cs_connectionClosed()
@@ -3033,6 +3032,22 @@ void PsiAccount::resolveContactName()
 void PsiAccount::serverFeaturesChanged()
 {
 	setPEPAvailable(d->serverInfoManager->hasPEP());
+
+	// XEP-0280 Message Carbons: now that we know the server supports it,
+	// send <enable/>. Gated to avoid pointless service-unavailable errors
+	// from servers without mod_carbons.
+	if (d->serverInfoManager->hasCarbons() && !d->carbonsEnabled) {
+		d->carbonsEnabled = true;
+		QDomDocument doc;
+		QDomElement iq = doc.createElement("iq");
+		iq.setAttribute("type", "set");
+		iq.setAttribute("id", "carbons-enable-1");
+		QDomElement enable = doc.createElementNS("urn:xmpp:carbons:2", "enable");
+		iq.appendChild(enable);
+		doc.appendChild(iq);
+		d->client->send(doc.documentElement());
+		qDebug() << "[carbons] urn:xmpp:carbons:2 <enable/> sent";
+	}
 
 	// XEP-0313: trigger MAM sync if server advertises urn:xmpp:mam:2
 	if (d->serverInfoManager->hasMAM()) {

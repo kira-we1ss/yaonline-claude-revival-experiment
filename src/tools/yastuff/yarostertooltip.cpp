@@ -20,6 +20,8 @@
 
 #include "yarostertooltip.h"
 
+#include <QMimeData> // full type needed for `delete contactSelection_` below
+
 #include "yarostertiplabel.h"
 #include "psicontact.h"
 #include "psiaccount.h"

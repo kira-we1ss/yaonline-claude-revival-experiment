@@ -247,9 +247,10 @@ void ContactListView::addContextMenuAction(QAction* action)
 
 void ContactListView::removeContextMenuActions()
 {
-	if (contextMenu_)
+	if (contextMenu_) {
 		foreach(QAction* action, contextMenu_->availableActions())
 			removeAction(action);
+	}
 }
 
 void ContactListView::contextMenuEvent(QContextMenuEvent* e)
