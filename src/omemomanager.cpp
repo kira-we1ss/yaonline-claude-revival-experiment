@@ -1250,7 +1250,9 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
     OmemoManager* self = this;
     XMPP::Jid contactCopy = contact;
 
-    // Use a shared state for the multi-fetch operation
+    // Use a shared state for the multi-fetch operation.
+    // FetchState is a QObject parented to OmemoManager; it owns the timeout timer
+    // as a child, so the timer dies together with state if anything goes wrong.
     struct FetchState : public QObject {
         XMPP::Jid contact;
         QString bareJid;
@@ -1261,40 +1263,52 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
         // Connections we need to disconnect
         QMetaObject::Connection devicelistConn;
         QMetaObject::Connection bundleConn;
-        QMetaObject::Connection errorConn;  // listens for PEPManager::getError
+        QMetaObject::Connection errorConn;       // bundle-phase getError
+        QMetaObject::Connection devlistErrConn;  // devicelist-phase getError
+        QTimer* timeoutTimer = nullptr;          // 10s safety timer, child of `this`
     };
     FetchState* state = new FetchState();
+    state->setParent(this);            // lifetime bound to OmemoManager
     state->contact = contact;
     state->bareJid = bareJid;
     state->manager = this;
 
     // Helper lambda: finish with result, guarded by state->done (one-shot).
-    // Disconnects all PEP connections, emits sessionsEstablished, schedules cleanup.
+    // CRITICAL: stop and destroy the timeout timer FIRST, before scheduling state
+    // deletion — otherwise the timer fires 10s later on freed `state` memory
+    // (crash in qPrintable(state->bareJid) → QTextCodec::fromUnicode → null deref).
     auto finishFetch = [this, state](bool success) {
         if (state->done)
             return;
         state->done = true;
+        if (state->timeoutTimer) {
+            state->timeoutTimer->stop();
+            state->timeoutTimer->disconnect();
+            state->timeoutTimer->deleteLater();
+            state->timeoutTimer = nullptr;
+        }
         disconnect(state->devicelistConn);
         disconnect(state->bundleConn);
         disconnect(state->errorConn);
+        disconnect(state->devlistErrConn);
         emit sessionsEstablished(state->contact, success);
         state->deleteLater();
     };
 
     // 10-second safety timeout: if PEP never replies (404 not wired, network stall, etc.),
     // unblock the UI and fall back to plaintext send.
-    QTimer* timeoutTimer = new QTimer(this);
-    timeoutTimer->setSingleShot(true);
-    timeoutTimer->setInterval(10000);
-    connect(timeoutTimer, &QTimer::timeout, this, [this, state, timeoutTimer, finishFetch]() mutable {
-        timeoutTimer->deleteLater();
-        if (!state->done) {
-            qWarning("[OMEMO] fetchContactBundles timeout for %s — no sessions established within 10s",
-                     qPrintable(state->bareJid));
-            finishFetch(state->anySuccess);
-        }
+    // The timer is a CHILD of `state` so it cannot outlive it even if deleteLater races.
+    state->timeoutTimer = new QTimer(state);
+    state->timeoutTimer->setSingleShot(true);
+    state->timeoutTimer->setInterval(10000);
+    connect(state->timeoutTimer, &QTimer::timeout, this, [state, finishFetch]() {
+        if (state->done)
+            return;  // success/failure already reported; ignore
+        qWarning("[OMEMO] fetchContactBundles timeout for %s — no sessions established within 10s",
+                 qPrintable(state->bareJid));
+        finishFetch(state->anySuccess);
     });
-    timeoutTimer->start();
+    state->timeoutTimer->start();
 
     // Connect to devicelist arrival
     state->devicelistConn = connect(d->pepManager, &PEPManager::itemPublished,
@@ -1437,13 +1451,12 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
             }
         });
 
-    // Also listen for a getError on the devicelist itself (PEP 404 / unavailable)
-    // We do this inline via a second connection on errorConn BEFORE the bundle phase sets it.
-    // Since errorConn is only set during the bundle phase, we use a separate lambda here.
-    QMetaObject::Connection* devlistErrConn = new QMetaObject::Connection();
-    *devlistErrConn = connect(d->pepManager, &PEPManager::getError,
-        this, [this, state, finishFetch, devlistErrConn](const XMPP::Jid& errJid,
-                                                          const QString& errNode) mutable {
+    // Also listen for a getError on the devicelist itself (PEP 404 / unavailable).
+    // Stored on state->devlistErrConn so finishFetch() disconnects it cleanly;
+    // avoids heap-allocated Connection* that could leak or outlive state.
+    state->devlistErrConn = connect(d->pepManager, &PEPManager::getError,
+        this, [this, state, finishFetch](const XMPP::Jid& errJid,
+                                          const QString& errNode) {
             if (state->done)
                 return;
             if (!errJid.compare(state->contact, false))
@@ -1452,8 +1465,6 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
                 return;
 
             // Devicelist fetch failed — contact has no OMEMO devices (or PEP unavailable)
-            disconnect(*devlistErrConn);
-            delete devlistErrConn;
             qWarning("[OMEMO] Devicelist fetch failed for %s — no OMEMO sessions possible",
                      qPrintable(state->bareJid));
             finishFetch(false);
