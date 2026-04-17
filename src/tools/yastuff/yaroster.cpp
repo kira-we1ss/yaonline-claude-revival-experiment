@@ -588,15 +588,29 @@ public:
 		: QSortFilterProxyModel(parent)
 	{
 		sort(0, Qt::AscendingOrder);
-		setDynamicSortFilter(true);
+		// Do NOT call setDynamicSortFilter(true) here: in Qt5, it immediately
+		// invalidates the filter mapping, which calls filterAcceptsRow(), which
+		// calls sourceModel()->index(...) — but the source model hasn't been set
+		// yet at construction time, causing a null-deref crash. Deferred to
+		// setSourceModel() (see override below). Same pattern as
+		// MUCAffiliationsProxyModel / ContactListProxyModel.
 		setFilterCaseSensitivity(Qt::CaseInsensitive);
 		setSortLocaleAware(true);
+	}
+
+	void setSourceModel(QAbstractItemModel* model) override
+	{
+		QSortFilterProxyModel::setSourceModel(model);
+		if (model)
+			setDynamicSortFilter(true);
 	}
 
 protected:
 	// reimplemented
 	bool filterAcceptsRow(int sourceRow, const QModelIndex& sourceParent) const
 	{
+		if (!sourceModel())
+			return false;
 		QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);
 
 		QStringList data;

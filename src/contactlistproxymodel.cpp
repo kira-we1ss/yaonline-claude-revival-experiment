@@ -30,14 +30,22 @@ ContactListProxyModel::ContactListProxyModel(QObject* parent)
 	: QSortFilterProxyModel(parent)
 {
 	sort(0, Qt::AscendingOrder);
-	setDynamicSortFilter(true);
+	// Do NOT call setDynamicSortFilter(true) here: in Qt5, setDynamicSortFilter
+	// immediately invalidates the filter mapping, which calls filterAcceptsRow(),
+	// which calls sourceModel() — but the source model hasn't been set yet at
+	// construction time, causing a null-deref crash. setDynamicSortFilter(true)
+	// is deferred to setSourceModel() below so it fires only after the source is
+	// attached. Same pattern as MUCAffiliationsProxyModel.
 }
 
 void ContactListProxyModel::setSourceModel(QAbstractItemModel* model)
 {
 	Q_ASSERT(dynamic_cast<ContactListModel*>(model));
 	QSortFilterProxyModel::setSourceModel(model);
-	connect(model, SIGNAL(showOfflineChanged()), SLOT(filterParametersChanged()));
+	if (model) {
+		setDynamicSortFilter(true);
+		connect(model, SIGNAL(showOfflineChanged()), SLOT(filterParametersChanged()));
+	}
 }
 
 bool ContactListProxyModel::showOffline() const

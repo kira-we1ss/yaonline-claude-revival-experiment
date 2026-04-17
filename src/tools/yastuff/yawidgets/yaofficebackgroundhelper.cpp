@@ -56,11 +56,15 @@ void YaOfficeBackgroundHelper::registerWidget(QWidget* widget)
 
 void YaOfficeBackgroundHelper::destroyed(QObject* obj)
 {
-	QWidget* widget = dynamic_cast<QWidget*>(obj);
-	if (!widget)
-		return;
+	// IMPORTANT: dynamic_cast<QWidget*>(obj) returns NULL here because by the
+	// time the destroyed() signal fires, the QWidget sub-object's vtable has
+	// already been torn down (we are inside ~QObject). Using dynamic_cast
+	// would silently bail out, leaving widgets_ with a dangling pointer that
+	// would later cause a use-after-free on the next iteration. We can safely
+	// static_cast since we only register QWidget* in registerWidget() and use
+	// the pointer purely as a key for removal.
+	QWidget* widget = static_cast<QWidget*>(obj);
 	Q_ASSERT(widget);
-	Q_ASSERT(widgets_.contains(widget));
 	widgets_.removeOne(widget);
 }
 
