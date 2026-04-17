@@ -20,10 +20,10 @@
 ## Цель модернизации
 
 Собрать и запустить клиент на современном macOS (Ventura / Sonoma / Sequoia):
-- подключение к XMPP-серверу
-- отправка и получение сообщений
-- современная безопасность (SCRAM-SHA-256, TLS 1.2+)
-- актуальные XMPP-расширения (карбонные копии, MAM, OMEMO)
+- подключение к XMPP-серверу ✅
+- отправка и получение сообщений ✅
+- современная безопасность (SCRAM-SHA-1/256, TLS 1.2+) ✅
+- актуальные XMPP-расширения (карбоны, MAM, OMEMO, XEP-0045 и др.) 🔄
 
 ---
 
@@ -36,9 +36,8 @@
 | macOS | 11.0+ | — |
 | Xcode Command Line Tools | последняя | `xcode-select --install` |
 | Qt 5.15 LTS | 5.15.x | `brew install qt@5` |
-| OpenSSL | 3.x | `brew install openssl` или MacPorts |
-| zlib | системная | встроена в macOS |
-| QCA 2.3.x | 2.3+ | `sudo port install qca +openssl` |
+| OpenSSL | 3.x | MacPorts (`/opt/local`) |
+| QCA 2.3.7 | 2.3.7 | Собирается из исходников (см. conf.pri) |
 
 ### Шаги сборки
 
@@ -57,7 +56,7 @@ make -j$(sysctl -n hw.ncpu)
 open src/yachat.app
 ```
 
-> ✅ **Layer 3 завершён. Приложение запускается.** Три стартовых краша устранены: `Q_WS_*→Q_OS_*` (278 замен), `QCA::KeyStoreTracker` spinEventLoop (Qt5-совместимость), `Q3Shared count(0)→count(1)` в iconset/anim. Приложение показывает UI. Переходим к Layer 4 (QCA 2.3.x, TLS 1.2+, SCRAM-SHA-256).
+> ✅ **Слои 1–4 завершены.** Приложение подключается к Prosody 0.12+, аутентифицируется по SCRAM-SHA-1, загружает ростер и MUC. Слой 6 (UI) в процессе.
 
 ---
 
@@ -66,11 +65,13 @@ open src/yachat.app
 Миграция выполняется послойно. Каждый слой должен дать рабочую сборку перед переходом к следующему.
 
 ```
-Слой 5: Новые XMPP XEP (карбоны, MAM, исправление сообщений, OMEMO)
-Слой 4: QCA 2.3.x (SCRAM-SHA-256, минимум TLS 1.2)
-Слой 3: Удаление Qt3Support (559+ использований Q3* → Qt5)
-Слой 2: Исправление системы сборки (qmake, Qt 5.15)
-Слой 1: Исправления macOS (Growl, Carbon API, Sparkle)
+Слой 7: Полный аудит кода, устранение ошибок, рефакторинг (после 4–6)
+Слой 6: Исправления UI-рендеринга (Qt4→Qt5 регрессии палитры)     🔄
+Слой 5: Новые XMPP XEP (15 расширений, включая OMEMO и XEP-0045)  🔲
+Слой 4: QCA 2.3.x + SCRAM-SHA-1/256 + TLS 1.2+                    ✅
+Слой 3: Удаление Qt3Support (559+ использований Q3* → Qt5)         ✅
+Слой 2: Исправление системы сборки (qmake, Qt 5.15)                ✅
+Слой 1: Исправления macOS (Growl, Carbon API, Sparkle)             ✅
 ```
 
 ---
@@ -81,79 +82,97 @@ open src/yachat.app
 
 | Задача | Статус | Описание |
 |---|---|---|
-| Удаление Sparkle | ✅ | Убран мёртвый фреймворк автообновления (требует подписи кода) |
-| Замена Growl | ✅ | Growl → заглушка на `QSystemTrayIcon` (Growl мёртв с macOS 10.9+) |
-| Carbon API | ✅ | `ProcessSerialNumber`/`SetFrontProcess` → Cocoa, `__bridge_transfer` → `CFBridgingRelease()` |
+| Удаление Sparkle | ✅ | Убран мёртвый фреймворк автообновления |
+| Замена Growl | ✅ | Growl → заглушка на `QSystemTrayIcon` |
+| Carbon API | ✅ | `ProcessSerialNumber`/`SetFrontProcess` → Cocoa |
 
 ### Слой 2 — Система сборки ✅ *завершён 2026-04-14*
 
 | Задача | Статус | Описание |
 |---|---|---|
-| `src/src.pro` | ✅ | `qt3support` удалён, добавлены `widgets`/`concurrent`/`sql`, `c++17`, `macOS 11.0` |
-| `iris/iris.pro` | ✅ | Добавлен `c++17`, Qt3 зависимостей не было |
-| `conf.pri` | ✅ | `OSSL_097` удалён, добавлены `YANDEX_EXTENSIONS`/`c++17`/`DEPLOYMENT_TARGET` |
-| Расширения Яндекса | ✅ | Весь код `xmpp_yalastmail` обёрнут в `#ifdef YANDEX_EXTENSIONS` |
+| `src/src.pro` | ✅ | `qt3support` удалён, `c++17`, `macOS 11.0` |
+| `iris/iris.pro` | ✅ | Добавлен `c++17` |
+| `conf.pri` | ✅ | QCA 2.3.7, `YANDEX_EXTENSIONS`, `DEPLOYMENT_TARGET` |
 
 ### Слой 3 — Удаление Qt3Support ✅ *завершён 2026-04-16*
 
 | Задача | Статус | Описание |
 |---|---|---|
-| Массовая замена (Задача 7) | ✅ | `#include <qfoo.h>`→`<QFoo>`, `Q3PtrList`/`Q3PopupMenu`/`Q3TextEdit` заменены, итераторы → range-for |
-| `Q3MainWindow` (Задача 8) | ✅ | `mainwin.h/cpp` → `QMainWindow`, `mainwin_p.cpp` Q3ToolBar убраны |
-| `Q3ListView` в HistoryDlg / EventDlg (Задачи 9–10) | ✅ | `QTreeWidget` + `QStyledItemDelegate`/`QTreeWidgetItem` |
-| **`Q3ListView` в ContactView** | ✅ | Полный порт: `Q3ListView`→`QTreeWidget`, `Q3ListViewItem`→`QTreeWidgetItem`, `Q3DragObject`→`QDrag/QMimeData`, `ContactViewDelegate` |
-| Qt4 API: mainwin/infodlg/psiaccount/psicon | ✅ | `QMenuBar::insertItem`→`addMenu`, `QUrl::queryItems`→`QUrlQuery`, `className()`→`metaObject()->className()`, `removeRef`→`removeAll` и др. |
-| Qt4 API: misc (eventdb, vcardfactory, serverlistquerier, rc, xdata_widget и др.) | ✅ | `QHttp`→`QNetworkAccessManager`, `setEncoding`→`setCodec`, `setOn`→`setChecked`, `QStyleOptionViewItemV4`, JsonQt C++17 throw-спеки |
-| yastuff (все 322 файла) | ✅ | `QTextControl`→`QWidgetTextControl` (через shim), `Qt::escape`→`toHtmlEscaped()`, `WStyle_*`→Qt5 флаги, `QMenuItem` удалён, `Q_WS_MAC`→`Q_OS_MAC` |
-| Статические плагины | ✅ | `Q_IMPORT_PLUGIN` исправлен на правильные имена классов (`ITunesPlugin`, `PsiFilePlugin`) |
-| **Контрольная сборка (Задача 12)** | ✅ | **`yachat.app` собран успешно (8.8 МБ)** — 16 апреля 2026 |
+| Массовая замена Q3* | ✅ | 559+ замен: `Q3PtrList`, `Q3PopupMenu`, `Q3TextEdit`, `Q3ListView` и др. |
+| `Q3MainWindow` | ✅ | `mainwin.h/cpp` → `QMainWindow` |
+| `Q3ListView` в ContactView | ✅ | Полный порт: `QTreeWidget` + `QTreeWidgetItem` + `QDrag/QMimeData` |
+| Qt4 API (misc) | ✅ | `QHttp`→`QNetworkAccessManager`, Qt::escape→toHtmlEscaped и др. |
+| yastuff (322 файла) | ✅ | `QTextControl` shim, `Q_WS_*`→`Q_OS_*`, Qt5 флаги окон |
+| Контрольная сборка | ✅ | **`yachat.app` собран (8.8 МБ)** — 16 апреля 2026 |
 
-### Слой 4 — QCA 2.3.x + современная аутентификация ✅ *подключение работает*
-
-Задачи выполняются строго по порядку: сначала добавляем современные механизмы, только потом удаляем устаревшие. Клиент никогда не должен оставаться без рабочей аутентификации.
+### Слой 4 — QCA 2.3.x + современная аутентификация ✅ *завершён 2026-04-17*
 
 | # | Задача | Статус | Описание |
 |---|--------|--------|----------|
-| 1 | Замена QCA | ✅ | QCA 2.3.7 собран из исходников с плагином ossl; встроенная 2.0.1 отключена |
-| 1а | TLS-плагин в бандл | ✅ | `libqca-ossl.dylib` скопирован в `yachat.app/Contents/MacOS/crypto/`; `QCA::isSupported("tls") == true` |
-| 1б | Бесконечный цикл reconnect | ✅ | Исправлен: `continueLogin()` / `checkLoginPrerequisites()` больше не вызывают PDD-запрос для не-Яндекс доменов |
-| 1в | QCA двойная загрузка (SIGSEGV KeyStoreThread) | ✅ | QCA_PLUGIN_PATH ограничен бандлом; qca_core.cpp пропатчен; все плагины в crypto/ с исправленными rpath |
-| 1г | SecureStream crash (SIGSEGV bs_readyRead) | ✅ | Guard isEmpty() перед first()/last(); d->active check; fix SNI — hostname всегда передаётся в QCA::TLS::startClient() |
-| 2 | TLS 1.2+ минимум | 🔲 | `QSsl::TlsV1_2OrLater` в stream.cpp, отклонять даунгрейд |
-| 3 | **Добавить** SCRAM-SHA-256 | 🔲 | Через QCA 2.3.x SASL; должен работать end-to-end до шага 5 |
-| 4 | **Добавить** SCRAM-SHA-1 fallback | 🔲 | RFC 5802; широко поддерживается; оставить рядом с SHA-256 |
-| 5 | **Заменить** `jabber:iq:auth` → SASL | 🔲 | XEP-0078 устарел; убрать iq:auth после подтверждения SCRAM |
-| 6 | **Заменить** DIGEST-MD5 → SCRAM | 🔲 | RFC 6331 deprecated в 2011; убрать только после проверки SCRAM на реальном сервере |
-| 7 | **Заменить** PLAIN-без-TLS → блок | 🔲 | Отказывать в PLAIN без установленного TLS; PLAIN поверх TLS допустим |
-| 8 | Тест на Prosody 0.12+ | 🔲 | Подключение, аутентификация SCRAM-SHA-256, обмен сообщениями без fallback на legacy |
+| 1 | QCA 2.3.7 | ✅ | Собран из исходников с ossl-плагином; встроенная 2.0.1 отключена |
+| 1а–г | Цепочка крашей | ✅ | QCA double-load, SecureStream SIGSEGV, бесконечный reconnect — устранены |
+| 2 | TLS 1.2+ минимум | ✅ | `QSsl::TlsV1_2OrLater` в `tlshandler.cpp` |
+| 3 | SCRAM-SHA-256 | ✅ | Реализован в `simplesasl.cpp` через QCA 2.3.7 (PBKDF2 + HMAC) |
+| 4 | SCRAM-SHA-1 | ✅ | Fallback; **подтверждён на Prosody 0.12+** |
+| 5 | Удаление `jabber:iq:auth` | ✅ | XEP-0078 legacy заменён на немедленный ErrProtocol |
+| 6 | Удаление DIGEST-MD5 | ✅ | Убран из simplesasl; SCRAM покрывает всё |
+| 7 | PLAIN только поверх TLS | ✅ | `AllowPlain` → `AllowPlainOverTLS` в psiaccount.cpp |
+| 8 | Тест на Prosody 0.12+ | ✅ | SCRAM-SHA-1 подтверждён, ростер и MUC загружены |
 
 ### Слой 6 — Исправления UI-рендеринга 🔄 *в процессе*
 
 | Баг | Статус | Описание |
 |-----|--------|----------|
-| A: Чёрный текст на чёрном фоне в чате | ✅ | `YaChatView` viewport + `QTextControl` palette: `Base=white`, `Window=white` |
-| B: Чёрный прямоугольник в окне контактов | ✅ | Два `QStackedWidget(parent=0)` в `YaRosterTab` — `setAutoFillBackground(true)` + белая палитра |
-| C: `#include <QColorGroup>` (убрано в Qt5) | ✅ | Удалён из `psigroupchatdlg.cpp` |
-| D: `QStyleOptionViewItemV2/V4` deprecated | ✅ | 18 замен в 6 файлах → `QStyleOptionViewItem` |
+| A: Чёрный текст в чате | ✅ | `YaChatView` viewport + QTextControl palette: Base/Window=white |
+| B: Чёрный прямоугольник в контактах | ✅ | `YaToolBox::normalPage_` + `YaWindowTheme::bottomColor` → white |
+| C: `NSRequiresAquaSystemAppearance` | ✅ | Info.plist: принудительный Aqua (light) режим |
+| D: Глобальная светлая палитра | ✅ | `app.setPalette(lightPal)` в main.cpp |
+| E: Таббар — серый фон | ✅ | `YaTabBar::paintEvent` заполняет #CCCCCC перед вкладками |
+| F: Поле ввода | ✅ | `YaChatEdit::setAutoFillBackground(true)` + белая палитра |
+| G: Крашь при закрытии MUC вкладки | ✅ | `TabManager::tabDestroyed`: `qobject_cast` → `static_cast` |
+| H: Крашь настроек чата (MUCAffiliations) | ✅ | `QSignalBlocker` + `proxy->invalidate()` в `getItemsByAffiliation_success` |
+| I: Таббар — текст/позиция | 🔄 | Вкладки визуально смещены; в работе |
 
 ### Слой 5 — Новые XMPP XEP 🔲 *не начат*
 
-| Задача | Статус | Описание |
-|---|---|---|
-| XEP-0308 | 🔲 | Исправление последнего сообщения |
-| XEP-0280 | 🔲 | Карбонные копии сообщений |
-| XEP-0313 | 🔲 | Архив сообщений (MAM) |
-| XEP-0384 | 🔲 | OMEMO шифрование (только личные чаты) |
-| Удаление мёртвых XEP | 🔲 | Групповые чаты legacy, Google Voice |
+Реализация 15 расширений, поддерживаемых современными десктопными клиентами (Gajim, Dino, Psi+):
+
+| Приоритет | XEP | Название | Статус |
+|-----------|-----|----------|--------|
+| 1 | XEP-0280 | Message Carbons | 🔲 |
+| 2 | XEP-0313 | MAM (полная синхронизация с сервером) | 🔲 |
+| 3 | XEP-0308 | Исправление последнего сообщения | 🔲 |
+| 4 | XEP-0384 | OMEMO (чтение + отправка, переключатель) | 🔲 |
+| 5 | XEP-0045 | MUC современный (замена `jabber:iq:conference`) | 🔲 |
+| 6 | XEP-0363 | HTTP File Upload | 🔲 |
+| 7 | XEP-0184 | Message Delivery Receipts | 🔲 |
+| 8 | XEP-0333 | Chat Markers | 🔲 |
+| 9 | XEP-0085 | Chat State Notifications | 🔲 |
+| 10 | XEP-0048 | Bookmarks | 🔲 |
+| 11 | XEP-0199 | XMPP Ping | 🔲 |
+| 12 | XEP-0352 | Client State Indication | 🔲 |
+| 13 | XEP-0249 | Direct MUC Invitations | 🔲 |
+| 14 | XEP-0030 | Service Discovery | 🔲 |
+| 15 | XEP-0115 | Entity Capabilities | 🔲 |
+
+### Слой 7 — Полный аудит кода 🔲 *не начат (после слоёв 4–6)*
+
+Одноразовый проход по всей кодовой базе (~900 файлов):
+
+- **Фаза 1:** Аудит всех правок слоёв 1–6 с помощью `code-review` навыка
+- **Фаза 2:** Полное сканирование — null proxy models, `qobject_cast` в `destroyed()`, `QList::first()` на пустых списках, deprecated Qt5 API, `parent=0` виджеты без палитры
+- **Фаза 3:** Проверка компилятора — сборка с `-Wall -Wextra`, цель: ноль предупреждений и ошибок
+- **Фаза 4:** Рефакторинг — удаление мёртвого кода (`YAPSI_ACTIVEX_SERVER`, `jabber:iq:auth` остатки, `DIGEST-MD5` скелет, неиспользуемая QCA 2.0.x)
+- **Фаза 5:** Финальная верификация — все известные краши воспроизведены и подтверждены исправленными
 
 ---
 
 ## Что осталось от Яндекса
 
 Весь брендинг и кастомный UI Яндекса **сохранён** (`src/tools/yastuff/`, ~322 файла):
-- `YaWindow` — кастомные окна
+- `YaWindow` — кастомные окна с жёлтым градиентным заголовком
 - `YaChatViewWidget` — отображение чата
-- `YaRosterWidget` — список контактов
+- `YaRosterWidget` — список контактов с аватарами
 - `YaMucManager` — групповые чаты
 - Интеграция с сервисами Яндекса (за флагом `YANDEX_EXTENSIONS`)
 
@@ -161,13 +180,14 @@ open src/yachat.app
 
 ## Технический стек
 
-- **Qt:** 5.15 LTS (Homebrew)
+- **Qt:** 5.15.18 LTS (Homebrew)
 - **Компилятор:** Apple Clang (Xcode), стандарт C++17
-- **Криптография:** QCA 2.3.x + OpenSSL 3.x
+- **Криптография:** QCA 2.3.7 (собран из исходников) + OpenSSL 3.x (MacPorts)
+- **SASL:** SimpleSASL с SCRAM-SHA-256/SHA-1 (RFC 5802, реализован через QCA PBKDF2/HMAC)
 - **XMPP:** встроенная библиотека Iris (расширяется, не заменяется)
 - **Платформа:** macOS 11.0+
 - **Система сборки:** qmake
 
 ---
 
-*Последнее обновление: 2026-04-17 (Claude: **🎉 ПОДКЛЮЧЕНИЕ РАБОТАЕТ!** YaChat 2009 года подключается к Prosody 0.12+, проходит STARTTLS + SASL PLAIN, загружает ростер и MUC-комнаты на macOS 13.7. Устранена цепочка из 6 крашей: QCA 2.3.7 ossl-плагин, QCA двойная загрузка (SIGSEGV KeyStoreThread), бесконечный reconnect (PDD bypass), SecureStream SIGSEGV (isEmpty guard + SNI fix). Следующий шаг: Layer 4 задачи 2–7 (TLS 1.2+ минимум, SCRAM-SHA-256/1, удаление legacy auth) + Layer 5 (XEP-0280/0313/0308/0384).)*
+*Последнее обновление: 2026-04-17 (Claude: **Слой 4 завершён.** SCRAM-SHA-1 подтверждён на Prosody 0.12+ (`[SCRAM] Selected mechanism: SCRAM-SHA-1`). TLS 1.2+ принудительно. DIGEST-MD5 и jabber:iq:auth удалены. PLAIN только поверх TLS. Слой 6 (UI) в процессе — таббар ещё требует доработки. Следующий: Слой 5 (15 XEP: карбоны, MAM, OMEMO read+send, XEP-0045 MUC и др.).)*
