@@ -57,12 +57,11 @@
 #include <windows.h>
 #endif
 
-#ifdef Q_OS_MAC
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <Carbon/Carbon.h> // for HIToolbox/InternetConfig
-#include <CoreServices/CoreServices.h>
-#endif
+// Former Q_OS_MAC block pulled in sys/types, sys/stat, Carbon.h, and
+// CoreServices.h. None of these symbols are referenced in this TU —
+// removed for Layer 7 dead-code cleanup. Carbon is deprecated in modern
+// macOS SDKs and transitively dumps thousands of deprecated-declaration
+// warnings into the build log.
 
 #include "profiles.h"
 #include "rtparse.h"

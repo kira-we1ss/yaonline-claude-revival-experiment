@@ -44,28 +44,11 @@ use_crash {
 	include($$PWD/tools/crash/crash.pri)
 }
 
-# qca
-qca-static {
-	# QCA
-	DEFINES += QCA_STATIC
-	include($$PWD/../third-party/qca/qca.pri)
-
-	# QCA-OpenSSL
-	contains(DEFINES, HAVE_OPENSSL) {
-		include($$PWD/../third-party/qca/qca-ossl.pri)
-	}
-	
-	# QCA-SASL
-	contains(DEFINES, HAVE_CYRUSSASL) {
-		include($$PWD/../third-party/qca/qca-cyrus-sasl.pri)
-	}
-
-	# QCA-GnuPG
-	include($$PWD/../third-party/qca/qca-gnupg.pri)
-}
-else {
-	CONFIG += crypto	
-}
+# qca: prebuilt 2.3.7 framework, bundled at
+# third-party/qca-qt5-install/qca-qt5.framework (see conf.pri).
+# qca-static / third-party/qca/ in-tree builds are no longer supported;
+# CONFIG += crypto is the sole remaining path.
+CONFIG += crypto
 
 # Widgets
 include($$PWD/widgets/widgets.pri)
@@ -93,18 +76,15 @@ jingle {
 	}
 }
 
-# include Iris XMPP library
+# include Iris XMPP library (legacy variant only — see Layer 7 notes in
+# CLAUDE.md). The non-legacy iris/ tree is retained on disk as a
+# reference copy but not built.
 CONFIG += iris_bundle
 CONFIG += iris_legacy
 
-!iris_legacy {
-	include($$PWD/../iris/iris.pri)
-}
-iris_legacy {
-	DEFINES += IRIS_LEGACY
-	include($$PWD/../iris-legacy/cutestuff/cutestuff.pri)
-	include($$PWD/../iris-legacy/iris/iris.pri)
-}
+DEFINES += IRIS_LEGACY
+include($$PWD/../iris-legacy/cutestuff/cutestuff.pri)
+include($$PWD/../iris-legacy/iris/iris.pri)
 
 # Header files
 HEADERS += \

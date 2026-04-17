@@ -3,21 +3,17 @@ TEMPLATE = subdirs
 include(conf.pri)
 windows:include(conf_windows.pri)
 
-# configure iris
-unix:system("echo \"include(../src/conf_iris.pri)\" > iris/conf.pri")
-windows:system("echo include(../src/conf_iris.pri) > iris\\conf.pri")
+# iris/ (the non-legacy, Qt5-style iris tree) is no longer compiled. The
+# main app is built with `CONFIG += iris_legacy` in src/src.pri and links
+# directly against iris-legacy/iris sources inline — there's no separate
+# library output. We also no longer need qmake to configure iris/ nor to
+# descend into it.
+#
+# qca-static is also no longer supported: QCA is bundled as a prebuilt
+# framework at third-party/qca-qt5-install/qca-qt5.framework (see
+# conf.pri) and linked via -F / -framework qca-qt5, not via in-tree
+# compilation. Both dead branches removed.
 
-qca-static {
-	sub_qca.subdir = third-party/qca
-	sub_iris.depends = sub_qca
-
-	SUBDIRS += sub_qca
-}
-
-sub_iris.subdir = iris
 sub_src.subdir = src
-sub_src.depends = sub_iris
 
-SUBDIRS += \
-	sub_iris \
-	sub_src
+SUBDIRS += sub_src

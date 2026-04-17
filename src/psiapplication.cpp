@@ -36,9 +36,10 @@
 #include <iostream>
 #endif
 
-#ifdef Q_OS_MAC
-#include <Carbon/Carbon.h>
-#endif
+// Carbon/Carbon.h was formerly included here but is never referenced in
+// this translation unit. Removed for Layer 7 dead-code cleanup; the
+// framework is deprecated in recent macOS SDKs and pulling it in
+// transitively drags in thousands of deprecated declarations.
 
 #ifdef YAPSI
 #include "yastyle.h"
