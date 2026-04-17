@@ -103,9 +103,11 @@ ServSockSignal::ServSockSignal(QObject *parent)
 	setMaxPendingConnections(16);
 }
 
-void ServSockSignal::incomingConnection(int socketDescriptor)
+void ServSockSignal::incomingConnection(qintptr socketDescriptor)
 {
-	connectionReady(socketDescriptor);
+	// connectionReady signal still takes int — on 64-bit macOS qintptr is
+	// 64-bit but socket fds are 32-bit so the narrowing is safe.
+	connectionReady(static_cast<int>(socketDescriptor));
 }
 
 // CS_NAMESPACE_END

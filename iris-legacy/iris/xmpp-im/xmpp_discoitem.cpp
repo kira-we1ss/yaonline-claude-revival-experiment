@@ -191,7 +191,7 @@ QString DiscoItem::action2string(Action a)
 	else if ( a == Remove )
 		s = "remove";
 	else
-		s = QString::null;
+		s = QString();
 
 	return s;
 }

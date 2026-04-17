@@ -39,6 +39,11 @@ public:
 	{
 		*this = other;
 	}
+	// Define default copy-assign. Without it, Qt5 warns
+	// -Wdeprecated-copy-with-user-provided-copy: the implicit copy-assign
+	// is deprecated in the presence of a user-provided copy ctor. The
+	// default does exactly the memberwise copy we want.
+	HoverableStyleOptionViewItem &operator=(const HoverableStyleOptionViewItem &) = default;
 	HoverableStyleOptionViewItem(const QStyleOptionViewItem &other);
 	HoverableStyleOptionViewItem &operator = (const QStyleOptionViewItem &other);
 

@@ -30,7 +30,7 @@ class YaProgressDialog : public YaWindow
 {
 	Q_OBJECT
 public:
-	YaProgressDialog(const QString& labelText, int minimum, int maximum, QWidget* parent = 0, Qt::WindowFlags f = 0);
+	YaProgressDialog(const QString& labelText, int minimum, int maximum, QWidget* parent = nullptr, Qt::WindowFlags f = Qt::WindowFlags());
 	~YaProgressDialog();
 
 	bool wasCanceled() const;

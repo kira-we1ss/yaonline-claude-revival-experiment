@@ -365,7 +365,7 @@ namespace XMPP
 		JT_DiscoItems(Task *);
 		~JT_DiscoItems();
 	
-		void get(const Jid &, const QString &node = QString::null);
+		void get(const Jid &, const QString &node = QString());
 		void get(const DiscoItem &);
 	
 		const Jid & jid() const;

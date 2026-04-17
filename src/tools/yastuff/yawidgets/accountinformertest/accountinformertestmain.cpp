@@ -36,7 +36,7 @@ private slots:
 			if (model_->editMode(index) != AccountInformerModel::EditJID) {
 				if (QMessageBox::question(this, tr("Deleting account"),
 				                          tr("Do you really want to delete <b>%1</b>?").arg(index.data(Qt::DisplayRole).toString()),
-				                          tr("Delete"), tr("Cancel"), QString::null, 1))
+				                          tr("Delete"), tr("Cancel"), QString(), 1))
 				{
 					return;
 				}

@@ -59,8 +59,10 @@ signals:
 	void connectionReady(int);
 
 protected:
-	// reimplemented
-	void incomingConnection(int socketDescriptor);
+	// reimplemented — Qt5 changed the 1st arg from int to qintptr
+	// (ConnectionDescriptor). Keep matching the base signature so this
+	// override actually fires.
+	void incomingConnection(qintptr socketDescriptor);
 };
 
 // CS_NAMESPACE_END

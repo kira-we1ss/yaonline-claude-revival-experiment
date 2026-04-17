@@ -181,7 +181,7 @@ void YaGroupchatContactListView::setModel(QAbstractItemModel* model)
 	}
 }
 
-void YaGroupchatContactListView::dataChanged(const QModelIndex& topLeft, const QModelIndex& bottomRight)
+void YaGroupchatContactListView::dataChanged(const QModelIndex& topLeft, const QModelIndex& bottomRight, const QVector<int>& /*roles*/)
 {
 	QModelIndex parent = topLeft.parent();
 	for (int row = topLeft.row(); row <= bottomRight.row(); ++row) {

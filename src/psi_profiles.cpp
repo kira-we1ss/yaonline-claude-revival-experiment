@@ -638,7 +638,7 @@ void UserProfile::reset()
 	prefs.toolbars.clear();
 
 	Options::ToolbarPrefs tbDef;
-	tbDef.name = QString::null;
+	tbDef.name = QString();
 	tbDef.on = false;
 	tbDef.locked = false;
 	tbDef.stretchable = false;

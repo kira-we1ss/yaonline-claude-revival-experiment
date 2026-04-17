@@ -46,7 +46,10 @@ private slots:
 	void itemActivated(const QModelIndex& index);
 	virtual void itemExpanded(const QModelIndex&);
 	virtual void itemCollapsed(const QModelIndex&);
-	virtual void dataChanged(const QModelIndex& topLeft, const QModelIndex& bottomRight);
+	// Qt5 added a 'roles' parameter to QTreeView::dataChanged; keep
+	// matching the base signature so we actually override (previous
+	// 2-arg version hid the 3-arg base and was never called).
+	virtual void dataChanged(const QModelIndex& topLeft, const QModelIndex& bottomRight, const QVector<int>& roles = QVector<int>());
 
 	void invalidateDelegate();
 	void clicked(const QModelIndex& index);

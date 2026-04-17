@@ -2205,7 +2205,7 @@ void ContactView::keyPressEvent(QKeyEvent *e)
 		 key == Qt::Key_Up     || key == Qt::Key_Down     ||
 		 key == Qt::Key_Left   || key == Qt::Key_Right) {
 
-		//d->typeAhead = QString::null;
+		//d->typeAhead = QString();
 		QTreeWidget::keyPressEvent(e);
 	} else {
 		QString text = e->text().toLower();

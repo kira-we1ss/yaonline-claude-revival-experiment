@@ -57,7 +57,7 @@ template <class BaseClass, class ExtraClass>
 class OverlayWidget : public BaseClass
 {
 public:
-	OverlayWidget(QWidget* parent, ExtraClass* extra, Qt::WindowFlags f = 0)
+	OverlayWidget(QWidget* parent, ExtraClass* extra, Qt::WindowFlags f = Qt::WindowFlags())
 		: BaseClass(parent)
 		, extra_(extra)
 		, gOverlayWidget_(new GOverlayWidget(this, extra))

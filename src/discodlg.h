@@ -35,10 +35,10 @@ class DiscoDlg : public QWidget, public Ui::Disco
 {
 	Q_OBJECT
 public:
-	DiscoDlg(PsiAccount *, const Jid &, const QString &node = QString::null);
+	DiscoDlg(PsiAccount *, const Jid &, const QString &node = QString());
 	~DiscoDlg();
 
-	void doDisco(QString host = QString::null, QString node = QString::null);
+	void doDisco(QString host = QString(), QString node = QString());
 
 signals:
 	void featureActivated(QString feature, Jid jid, QString node);

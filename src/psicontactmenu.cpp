@@ -145,7 +145,7 @@ private slots:
 			QString newgroup = QInputDialog::getText(tr("Create New Group"),
 			                   tr("Enter the new group name:"),
 			                   QLineEdit::Normal,
-			                   QString::null,
+			                   QString(),
 			                   &ok, 0);
 			if (!ok)
 				break;
@@ -600,7 +600,7 @@ private slots:
 		if (contact_) {
 			while (1) {
 				bool ok = false;
-				QString newGroup = QInputDialog::getText(tr("Create New Group"), tr("Enter the new Group name:"), QLineEdit::Normal, QString::null, &ok, 0);
+				QString newGroup = QInputDialog::getText(tr("Create New Group"), tr("Enter the new Group name:"), QLineEdit::Normal, QString(), &ok, 0);
 				if (!ok)
 					break;
 

@@ -4091,7 +4091,7 @@ void PsiAccount::setStatus(const Status &_s,  bool withPriority, bool isManualSt
 					( d->psi->contactList()->enabledAccounts().count() > 1 ?
 					  tr("Please enter the password for %1:").arg(JIDUtil::toString(j,true))
 					  : tr("Please enter your password:") ),
-					QLineEdit::Password, QString::null, &ok, 0);
+					QLineEdit::Password, QString(), &ok, 0);
 				if(ok && !text.isEmpty())
 					d->acc.pass = text;
 				else
@@ -4572,7 +4572,7 @@ void PsiAccount::featureActivated(QString feature, Jid jid, QString node)
 		actionInfo(jid);
 	else if ( f.id() == Features::FID_Add ) {
 		QStringList sl;
-		dj_add(jid, QString::null, sl, true);
+		dj_add(jid, QString(), sl, true);
 	}
 }
 
@@ -5647,7 +5647,7 @@ void PsiAccount::dj_composeMessage(const Jid &jid, const QString &body, const QS
 
 void PsiAccount::dj_composeMessage(const Jid &j, const QString &body)
 {
-	dj_composeMessage(j, body, QString::null, QString::null);
+	dj_composeMessage(j, body, QString(), QString());
 }
 
 void PsiAccount::dj_addAuth(const Jid &j)

@@ -113,7 +113,7 @@ void reparent_good(QWidget *that, Qt::WFlags f, bool showIt)
     that->setEnabled( enable );
     that->setFocusPolicy( fp );
     if ( !capt.isNull() ) {
-	that->extra->topextra->caption = QString::null;
+	that->extra->topextra->caption = QString();
 	that->setWindowTitle( capt );
     }
     if ( showIt )

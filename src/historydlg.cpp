@@ -56,7 +56,7 @@ static QString getNext(QString *str)
 		++n;
 	}
 	if(n == (int)str->length()) {
-		return QString::null;
+		return QString();
 	}
 	// find end or next space
 	while(n < (int)str->length() && !str->at(n).isSpace()) {
@@ -76,7 +76,7 @@ static QStringList wrapString(const QString &str, int wid)
 	//printf("parsing: [%s]\n", tmp.toLatin1().constData());
 	while(1) {
 		QString word = getNext(&tmp);
-		if(word == QString::null) {
+		if(word == QString()) {
 			lines += cur;
 			break;
 		}
@@ -305,7 +305,7 @@ void HistoryDlg::doSave()
 
 void HistoryDlg::doErase()
 {
-	int x = QMessageBox::information(this, tr("Confirm erase all"), tr("This will erase all message history for this contact!\nAre you sure you want to do this?"), tr("&Yes"), tr("&No"), QString::null, 1);
+	int x = QMessageBox::information(this, tr("Confirm erase all"), tr("This will erase all message history for this contact!\nAre you sure you want to do this?"), tr("&Yes"), tr("&No"), QString(), 1);
 	if (x == 0) {
 		d->h->erase(d->pa, d->jid);
 	}

@@ -1003,7 +1003,7 @@ private:
 		//description = "No description";
 		//authors << "I. M. Anonymous";
 		//creation = "1900-01-01";
-		homeUrl = QString::null;
+		homeUrl = QString();
 	}
 
 public:
@@ -1679,7 +1679,7 @@ void Iconset::removeFromFactory() const
  * required (i.e. when sound is stored inside packed iconset.zip file). Unpacked
  * file name will be unique, and you can empty the unpack directory at the application
  * exit. Calling application MUST ensure that the \a unpackPath is already created.
- * If specified \a unpackPath is empty ("" or QString::null) then sounds from archives
+ * If specified \a unpackPath is empty ("" or QString()) then sounds from archives
  * will not be unpacked, and only sounds from already unpacked iconsets (that are not
  * stored in archives) will be played.
  * \a receiver and \a slot are used to specify the object that will be connected to

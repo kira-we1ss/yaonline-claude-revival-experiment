@@ -98,7 +98,7 @@ QMap<QString, QString> SimpleCli::parse(int argc, char* argv[], const QStringLis
 		int sep = str.indexOf('=');
 		if (sep == -1) {
 			left = str;
-			right = QString::null;
+			right = QString();
 		} else {
 			left = str.mid(0, sep);
 			right = str.mid(sep + 1);

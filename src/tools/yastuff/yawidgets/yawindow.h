@@ -257,7 +257,7 @@ class YaWindow : public AdvancedWidget<YaWindowBase>
 {
 	Q_OBJECT
 public:
-	YaWindow(QWidget* parent = 0, Qt::WindowFlags f = 0);
+	YaWindow(QWidget* parent = nullptr, Qt::WindowFlags f = Qt::WindowFlags());
 	~YaWindow();
 
 	// reimplemented
