@@ -27,34 +27,127 @@
 
 ---
 
-## Сборка (macOS, текущее состояние)
+## Сборка (macOS)
 
-### Требования
+> **Важно.** Всё собирается и тестируется только на macOS (Intel x86_64 / Apple Silicon через Rosetta). Linux/Windows сейчас вне проекта.
+> Это актуальные инструкции на текущем коммите; ничего стороннего руками собирать больше не надо — `QCA 2.3.7` лежит в репозитории готовым фреймворком.
 
-| Зависимость | Версия | Способ установки |
-|---|---|---|
-| macOS | 11.0+ | — |
-| Xcode Command Line Tools | последняя | `xcode-select --install` |
-| Qt 5.15 LTS | 5.15.x | `brew install qt@5` |
-| OpenSSL | 3.x | MacPorts (`/opt/local`) |
-| QCA 2.3.7 | 2.3.7 | Собирается из исходников (см. conf.pri) |
+### 1. Зависимости
 
-### Шаги сборки
+| Пакет | Версия | Откуда ставить | Где должно лежать |
+|---|---|---|---|
+| macOS SDK | 11.0+ (Big Sur или новее) | вместе с Xcode | — |
+| Xcode Command Line Tools | любая свежая | `xcode-select --install` | `/Applications/Xcode.app` или CLT |
+| **Qt 5.15 LTS** (не Qt 6!) | 5.15.x | **Homebrew:** `brew install qt@5` | `/usr/local/opt/qt@5` (Intel) или `/opt/homebrew/opt/qt@5` (ARM) |
+| **OpenSSL 3** | 3.x | **MacPorts:** `sudo port install openssl3` | `/opt/local/lib`, `/opt/local/include/openssl` |
+| **zlib** | 1.3+ | MacPorts: `sudo port install zlib` | `/opt/local/lib/libz.*` |
+| **libidn2** | 2.3+ | MacPorts: `sudo port install libidn2` | `/opt/local/lib` |
+| **libsignal-protocol-c** (для OMEMO) | 2.3.3 | **Homebrew:** `brew install libsignal-protocol-c` | `/usr/local/opt/libsignal-protocol-c` |
+
+Проект одновременно использует **Homebrew** (`/usr/local`) и **MacPorts** (`/opt/local`). Это сознательное решение: Qt@5 удобнее держать через Homebrew (он поддерживает 5.15 LTS), а модульные криптобиблиотеки — через MacPorts. Оба должны быть установлены.
+
+> **Apple Silicon (M1/M2/M3):** Homebrew на ARM ставит Qt в `/opt/homebrew/opt/qt@5`, а не в `/usr/local/opt/qt@5`. Пути в `src/src.pro`, `conf.pri` и командах ниже жёстко зашиты на `/usr/local/opt/...` — для ARM откройте терминал через Rosetta (`arch -x86_64 zsh`) и поставьте x86_64-версию Homebrew параллельно. Нативная ARM-сборка не тестировалась.
+
+### 2. QCA 2.3.7 — уже в репозитории
+
+В папке `third-party/qca-qt5-install/qca-qt5.framework/` лежит **готовый собранный** `qca-qt5.framework` (2.5 МБ, x86_64 Mach-O), включая все плагины (`qca-ossl`, `qca-cyrus-sasl`, `qca-gnupg`, `qca-logger`, `qca-softstore`). Это обход исторической проблемы — раньше фреймворк лежал в `/tmp/qca-install` и пропадал после каждой перезагрузки macOS. Теперь он хранится в git и переносим между машинами.
+
+**Самому QCA собирать не нужно.** Если по какой-то причине захочется пересобрать (например, для ARM), есть первоисточник <https://userbase.kde.org/QCA> + плагин qca-ossl, положить результат в тот же путь.
+
+### 3. Сборка
 
 ```bash
-# 1. Клонировать репозиторий
+# 1. Клонировать репозиторий (с уже закоммиченным QCA)
 git clone https://github.com/kira-we1ss/yaonline-claude-revival-experiment.git
 cd yaonline-claude-revival-experiment
 
-# 2. Запустить qmake (Qt5 из Homebrew)
+# 2. Проверить что qmake указывает на Qt 5.15, а не Qt 6
+/usr/local/opt/qt@5/bin/qmake --version
+# Должно вывести:
+#   QMake version 3.1
+#   Using Qt version 5.15.18 in /usr/local/Cellar/qt@5/5.15.18/lib
+
+# 3. Сгенерировать Makefile из psi.pro
+#    (запуск ./configure больше не нужен — conf.pri закоммичен с готовыми путями)
 /usr/local/opt/qt@5/bin/qmake psi.pro
 
-# 3. Собрать
+# 4. Собрать (параллельно по числу ядер)
 make -j$(sysctl -n hw.ncpu)
 
-# 4. Запустить
+# 5. Получить .app-bundle со всеми фреймворками
+ls -lh src/yachat.app/Contents/MacOS/yachat
+# -rwxr-xr-x  1 user  staff  7.7M  ...  src/yachat.app/Contents/MacOS/yachat
+
+# 6. QCA уже скопирован внутрь бандла автоматическим post-link шагом:
+ls src/yachat.app/Contents/Frameworks/qca-qt5.framework/
+# Headers  Resources  Versions  qca-qt5
+
+# 7. Запустить
 open src/yachat.app
 ```
+
+Успешная сборка — **~3–5 минут** на Intel i7, 8 МБ бинарник. **0 ошибок, ~371 предупреждение** (всё некритичное: deprecated-declarations в парсере XMPP и inconsistent-missing-override — отложено на будущее, не мешает работе).
+
+### 4. Запуск и хранение данных
+
+Запустить:
+```bash
+open src/yachat.app
+# или
+src/yachat.app/Contents/MacOS/yachat
+```
+
+Настройки, ростер, история чатов хранятся в `~/Library/Application Support/Yandex/Online/<profilename>/`. По умолчанию создаётся профиль `default`. OMEMO-ключи — в подпапке `omemo/`.
+
+### 5. Если что-то не собирается
+
+| Симптом | Причина | Что делать |
+|---------|---------|-----------|
+| `qmake: command not found` | Qt5 не в PATH, взят Qt6 или не установлен | Использовать полный путь `/usr/local/opt/qt@5/bin/qmake` |
+| `Project ERROR: Unknown module(s) in QT: multimedia` | `qt@5` установлен без модулей | `brew reinstall qt@5` |
+| `'openssl/evp.h' file not found` | MacPorts не установлен или без `openssl3` | `sudo port install openssl3` |
+| `library 'qca-qt5' not found` | Бандлового QCA не оказалось (LFS/clone issue) | Проверить `ls third-party/qca-qt5-install/qca-qt5.framework/Versions/2/qca-qt5` — должен быть исполняемый Mach-O файл |
+| `signal/signal_protocol.h' file not found` | libsignal-protocol-c не установлен | `brew install libsignal-protocol-c` |
+| `ld: library not found for -lz` | Нет MacPorts zlib | `sudo port install zlib` |
+| При запуске: `dyld: Library not loaded: @executable_path/.../qca-qt5` | Сломан post-link копии QCA в бандл | `make clean && make -j$(sysctl -n hw.ncpu)`, либо вручную `cp -R third-party/qca-qt5-install/qca-qt5.framework src/yachat.app/Contents/Frameworks/` |
+| Крашь при открытии вкладки MUC или настроек | Старый билд до Layer 7 | `make clean && make -j$(sysctl -n hw.ncpu)` — фиксы есть в `main` с коммита `99e4c31` |
+
+### 6. Пересборка и «чистая сборка»
+
+```bash
+# Чистая сборка с нуля (10–15 мин):
+make clean
+/usr/local/opt/qt@5/bin/qmake psi.pro
+make -j$(sysctl -n hw.ncpu)
+
+# Быстрая инкрементальная пересборка после правки файла:
+make -j$(sysctl -n hw.ncpu)
+
+# Пересобрать только один файл (например после правки psiaccount.cpp):
+rm src/.obj/psiaccount.o && make -j4 -C src
+```
+
+### 7. Build in English (TL;DR)
+
+For those who read English faster than Russian:
+
+```bash
+# Prereqs (Intel Mac; see detailed table above for ARM notes)
+xcode-select --install
+brew install qt@5 libsignal-protocol-c
+sudo port install openssl3 zlib libidn2
+
+# Build
+git clone https://github.com/kira-we1ss/yaonline-claude-revival-experiment.git
+cd yaonline-claude-revival-experiment
+/usr/local/opt/qt@5/bin/qmake psi.pro
+make -j$(sysctl -n hw.ncpu)
+
+# Run
+open src/yachat.app
+```
+
+The bundled `qca-qt5.framework` (QCA 2.3.7 + OMEMO/TLS plugins) is committed under `third-party/qca-qt5-install/` and auto-copied into the `.app` bundle during linking — no manual QCA install step is needed. `./configure` is **not** required; `conf.pri` is committed with the right paths. Expect 0 errors and ~371 deferred non-critical warnings. Build time: ~3–5 min on modern Intel i7.
 
  > ✅ **Все 7 слоёв завершены.** 15/15 XEP работают, UI полностью исправлен, критические баги (STARTTLS-инъекция, Carbons-подмена отправителя, уязвимости null-deref) устранены, мёртвый код удалён. Компиляция на Qt 5.15.18 / macOS 14 SDK / clang — **0 ошибок, 371 предупреждение** (было 1981, снижение на **81%**). Приложение подключается к Prosody 0.12+, аутентифицируется по SCRAM-SHA-1, загружает ростер и MUC, отправляет/принимает OMEMO-сообщения в 1×1 и многопользовательских чатах.
 
