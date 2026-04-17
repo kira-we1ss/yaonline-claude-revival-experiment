@@ -80,6 +80,10 @@ signals:
     void bundlePublished(bool success);
 
 private:
+    // Internal: publish the bundle data (signedPreKey, identityKey, prekeys).
+    // Called from publishBundle() after the devicelist fetch/merge step.
+    void publishOwnBundleData();
+
     class Private;
     Private* d;
 };

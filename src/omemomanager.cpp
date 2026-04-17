@@ -1030,6 +1030,56 @@ uint32_t OmemoManager::deviceId() const
 void OmemoManager::setPepManager(PEPManager* pepManager)
 {
     d->pepManager = pepManager;
+
+    // Listen for devicelist PEP notifications so that when a peer (or our
+    // own other device) republishes its devicelist, we update our cache and
+    // can encrypt for the right devices on the next send. Without this,
+    // adding a new device on the Android companion (or a contact installing
+    // a new client) requires an app restart to pick up their new device id.
+    connect(d->pepManager, &PEPManager::itemPublished,
+        this, [this](const XMPP::Jid& from, const QString& node,
+                      const XMPP::PubSubItem& item) {
+            if (node != QString::fromLatin1(XmppOmemo::NS_DEVICELIST))
+                return;
+
+            QDomElement listEl = item.payload();
+            if (listEl.isNull()) return;
+
+            QList<uint32_t> devices;
+            QDomElement devEl = listEl.firstChildElement(QLatin1String("device"));
+            while (!devEl.isNull()) {
+                bool ok = false;
+                uint32_t devId = devEl.attribute(QLatin1String("id")).toUInt(&ok);
+                if (ok && devId != 0) devices.append(devId);
+                devEl = devEl.nextSiblingElement(QLatin1String("device"));
+            }
+
+            QString bareFrom = from.bare();
+            qDebug() << "[OMEMO] PEP devicelist update from" << bareFrom
+                     << "→" << devices.size() << "devices:" << devices;
+            d->deviceLists[bareFrom] = devices;
+
+            // If this is our OWN devicelist update from another of our
+            // clients, and it DOESN'T include our device id (race where
+            // the other client published before seeing us), re-merge and
+            // re-publish. Also fetch any new devices' bundles.
+            if (bareFrom == d->accountId) {
+                if (!devices.contains(d->store.localDeviceId)) {
+                    qDebug() << "[OMEMO] Our device id missing from own "
+                                "devicelist — republishing merged";
+                    publishBundle();
+                    return;
+                }
+                // Our device is present. Fetch bundles for any new peer
+                // devices so we can encrypt for them on next send.
+                fetchContactBundles(from);
+            } else {
+                // Peer devicelist change — drop stale sessions for devices
+                // no longer advertised. Don't eagerly fetch bundles; the
+                // next send-path will do that on demand.
+                // (Intentionally no-op for now to avoid chatty PEP fetches.)
+            }
+        });
 }
 
 void OmemoManager::publishBundle()
@@ -1048,20 +1098,110 @@ void OmemoManager::publishBundle()
 
     uint32_t myDevId = d->store.localDeviceId;
 
-    // Build device list payload XML
+    // CRITICAL: Must FETCH the existing devicelist first, then MERGE our device
+    // into it, THEN publish. Otherwise we overwrite Conversations/Cheogram's
+    // own device entries and the user's other clients lose their addressing
+    // (symptom: "Message was not encrypted for this device." on their phone
+    // for every message WE send, because senders no longer see their device id).
+    //
+    // Publish the bundle immediately (it's keyed by our device id, no conflict),
+    // then fetch devicelist → merge → republish in a continuation.
+    publishOwnBundleData();
+
+    // Fetch-merge-publish devicelist
+    XMPP::Jid ownJid(d->accountId);
+    auto onItem = std::make_shared<QMetaObject::Connection>();
+    auto onErr  = std::make_shared<QMetaObject::Connection>();
+    bool* done  = new bool(false);
+
+    auto publishMerged = [this, myDevId, done](QList<uint32_t> existing) {
+        if (*done) return;
+        *done = true;
+
+        QSet<uint32_t> merged(existing.begin(), existing.end());
+        bool wasMissing = !merged.contains(myDevId);
+        merged.insert(myDevId);
+
+        QStringList idStrs;
+        for (uint32_t x : merged) idStrs << QString::number(x);
+        qDebug() << "[OMEMO] Publishing merged devicelist ("
+                 << (wasMissing ? "adding our device" : "already present")
+                 << "):" << idStrs.join(",");
+
+        QDomDocument doc;
+        QDomElement list = doc.createElementNS(
+            QString::fromLatin1(XmppOmemo::NS), QLatin1String("list"));
+        for (uint32_t devId : merged) {
+            QDomElement devEl = doc.createElementNS(
+                QString::fromLatin1(XmppOmemo::NS), QLatin1String("device"));
+            devEl.setAttribute(QLatin1String("id"), QString::number(devId));
+            list.appendChild(devEl);
+        }
+        d->pepManager->publish(
+            QString::fromLatin1(XmppOmemo::NS_DEVICELIST),
+            XMPP::PubSubItem(QLatin1String("current"), list));
+
+        // Remember the merged list locally so we can encrypt-for-self
+        d->deviceLists[d->accountId] = merged.values();
+
+        // Fetch bundles for our own OTHER devices so we can encrypt
+        // for them (and thus read our own outgoing messages on phone).
+        // fetchContactBundles handles all the plumbing.
+        bool hasOtherOwnDevices = false;
+        for (uint32_t devId : merged) if (devId != myDevId) { hasOtherOwnDevices = true; break; }
+        if (hasOtherOwnDevices) {
+            qDebug() << "[OMEMO] Fetching our own other-device bundles for"
+                     << (merged.size() - 1) << "device(s) of" << d->accountId;
+            fetchContactBundles(XMPP::Jid(d->accountId));
+        }
+
+        delete done;
+    };
+
+    // Listen for success (item comes back) OR error (no existing list yet)
+    *onItem = connect(d->pepManager, &PEPManager::itemPublished,
+        this, [this, ownJid, onItem, onErr, publishMerged](
+                const XMPP::Jid& from, const QString& node,
+                const XMPP::PubSubItem& item) {
+            if (!from.compare(ownJid, false)) return;
+            if (node != QString::fromLatin1(XmppOmemo::NS_DEVICELIST)) return;
+            QObject::disconnect(*onItem);
+            QObject::disconnect(*onErr);
+
+            // Parse existing devicelist
+            QList<uint32_t> existing;
+            QDomElement listEl = item.payload();
+            QDomElement devEl = listEl.firstChildElement(QLatin1String("device"));
+            while (!devEl.isNull()) {
+                bool ok = false;
+                uint32_t devId = devEl.attribute(QLatin1String("id")).toUInt(&ok);
+                if (ok && devId != 0) existing.append(devId);
+                devEl = devEl.nextSiblingElement(QLatin1String("device"));
+            }
+            publishMerged(existing);
+        });
+
+    *onErr = connect(d->pepManager, &PEPManager::getError,
+        this, [this, ownJid, onItem, onErr, publishMerged](
+                const XMPP::Jid& errJid, const QString& errNode) {
+            if (!errJid.compare(ownJid, false)) return;
+            if (errNode != QString::fromLatin1(XmppOmemo::NS_DEVICELIST)) return;
+            QObject::disconnect(*onItem);
+            QObject::disconnect(*onErr);
+            // No existing devicelist — publish with just our device
+            publishMerged(QList<uint32_t>());
+        });
+
+    d->pepManager->get(ownJid, QString::fromLatin1(XmppOmemo::NS_DEVICELIST),
+                       QLatin1String("current"));
+}
+
+void OmemoManager::publishOwnBundleData()
+{
+    // This is the bundle-publish logic that used to be inline in publishBundle.
+    // The devicelist publish is now done separately after fetching existing list.
+    uint32_t myDevId = d->store.localDeviceId;
     QDomDocument doc;
-
-    // Publish device list: eu.siacs.conversations.axolotl.devicelist
-    QDomElement list = doc.createElementNS(
-        QString::fromLatin1(XmppOmemo::NS), QLatin1String("list"));
-    QDomElement device = doc.createElementNS(
-        QString::fromLatin1(XmppOmemo::NS), QLatin1String("device"));
-    device.setAttribute(QLatin1String("id"), QString::number(myDevId));
-    list.appendChild(device);
-
-    d->pepManager->publish(
-        QString::fromLatin1(XmppOmemo::NS_DEVICELIST),
-        XMPP::PubSubItem(QLatin1String("current"), list));
 
     // Build bundle payload: eu.siacs.conversations.axolotl.bundles:<devId>
     // The bundle contains the identity key, signed prekey, and one-time prekeys
@@ -1470,9 +1610,14 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
             // Update our known device list
             d->deviceLists[state->bareJid] = devices;
 
-            // Filter to only devices we don't already have sessions for
+            // Filter to only devices we don't already have sessions for.
+            // If fetching our OWN devicelist, skip our own device id — we can
+            // never session-encrypt to ourselves and libsignal rejects it.
             QList<uint32_t> needSession;
+            bool isOwnJid = (state->bareJid == d->accountId);
             for (uint32_t devId : devices) {
+                if (isOwnJid && devId == d->store.localDeviceId)
+                    continue;
                 QByteArray jidUtf8 = state->bareJid.toUtf8();
                 signal_protocol_address addr;
                 addr.name = jidUtf8.constData();
