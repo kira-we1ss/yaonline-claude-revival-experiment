@@ -730,18 +730,20 @@ void ChatDlg::sendMessage(XMPP::Message m, bool userAction)
 						    "but your client doesn't seem to support that. "
 						    "https://conversations.im/omemo"));
 						em.addExtension(enc);
-						// XEP-0280 §4.1 + XEP-0384: encrypted messages
-						// MUST NOT be carbon-copied in cleartext to our
-						// other resources that don't have OMEMO sessions
-						// (would leak or just be noise). Tell the server
-						// not to carbon this message.
-						{
-							QDomDocument privDoc;
-							QDomElement priv = privDoc.createElementNS(
-							    QStringLiteral("urn:xmpp:carbons:2"),
-							    QStringLiteral("private"));
-							em.addExtension(priv);
-						}
+						// We used to attach <private xmlns='urn:xmpp:
+						// carbons:2'/> here to prevent the fallback body
+						// being carbon-copied in cleartext to our other
+						// resources. That broke multi-device OMEMO:
+						// <private/> suppresses the ENTIRE message from
+						// the carbon stream, including the <encrypted>
+						// extension — so our phone never sees our own
+						// outgoing message in any form. The correct
+						// behaviour (matching Conversations/Dino) is to
+						// ALLOW the carbon: our other devices are part
+						// of our own devicelist and have <key> entries
+						// inside <encrypted>, so they decrypt the real
+						// body via OMEMO. The fallback string is just a
+						// polite note to non-OMEMO clients.
 						emit aSend(em);
 						doneSend(m); // log original plaintext locally
 					} else {

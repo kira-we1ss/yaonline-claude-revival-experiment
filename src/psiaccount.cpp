@@ -3519,6 +3519,20 @@ void PsiAccount::client_messageReceived(const Message &m)
 			         qPrintable(outerFrom.full()), qPrintable(jid().bare()));
 			return;
 		}
+
+		// Sent-carbon of our OWN outgoing message that yachat just sent —
+		// doneSend() already appended the plaintext locally to the chat
+		// dialog, and we don't have a self-OMEMO-session to decrypt the
+		// ciphertext copy that came back. Dropping the sent-carbon on
+		// this client avoids a duplicate entry (plaintext + fallback
+		// body) in the dialog. Other clients (phone Conversations) DO
+		// need to process sent-carbons to stay in sync; this only
+		// suppresses handling on the client that originated the send.
+		if (_m.isCarbonSent()) {
+			qDebug() << "[carbons] Dropping sent-carbon of our own outgoing message (from="
+			         << _m.from().full() << " to=" << _m.to().full() << ")";
+			return;
+		}
 	}
 
 	// if the sender is already in the queue, then queue this message also
