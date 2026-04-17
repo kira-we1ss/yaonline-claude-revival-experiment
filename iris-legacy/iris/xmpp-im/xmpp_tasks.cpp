@@ -951,8 +951,11 @@ bool JT_GetServices::take(const QDomElement &x)
 				if(found)
 					ns << "jabber:iq:search";
 				tag = findSubTag(i, "groupchat", &found);
-				if(found)
+				if(found) {
+					// Prefer modern MUC namespace; keep legacy as fallback for old clients
+					ns << "http://jabber.org/protocol/muc";
 					ns << "jabber:iq:conference";
+				}
 				tag = findSubTag(i, "transport", &found);
 				if(found)
 					ns << "jabber:iq:gateway";
@@ -1669,8 +1672,11 @@ AgentItem JT_Browse::browseHelper (const QDomElement &i)
 
 	// For now, conference.jabber.org returns proper namespace only
 	// when browsing individual rooms. So it's a quick client-side fix.
-	if ( !a.features().canGroupchat() && a.category() == "conference" )
+	// Prefer modern MUC namespace (XEP-0045); keep legacy as detection fallback.
+	if ( !a.features().canGroupchat() && a.category() == "conference" ) {
+		ns << "http://jabber.org/protocol/muc";
 		ns << "jabber:iq:conference";
+	}
 
 	a.setFeatures (ns);
 
