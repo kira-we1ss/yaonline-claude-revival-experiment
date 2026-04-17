@@ -845,6 +845,14 @@ public:
     // still in flight.
     QHash<QString, qint64> lastFetchMs;
 
+    // Per-(jid:devId) bundle-fetch throttle. When a peer publishes a device
+    // id but its bundle node 404s on PEP (broken setup, dead client, never-
+    // -published-bundle), we don't want to retry on every single send.
+    // Conversations / Dino do similar throttling. Skipped after a configurable
+    // backoff window.
+    QHash<QString, qint64> lastBundleFetchMs;
+    static constexpr qint64 kBundleFetchBackoffMs = 5 * 60 * 1000; // 5 minutes
+
     QString dataDir;
 
     ~Private() {
@@ -1678,6 +1686,29 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
         return;
     }
 
+    // Per-peer devicelist-fetch throttle: don't issue more than one
+    // devicelist IQ per peer per kFetchThrottleMs (30s). The encrypt path
+    // calls fetchContactBundles on every send, and without this throttle
+    // we'd hammer PEP for every keystroke-burst-driven send. Sessions
+    // established by an in-flight fetch will arrive via PEP notifications
+    // anyway, so even if we suppress the IQ here, we won't miss new
+    // devices for long. ensureMucSessions has the same throttle for the
+    // MUC presence-burst case.
+    {
+        const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+        const qint64 last = d->lastFetchMs.value(bareJid, 0);
+        if (last && (nowMs - last) < 30000) {
+            qDebug() << "[OMEMO] fetchContactBundles: throttled for" << bareJid
+                     << "(last fetch" << (nowMs - last) << "ms ago)";
+            // Emit success so callers (encrypt() etc.) proceed using
+            // whatever sessions we already have. New sessions from the
+            // in-flight or recently-completed fetch will be there.
+            emit sessionsEstablished(contact, true);
+            return;
+        }
+        d->lastFetchMs[bareJid] = nowMs;
+    }
+
     qDebug() << "[OMEMO] fetchContactBundles: fetching devicelist for" << bareJid;
 
     // Step 1: fetch devicelist node
@@ -1791,7 +1822,17 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
             // Filter to only devices we don't already have sessions for.
             // If fetching our OWN devicelist, skip our own device id — we can
             // never session-encrypt to ourselves and libsignal rejects it.
+            //
+            // Also throttle: if we tried to fetch this (jid:devId)'s bundle in
+            // the last kBundleFetchBackoffMs and it failed (or has not yet
+            // produced a session), skip it this round. Avoids hammering 404s
+            // for peer devices whose bundle is genuinely missing — common with
+            // dino/Conversations users who installed a 2nd client but never
+            // completed OMEMO setup. The backoff lets them recover within
+            // 5 minutes if they fix it.
+            const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
             QList<uint32_t> needSession;
+            int throttledCount = 0;
             bool isOwnJid = (state->bareJid == d->accountId);
             for (uint32_t devId : devices) {
                 if (isOwnJid && devId == d->store.localDeviceId)
@@ -1801,9 +1842,24 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
                 addr.name = jidUtf8.constData();
                 addr.name_len = static_cast<size_t>(jidUtf8.size());
                 addr.device_id = static_cast<int32_t>(devId);
-                if (!sess_contains_session(&addr, &d->store))
-                    needSession.append(devId);
+                if (sess_contains_session(&addr, &d->store))
+                    continue;
+                const QString perDevKey = state->bareJid + QLatin1Char(':') +
+                                          QString::number(devId);
+                const qint64 last = d->lastBundleFetchMs.value(perDevKey, 0);
+                if (last && (nowMs - last) < Private::kBundleFetchBackoffMs) {
+                    ++throttledCount;
+                    continue;
+                }
+                d->lastBundleFetchMs[perDevKey] = nowMs;
+                needSession.append(devId);
             }
+            if (throttledCount > 0)
+                qDebug() << "[OMEMO]" << throttledCount << "device(s) of"
+                         << state->bareJid
+                         << "throttled (bundle re-fetch in"
+                         << ((Private::kBundleFetchBackoffMs / 1000) / 60)
+                         << "min)";
 
             if (needSession.isEmpty()) {
                 qDebug() << "[OMEMO] All sessions already established for" << state->bareJid;
@@ -1845,8 +1901,17 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
                     int result = parseAndProcessBundle(
                         bundleEl, matchedDevId, state->bareJid,
                         d->storeCtx, d->signalCtx);
-                    if (result == SG_SUCCESS)
+                    if (result == SG_SUCCESS) {
                         state->anySuccess = true;
+                        // Clear the per-(jid:devId) backoff entry on success —
+                        // we successfully built a session, so any future
+                        // re-fetches for THIS device aren't needed unless the
+                        // session breaks. Other failed devices keep their
+                        // backoff timestamps untouched.
+                        const QString perDevKey = state->bareJid + QLatin1Char(':') +
+                                                  QString::number(matchedDevId);
+                        d->lastBundleFetchMs.remove(perDevKey);
+                    }
 
                     state->pendingBundles--;
                     if (state->pendingBundles <= 0) {
@@ -2022,7 +2087,13 @@ void OmemoManager::encrypt(const XMPP::Jid& to, const QString& body)
 
         session_cipher* cipher = nullptr;
         if (session_cipher_create(&cipher, d->storeCtx, &addr, d->signalCtx) != SG_SUCCESS) {
-            qWarning() << "[OMEMO] Failed to create session cipher for" << jid << "device" << devId;
+            // Demoted from qWarning: routinely fires for peer devices whose
+            // bundle was advertised but never published. The bundle re-fetch
+            // throttle (kBundleFetchBackoffMs, 5min) limits retries; if the
+            // peer fixes their setup, we recover automatically. Real
+            // failures show up as the bundle-fetch-error log line earlier.
+            qDebug() << "[OMEMO] no session for" << jid << "device" << devId
+                     << "— skipping (peer may have stale device id, bundle 404, etc.)";
             return;
         }
 
@@ -2034,8 +2105,11 @@ void OmemoManager::encrypt(const XMPP::Jid& to, const QString& body)
         session_cipher_free(cipher);
 
         if (result != SG_SUCCESS || !encryptedKey) {
-            qWarning() << "[OMEMO] session_cipher_encrypt failed for" << jid
-                       << "device" << devId << "result:" << result;
+            // SG_ERR_UNKNOWN (-1000) routinely fires when a session was
+            // tentatively created but no PreKeyBundle was ever processed
+            // (bundle 404). Same demotion rationale as above.
+            qDebug() << "[OMEMO] encrypt skipped for" << jid << "device" << devId
+                     << "result:" << result << "— bundle missing or session invalid";
             return;
         }
 
