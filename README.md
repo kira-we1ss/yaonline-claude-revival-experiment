@@ -56,7 +56,7 @@ make -j$(sysctl -n hw.ncpu)
 open src/yachat.app
 ```
 
-> ✅ **Слои 1–5 почти завершены (14/15 XEP).** Приложение подключается к Prosody 0.12+, аутентифицируется по SCRAM-SHA-1, загружает ростер и MUC. Слой 6 (UI + новые кнопки) в процессе.
+ > ✅ **Слои 1–5 завершены (15/15 XEP). Слой 6: UI-кнопки OMEMO и исправления сообщений добавлены.** Приложение подключается к Prosody 0.12+, аутентифицируется по SCRAM-SHA-1, загружает ростер и MUC.
 
 ---
 
@@ -132,8 +132,8 @@ open src/yachat.app
 | G: Крашь при закрытии MUC вкладки | ✅ | `TabManager::tabDestroyed`: `qobject_cast` → `static_cast` |
 | H: Крашь настроек чата (MUCAffiliations) | ✅ | `QSignalBlocker` + `proxy->invalidate()` в `getItemsByAffiliation_success` |
 | I: Таббар — текст/позиция | 🔄 | Вкладки визуально смещены; в работе |
-| **F: Кнопка OMEMO-замок в заголовке чата** | 🔲 | `QToolButton` в `YaChatHeader`/`YaChatToolBar`; зелёный=вкл, серый=выкл; клик переключает OMEMO |
-| **G: Кнопка исправления сообщения в поле ввода** | 🔲 | Кнопка-карандаш рядом с «Отправить»; клик подставляет последнее сообщение с `~`; метка "(изменено)" |
+| **Кнопка OMEMO-замок в заголовке чата** | ✅ | `QToolButton` (24×24) в правой колонке `chatTopFrame`; 🔒 зелёный=вкл, 🔓 серый=выкл; клик вызывает `OmemoManager::setEnabled()`; `PsiAccount::omemoManager()` добавлен как публичный accessor |
+| **Кнопка исправления сообщения в поле ввода** | ✅ | `QToolButton` ✏ (24×20) над кнопкой «Отправить» в `YaChatEdit`; сигнал `correctionRequested()`; `YaChatDlg::onCorrectionRequested()` подставляет `~` + `lastSentBody_`; поле `ChatDlg::lastSentBody_` добавлено в `doneSend()` |
 
 ### Слой 5 — Новые XMPP XEP ✅ *завершён 2026-04-17*
 
@@ -207,4 +207,4 @@ open src/yachat.app
 
 ---
 
-*Последнее обновление: 2026-04-17 (Claude: **Слой 5 завершён (15/15 XEP).** XEP-0384 OMEMO реализован: `OmemoManager` на libsignal-protocol-c 2.3.3, X3DH + Double Ratchet, AES-128-GCM, TOFU доверие, хук в `psiaccount.cpp`. Слой 6 в процессе: UI-кнопки OMEMO, исправление сообщения.)*
+*Последнее обновление: 2026-04-17 (Claude: **Слой 6: кнопки OMEMO и исправления добавлены.** `QToolButton` OMEMO-замок в заголовке чата (`yachatdlg.cpp`), `QToolButton` карандаш в `YaChatEdit` с сигналом `correctionRequested()`, `ChatDlg::lastSentBody_` для восстановления текста, `PsiAccount::omemoManager()` как публичный accessor. Сборка чистая, 0 ошибок.)*
