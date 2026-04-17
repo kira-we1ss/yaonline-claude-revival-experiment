@@ -270,8 +270,19 @@ bool Task::iqVerify(const QDomElement &x, const Jid &to, const QString &id, cons
 
 	// empty 'from' ?
 	if(from.isEmpty()) {
-		// allowed if we are querying the server
-		if(!to.isEmpty() && !to.compare(server))
+		// Per RFC 6120 §10.3.3 the server MAY omit 'from' when speaking
+		// on behalf of the user's own bare JID (common for PEP queries
+		// against self: 'get kweiss@xmpp.../axolotl.devicelist' returns
+		// a result with from=''). Accept the response if 'to' is either
+		// the server (classic "querying the server" case) OR our own
+		// local bare/full JID (self-PEP case). Without the self-PEP
+		// acceptance, PEPGetTask::take() silently drops its own
+		// response, the task never finishes, and any async waiter
+		// (e.g. OmemoManager::publishBundle devicelist merge) hangs
+		// forever.
+		if(!to.isEmpty()
+		   && !to.compare(server)
+		   && !to.compare(local, false))
 			return false;
 	}
 	// from ourself?

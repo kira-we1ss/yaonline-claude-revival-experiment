@@ -24,6 +24,7 @@
 #include <QRandomGenerator>
 #include <QMutex>
 #include <QTimer>
+#include <QDateTime>
 #include <QDomDocument>
 #include <QSet>
 #include <QTextStream>
@@ -782,6 +783,16 @@ public:
     // Contact device lists: jid -> list of device ids
     QHash<QString, QList<uint32_t>> deviceLists;
 
+    // Debounce: timestamp (ms since epoch, QDateTime::currentMSecsSinceEpoch)
+    // of the last publishBundle() dispatch. We ignore any publishBundle()
+    // call that arrives within kPublishBundleDebounceMs of the last one.
+    // Prevents infinite loops when another misbehaving client keeps
+    // overwriting our devicelist on every publish (each overwrite echoes
+    // back as a PEP push; we used to republish → server echoes → republish
+    // ...). Also rate-limits human-triggered reconnects.
+    qint64 lastPublishBundleMs = 0;
+    static constexpr qint64 kPublishBundleDebounceMs = 10 * 1000; // 10s
+
     QString dataDir;
 
     ~Private() {
@@ -1059,26 +1070,20 @@ void OmemoManager::setPepManager(PEPManager* pepManager)
                      << "→" << devices.size() << "devices:" << devices;
             d->deviceLists[bareFrom] = devices;
 
-            // If this is our OWN devicelist update from another of our
-            // clients, and it DOESN'T include our device id (race where
-            // the other client published before seeing us), re-merge and
-            // re-publish. Also fetch any new devices' bundles.
-            if (bareFrom == d->accountId) {
-                if (!devices.contains(d->store.localDeviceId)) {
-                    qDebug() << "[OMEMO] Our device id missing from own "
-                                "devicelist — republishing merged";
-                    publishBundle();
-                    return;
-                }
-                // Our device is present. Fetch bundles for any new peer
-                // devices so we can encrypt for them on next send.
-                fetchContactBundles(from);
-            } else {
-                // Peer devicelist change — drop stale sessions for devices
-                // no longer advertised. Don't eagerly fetch bundles; the
-                // next send-path will do that on demand.
-                // (Intentionally no-op for now to avoid chatty PEP fetches.)
-            }
+            // Intentionally DO NOT auto-republish if our id is missing from
+            // our own devicelist here — that path used to run and caused an
+            // infinite republish loop in real life:
+            //   [publishBundle → merge → publish 6 devices]
+            //     ↓ fetchContactBundles(ownJid) → get(own,devicelist)
+            //     ↓ itemPublished fires with server's pre-commit state (5 dev)
+            //     ↓ this handler fires → "missing, republish" → goto 1
+            // A cold-start / restart-triggered merge happens exactly once in
+            // publishBundle()'s continuation. Drifting "missing" states are
+            // fixed on the next publishBundle (e.g. next app launch).
+            //
+            // We still update the deviceLists cache above so encrypt() sees
+            // peer device changes in real time.
+            Q_UNUSED(bareFrom);
         });
 }
 
@@ -1095,6 +1100,20 @@ void OmemoManager::publishBundle()
         emit bundlePublished(false);
         return;
     }
+
+    // Debounce: reject republish-storms triggered by misbehaving peer clients
+    // that keep overwriting our devicelist without merging. Each overwrite
+    // generates a PEP push; without this gate we'd re-publish instantly,
+    // the peer would re-overwrite, and we'd melt the CPU + flood the network.
+    qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    if (d->lastPublishBundleMs != 0
+        && nowMs - d->lastPublishBundleMs < Private::kPublishBundleDebounceMs) {
+        qDebug() << "[OMEMO] publishBundle: debounced ("
+                 << (nowMs - d->lastPublishBundleMs) << "ms since last publish)";
+        emit bundlePublished(true); // caller treated as success; we already published recently
+        return;
+    }
+    d->lastPublishBundleMs = nowMs;
 
     uint32_t myDevId = d->store.localDeviceId;
 
@@ -1192,6 +1211,7 @@ void OmemoManager::publishBundle()
             publishMerged(QList<uint32_t>());
         });
 
+    qDebug() << "[OMEMO] publishBundle: fetching own devicelist from" << ownJid.full();
     d->pepManager->get(ownJid, QString::fromLatin1(XmppOmemo::NS_DEVICELIST),
                        QLatin1String("current"));
 }
