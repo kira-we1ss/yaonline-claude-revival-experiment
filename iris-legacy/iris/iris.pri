@@ -60,6 +60,9 @@ HEADERS += \
 	$$PWD/include/xmpp_yalastmail.h \
 	$$PWD/include/xmpp_yadatetime.h
 
+HEADERS += \
+	$$PWD/xmpp-core/scrammessage.h
+
 SOURCES += \
 	$$PWD/xmpp-core/connector.cpp \
 	$$PWD/xmpp-core/tlshandler.cpp \
@@ -72,6 +75,7 @@ SOURCES += \
 	$$PWD/xmpp-core/compressionhandler.cpp \
 	$$PWD/xmpp-core/stream.cpp \
 	$$PWD/xmpp-core/simplesasl.cpp \
+	$$PWD/xmpp-core/scrammessage.cpp \
 	$$PWD/xmpp-core/xmpp_stanza.cpp \
 	$$PWD/xmpp-im/types.cpp \
 	$$PWD/xmpp-im/client.cpp \

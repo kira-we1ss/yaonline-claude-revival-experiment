@@ -19,6 +19,7 @@
  */
 
 #include "simplesasl.h"
+#include "scrammessage.h"
 
 #include <QHostAddress>
 #include <QStringList>
@@ -28,6 +29,7 @@
 #include <stdlib.h>
 #include <QtCrypto>
 #include <QDebug>
+#include <QScopedPointer>
 
 #ifdef YAPSI
 #include <QUrl>
@@ -218,6 +220,7 @@ public:
 	QCA::SASL::AuthCondition authCondition_;
 	QByteArray result_to_net_, result_to_app_;
 	int encoded_;
+	QScopedPointer<SCRAMMessage> scram_;
 
 	SimpleSASLContext(QCA::Provider* p) : QCA::SASLContext(p)
 	{
@@ -280,22 +283,43 @@ public:
 		Q_UNUSED(allowClientSendFirst);
 
 		mechanism_ = QString();
-		foreach(QString mech, mechlist) {
-#ifdef YAPSI
-			if (mech == "X-FACEBOOK-PLATFORM" && allow_xFacebookPlatform) {
-				mechanism_ = "X-FACEBOOK-PLATFORM";
-				break;
-			}
-#endif
+		{
+			// Priority: X-FACEBOOK-PLATFORM > SCRAM-SHA-256 > SCRAM-SHA-1 > DIGEST-MD5 > PLAIN
+			static const int PRIO_NONE     = 0;
+			static const int PRIO_PLAIN    = 1;
+			static const int PRIO_DIGESTMD5= 2;
+			static const int PRIO_SCRAM1   = 3;
+			static const int PRIO_SCRAM256 = 4;
+			static const int PRIO_FBPLATFORM = 5;
+			int bestPrio = PRIO_NONE;
 
-			if (mech == "DIGEST-MD5") {
-				mechanism_ = "DIGEST-MD5";
-				break;
-			}
-#ifdef SIMPLESASL_PLAIN
-			if (mech == "PLAIN" && allow_plain) 
-				mechanism_ = "PLAIN";
+			foreach(QString mech, mechlist) {
+#ifdef YAPSI
+				if (mech == "X-FACEBOOK-PLATFORM" && allow_xFacebookPlatform && bestPrio < PRIO_FBPLATFORM) {
+					mechanism_ = "X-FACEBOOK-PLATFORM";
+					bestPrio = PRIO_FBPLATFORM;
+					break;
+				}
 #endif
+				if (mech == "SCRAM-SHA-256" && bestPrio < PRIO_SCRAM256) {
+					mechanism_ = "SCRAM-SHA-256";
+					bestPrio = PRIO_SCRAM256;
+				}
+				else if (mech == "SCRAM-SHA-1" && bestPrio < PRIO_SCRAM1) {
+					mechanism_ = "SCRAM-SHA-1";
+					bestPrio = PRIO_SCRAM1;
+				}
+				else if (mech == "DIGEST-MD5" && bestPrio < PRIO_DIGESTMD5) {
+					mechanism_ = "DIGEST-MD5";
+					bestPrio = PRIO_DIGESTMD5;
+				}
+#ifdef SIMPLESASL_PLAIN
+				else if (mech == "PLAIN" && allow_plain && bestPrio < PRIO_PLAIN) {
+					mechanism_ = "PLAIN";
+					bestPrio = PRIO_PLAIN;
+				}
+#endif
+			}
 		}
 
 		if(!capable || mechanism_.isEmpty()) {
@@ -325,6 +349,29 @@ public:
 		// so all exits go through a goto ready; 
 		if(step == 0) {
 			out_mech = mechanism_;
+
+			// SCRAM-SHA-1 / SCRAM-SHA-256 (RFC 5802)
+			if (out_mech == "SCRAM-SHA-256" || out_mech == "SCRAM-SHA-1") {
+				if(need.user || need.pass) {
+					qWarning("simplesasl.cpp: Did not receive necessary auth parameters");
+					result_ = Error;
+					goto ready;
+				}
+				if(!have.user)
+					need.user = true;
+				if(!have.pass)
+					need.pass = true;
+				if(need.user || need.pass) {
+					result_ = Params;
+					goto ready;
+				}
+				QString hashName = (out_mech == "SCRAM-SHA-256") ? "sha256" : "sha1";
+				scram_.reset(new SCRAMMessage(hashName, user, pass));
+				out_buf = scram_->clientFirstMessage();
+				++step;
+				result_ = Continue;
+				goto ready;
+			}
 
 #ifdef SIMPLESASL_PLAIN
 			// PLAIN 
@@ -360,6 +407,24 @@ public:
 				result_ = Continue;
 		}
 		else if(step == 1) {
+			// SCRAM step 1: process server-first-message, send client-final-message
+			if (out_mech == "SCRAM-SHA-256" || out_mech == "SCRAM-SHA-1") {
+				if (!scram_) {
+					result_ = Error;
+					authCondition_ = QCA::SASL::BadProtocol;
+					goto ready;
+				}
+				out_buf = scram_->clientFinalMessage(in_buf);
+				if (!scram_->isValid()) {
+					result_ = Error;
+					authCondition_ = QCA::SASL::BadServer;
+					goto ready;
+				}
+				++step;
+				result_ = Continue;
+				goto ready;
+			}
+
 #ifdef YAPSI
 			if (out_mech == "X-FACEBOOK-PLATFORM") {
 				QString fakeUrl = "http://facebook.com/?" + QString(in_buf);
@@ -469,6 +534,23 @@ public:
 			++step;
 		}*/
 		else {
+			// SCRAM step 2: verify server-final-message
+			if (out_mech == "SCRAM-SHA-256" || out_mech == "SCRAM-SHA-1") {
+				if (!scram_) {
+					result_ = Error;
+					authCondition_ = QCA::SASL::BadProtocol;
+					goto ready;
+				}
+				out_buf.resize(0);
+				if (!scram_->verifyServerFinal(in_buf)) {
+					result_ = Error;
+					authCondition_ = QCA::SASL::BadServer;
+					goto ready;
+				}
+				result_ = Success;
+				goto ready;
+			}
+
 			out_buf.resize(0);
 			result_ = Success;
 		}
@@ -504,7 +586,9 @@ ready:
 	}
 	
 	virtual bool haveClientInit() const {
-		return out_mech == "PLAIN";
+		return out_mech == "PLAIN" ||
+		       out_mech == "SCRAM-SHA-1" ||
+		       out_mech == "SCRAM-SHA-256";
 	}
 	
 	virtual QByteArray stepData() const {
