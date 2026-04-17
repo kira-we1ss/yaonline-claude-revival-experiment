@@ -114,6 +114,8 @@
 #endif
 #include "pepmanager.h"
 #include "serverinfomanager.h"
+#include "omemomanager.h"
+#include "xmpp_omemo.h"
 #include "xmpp_csi.h"
 #include "xmpp_mam.h"
 #ifdef WHITEBOARDING
@@ -404,6 +406,7 @@ public:
 		, pepManager(0)
 		, bookmarkManager(0)
 		, httpAuthManager(0)
+		, omemoManager(0)
 		, conn(0)
 		, stream(0)
 		, tls(0)
@@ -493,6 +496,10 @@ public:
 
 	// HttpAuth
 	HttpAuthManager* httpAuthManager;
+
+	// OMEMO
+	OmemoManager* omemoManager;
+	QList<Message> omemoQueue; // messages awaiting OMEMO decryption
 
 	QList<GCContact*> gcbank;
 	QStringList groupchats;
@@ -1443,6 +1450,12 @@ PsiAccount::PsiAccount(const UserAccount &acc, PsiContactList *parent, CapsRegis
 	connect(d->pepManager,SIGNAL(itemPublished(const Jid&, const QString&, const PubSubItem&)),SLOT(itemPublished(const Jid&, const QString&, const PubSubItem&)));
 	connect(d->pepManager,SIGNAL(itemRetracted(const Jid&, const QString&, const PubSubRetraction&)),SLOT(itemRetracted(const Jid&, const QString&, const PubSubRetraction&)));
 	d->pepAvailable = false;
+
+	// XEP-0384 OMEMO
+	d->omemoManager = new OmemoManager(acc.jid, d->client, this);
+	d->omemoManager->setPepManager(d->pepManager);
+	connect(d->omemoManager, &OmemoManager::decryptDone,
+	        this, &PsiAccount::omemo_decryptFinished);
 
 #ifdef WHITEBOARDING
 	 // Initialize Whiteboard manager
@@ -3481,6 +3494,16 @@ void PsiAccount::client_messageReceived(const Message &m)
 	}
 #endif
 
+	// XEP-0384 OMEMO encrypted message?
+	{
+		QDomElement omemoEl = _m.getExtension(QString::fromLatin1(XmppOmemo::NS));
+		if (!omemoEl.isNull() && d->omemoManager) {
+			d->omemoQueue.append(_m);
+			d->omemoManager->decrypt(_m.from(), omemoEl);
+			return; // decryptDone signal will call processIncomingMessage
+		}
+	}
+
 	processIncomingMessage(_m);
 }
 
@@ -4130,6 +4153,19 @@ void PsiAccount::setStatusActual(const Status &_s)
 void PsiAccount::sentInitialPresence()
 {
 	QTimer::singleShot(15000, this, SLOT(enableNotifyOnline()));
+
+	// XEP-0384 OMEMO: publish device bundle after login
+	if (d->omemoManager && d->omemoManager->isInitialized()) {
+		d->omemoManager->publishBundle();
+	} else if (d->omemoManager) {
+		// Initialize may still be in progress (deferred via QTimer::singleShot)
+		// Connect to bundlePublished to publish once ready
+		QTimer::singleShot(2000, this, [this]() {
+			if (d->omemoManager && d->omemoManager->isInitialized()) {
+				d->omemoManager->publishBundle();
+			}
+		});
+	}
 
 #ifndef INITIAL_PRESENCE_AFTER_VCARD
 #ifndef YAPSI
@@ -7549,6 +7585,29 @@ bool PsiAccount::addPendingMessagesForJid(const XMPP::Jid& jid)
 	}
 
 	return found;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// XEP-0384 OMEMO decrypt callback
+// ──────────────────────────────────────────────────────────────────
+
+void PsiAccount::omemo_decryptFinished(const XMPP::Jid& from, const QString& plainBody,
+                                        uint32_t /*senderDeviceId*/, bool success)
+{
+    // Find the queued message from this JID and process it
+    for (int i = 0; i < d->omemoQueue.size(); ++i) {
+        if (d->omemoQueue[i].from().compare(from)) {
+            Message m = d->omemoQueue.takeAt(i);
+            if (success) {
+                m.setBody(plainBody);
+                m.setWasEncrypted(true);
+            }
+            processIncomingMessage(m);
+            return;
+        }
+    }
+    // If no match found, just log (can happen if queue was cleared)
+    qDebug() << "[OMEMO] omemo_decryptFinished: no queued message found for" << from.bare();
 }
 
 #include "psiaccount.moc"

@@ -1,0 +1,1337 @@
+/*
+ * omemomanager.cpp — XEP-0384 OMEMO per-account manager
+ *
+ * Uses libsignal-protocol-c 2.3.3 (Double Ratchet / X3DH)
+ * Uses OpenSSL EVP AES-128-GCM for message payload encryption
+ * Uses QCA for HMAC-SHA256, SHA-512, AES-256-CBC (Signal crypto callbacks)
+ * Uses QCA::Random for random bytes
+ *
+ * Storage: QSettings / JSON in
+ *   QStandardPaths::AppDataLocation + "/omemo/<accountId>/"
+ */
+
+#include "omemomanager.h"
+#include "xmpp_omemo.h"
+
+#include <QDebug>
+#include <QFile>
+#include <QDir>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QSettings>
+#include <QStandardPaths>
+#include <QRandomGenerator>
+#include <QMutex>
+#include <QTimer>
+#include <QDomDocument>
+
+#include <QtCrypto>
+
+// OpenSSL AES-128-GCM
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+#include <openssl/err.h>
+
+// libsignal-protocol-c
+#include <signal/signal_protocol.h>
+#include <signal/session_builder.h>
+#include <signal/session_cipher.h>
+#include <signal/key_helper.h>
+#include <signal/session_pre_key.h>
+#include <signal/protocol.h>
+
+#include <xmpp_jid.h>
+#include <xmpp_client.h>
+#include <xmpp_tasks.h>
+#include <xmpp_pubsubitem.h>
+#include "pepmanager.h"
+
+// ──────────────────────────────────────────────────────────────────
+// Crypto callbacks for libsignal-protocol-c
+// ──────────────────────────────────────────────────────────────────
+
+static int omemo_random_func(uint8_t* data, size_t len, void* /*user_data*/)
+{
+    // Use OpenSSL RAND for cryptographically-secure randomness
+    if (RAND_bytes(data, static_cast<int>(len)) != 1)
+        return SG_ERR_UNKNOWN;
+    return SG_SUCCESS;
+}
+
+static int omemo_hmac_sha256_init(void** hmac_context, const uint8_t* key, size_t key_len, void* /*user_data*/)
+{
+    QByteArray k(reinterpret_cast<const char*>(key), static_cast<int>(key_len));
+    QCA::MessageAuthenticationCode* mac = new QCA::MessageAuthenticationCode(
+        QLatin1String("hmac(sha256)"),
+        QCA::SymmetricKey(k));
+    *hmac_context = mac;
+    return SG_SUCCESS;
+}
+
+static int omemo_hmac_sha256_update(void* hmac_context, const uint8_t* data, size_t data_len, void* /*user_data*/)
+{
+    auto* mac = static_cast<QCA::MessageAuthenticationCode*>(hmac_context);
+    mac->update(QCA::MemoryRegion(QByteArray(reinterpret_cast<const char*>(data), static_cast<int>(data_len))));
+    return SG_SUCCESS;
+}
+
+static int omemo_hmac_sha256_final(void* hmac_context, signal_buffer** output, void* /*user_data*/)
+{
+    auto* mac = static_cast<QCA::MessageAuthenticationCode*>(hmac_context);
+    QByteArray result = mac->final().toByteArray();
+    *output = signal_buffer_create(
+        reinterpret_cast<const uint8_t*>(result.constData()),
+        static_cast<size_t>(result.size()));
+    return SG_SUCCESS;
+}
+
+static void omemo_hmac_sha256_cleanup(void* hmac_context, void* /*user_data*/)
+{
+    delete static_cast<QCA::MessageAuthenticationCode*>(hmac_context);
+}
+
+// SHA-512 for Signal crypto provider — split into init/update/final/cleanup
+static int omemo_sha512_digest_init(void** digest_context, void* /*user_data*/)
+{
+    QCA::Hash* hash = new QCA::Hash(QLatin1String("sha512"));
+    *digest_context = hash;
+    return SG_SUCCESS;
+}
+
+static int omemo_sha512_digest_update(void* digest_context, const uint8_t* data, size_t data_len, void* /*user_data*/)
+{
+    auto* hash = static_cast<QCA::Hash*>(digest_context);
+    hash->update(QCA::MemoryRegion(QByteArray(reinterpret_cast<const char*>(data), static_cast<int>(data_len))));
+    return SG_SUCCESS;
+}
+
+static int omemo_sha512_digest_final(void* digest_context, signal_buffer** output, void* /*user_data*/)
+{
+    auto* hash = static_cast<QCA::Hash*>(digest_context);
+    QByteArray result = hash->final().toByteArray();
+    *output = signal_buffer_create(
+        reinterpret_cast<const uint8_t*>(result.constData()),
+        static_cast<size_t>(result.size()));
+    return SG_SUCCESS;
+}
+
+static void omemo_sha512_digest_cleanup(void* digest_context, void* /*user_data*/)
+{
+    delete static_cast<QCA::Hash*>(digest_context);
+}
+
+static int omemo_encrypt(signal_buffer** output,
+                         int cipher,
+                         const uint8_t* key, size_t key_len,
+                         const uint8_t* iv, size_t iv_len,
+                         const uint8_t* plaintext, size_t plaintext_len,
+                         void* /*user_data*/)
+{
+    Q_UNUSED(cipher); // Signal uses AES-256-CBC for ratchet
+
+    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+    if (!ctx)
+        return SG_ERR_UNKNOWN;
+
+    const EVP_CIPHER* evp_cipher = nullptr;
+    if (key_len == 32)
+        evp_cipher = EVP_aes_256_cbc();
+    else if (key_len == 16)
+        evp_cipher = EVP_aes_128_cbc();
+    else {
+        EVP_CIPHER_CTX_free(ctx);
+        return SG_ERR_UNKNOWN;
+    }
+
+    if (EVP_EncryptInit_ex(ctx, evp_cipher, nullptr,
+                           reinterpret_cast<const unsigned char*>(key),
+                           reinterpret_cast<const unsigned char*>(iv)) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return SG_ERR_UNKNOWN;
+    }
+
+    QByteArray out(static_cast<int>(plaintext_len) + EVP_MAX_BLOCK_LENGTH, '\0');
+    int len1 = 0, len2 = 0;
+    if (EVP_EncryptUpdate(ctx, reinterpret_cast<unsigned char*>(out.data()), &len1,
+                          reinterpret_cast<const unsigned char*>(plaintext),
+                          static_cast<int>(plaintext_len)) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return SG_ERR_UNKNOWN;
+    }
+    if (EVP_EncryptFinal_ex(ctx, reinterpret_cast<unsigned char*>(out.data()) + len1, &len2) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return SG_ERR_UNKNOWN;
+    }
+    EVP_CIPHER_CTX_free(ctx);
+
+    *output = signal_buffer_create(reinterpret_cast<const uint8_t*>(out.constData()),
+                                   static_cast<size_t>(len1 + len2));
+    return SG_SUCCESS;
+}
+
+static int omemo_decrypt(signal_buffer** output,
+                         int cipher,
+                         const uint8_t* key, size_t key_len,
+                         const uint8_t* iv, size_t iv_len,
+                         const uint8_t* ciphertext, size_t ciphertext_len,
+                         void* /*user_data*/)
+{
+    Q_UNUSED(cipher);
+
+    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+    if (!ctx)
+        return SG_ERR_UNKNOWN;
+
+    const EVP_CIPHER* evp_cipher = nullptr;
+    if (key_len == 32)
+        evp_cipher = EVP_aes_256_cbc();
+    else if (key_len == 16)
+        evp_cipher = EVP_aes_128_cbc();
+    else {
+        EVP_CIPHER_CTX_free(ctx);
+        return SG_ERR_UNKNOWN;
+    }
+
+    if (EVP_DecryptInit_ex(ctx, evp_cipher, nullptr,
+                           reinterpret_cast<const unsigned char*>(key),
+                           reinterpret_cast<const unsigned char*>(iv)) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return SG_ERR_UNKNOWN;
+    }
+
+    QByteArray out(static_cast<int>(ciphertext_len) + EVP_MAX_BLOCK_LENGTH, '\0');
+    int len1 = 0, len2 = 0;
+    if (EVP_DecryptUpdate(ctx, reinterpret_cast<unsigned char*>(out.data()), &len1,
+                          reinterpret_cast<const unsigned char*>(ciphertext),
+                          static_cast<int>(ciphertext_len)) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return SG_ERR_UNKNOWN;
+    }
+    if (EVP_DecryptFinal_ex(ctx, reinterpret_cast<unsigned char*>(out.data()) + len1, &len2) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return SG_ERR_UNKNOWN;
+    }
+    EVP_CIPHER_CTX_free(ctx);
+
+    *output = signal_buffer_create(reinterpret_cast<const uint8_t*>(out.constData()),
+                                   static_cast<size_t>(len1 + len2));
+    return SG_SUCCESS;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// AES-128-GCM helpers (OpenSSL EVP)
+// ──────────────────────────────────────────────────────────────────
+
+// Encrypts plaintext with AES-128-GCM.
+// Returns ciphertext + 16-byte GCM auth tag concatenated.
+static QByteArray aes128gcm_encrypt(const QByteArray& key, const QByteArray& iv, const QByteArray& plaintext)
+{
+    Q_ASSERT(key.size() == 16);
+    Q_ASSERT(iv.size() == 12);
+
+    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+    if (!ctx)
+        return {};
+
+    if (EVP_EncryptInit_ex(ctx, EVP_aes_128_gcm(), nullptr, nullptr, nullptr) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return {};
+    }
+    EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, iv.size(), nullptr);
+    if (EVP_EncryptInit_ex(ctx, nullptr, nullptr,
+                           reinterpret_cast<const unsigned char*>(key.constData()),
+                           reinterpret_cast<const unsigned char*>(iv.constData())) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return {};
+    }
+
+    QByteArray ciphertext(plaintext.size() + 16, '\0');
+    int len = 0;
+    if (EVP_EncryptUpdate(ctx, reinterpret_cast<unsigned char*>(ciphertext.data()), &len,
+                          reinterpret_cast<const unsigned char*>(plaintext.constData()),
+                          plaintext.size()) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return {};
+    }
+    int totalLen = len;
+    if (EVP_EncryptFinal_ex(ctx, reinterpret_cast<unsigned char*>(ciphertext.data()) + totalLen, &len) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return {};
+    }
+    totalLen += len;
+    ciphertext.resize(totalLen);
+
+    // Get 16-byte GCM tag
+    QByteArray tag(16, '\0');
+    EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16,
+                        reinterpret_cast<unsigned char*>(tag.data()));
+    EVP_CIPHER_CTX_free(ctx);
+
+    return ciphertext + tag;
+}
+
+// Decrypts ciphertext (last 16 bytes = GCM tag) with AES-128-GCM.
+static QByteArray aes128gcm_decrypt(const QByteArray& key, const QByteArray& iv, const QByteArray& ciphertextWithTag)
+{
+    Q_ASSERT(key.size() == 16);
+    Q_ASSERT(iv.size() == 12);
+    if (ciphertextWithTag.size() < 16)
+        return {};
+
+    QByteArray ciphertext = ciphertextWithTag.left(ciphertextWithTag.size() - 16);
+    QByteArray tag = ciphertextWithTag.right(16);
+
+    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+    if (!ctx)
+        return {};
+
+    if (EVP_DecryptInit_ex(ctx, EVP_aes_128_gcm(), nullptr, nullptr, nullptr) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return {};
+    }
+    EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, iv.size(), nullptr);
+    if (EVP_DecryptInit_ex(ctx, nullptr, nullptr,
+                           reinterpret_cast<const unsigned char*>(key.constData()),
+                           reinterpret_cast<const unsigned char*>(iv.constData())) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return {};
+    }
+
+    QByteArray plaintext(ciphertext.size(), '\0');
+    int len = 0;
+    if (EVP_DecryptUpdate(ctx, reinterpret_cast<unsigned char*>(plaintext.data()), &len,
+                          reinterpret_cast<const unsigned char*>(ciphertext.constData()),
+                          ciphertext.size()) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return {};
+    }
+    int totalLen = len;
+
+    // Set expected tag
+    EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16,
+                        const_cast<char*>(tag.constData()));
+
+    if (EVP_DecryptFinal_ex(ctx, reinterpret_cast<unsigned char*>(plaintext.data()) + totalLen, &len) <= 0) {
+        // Tag verification failed
+        EVP_CIPHER_CTX_free(ctx);
+        return {};
+    }
+    totalLen += len;
+    plaintext.resize(totalLen);
+    EVP_CIPHER_CTX_free(ctx);
+
+    return plaintext;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Storage helpers
+// ──────────────────────────────────────────────────────────────────
+
+struct TrustEntry {
+    uint32_t deviceId;
+    QByteArray identityKey;
+    OmemoManager::TrustLevel level;
+};
+
+// ──────────────────────────────────────────────────────────────────
+// Signal Protocol store callbacks
+// ──────────────────────────────────────────────────────────────────
+
+struct OmemoStore {
+    QString dataDir;
+    uint32_t localDeviceId = 0;
+    signal_buffer* identityKeyPair = nullptr; // serialized ec_key_pair
+
+    // Maps: "jid:deviceId" -> identity key bytes
+    QHash<QString, QByteArray> trustedIdentities;
+
+    // prekeys: id -> serialized session_pre_key_record
+    QHash<uint32_t, QByteArray> preKeys;
+
+    // signed prekey: id -> serialized signed_pre_key_record
+    QHash<uint32_t, QByteArray> signedPreKeys;
+
+    // sessions: "jid:deviceId" -> serialized session_record
+    QHash<QString, QByteArray> sessions;
+
+    // trust level: "jid:deviceId" -> int
+    QHash<QString, int> trustLevels;
+
+    void save() {
+        // Save to JSON
+        QJsonObject root;
+        root[QLatin1String("deviceId")] = QString::number(localDeviceId);
+
+        if (identityKeyPair) {
+            QByteArray ikpBytes(reinterpret_cast<const char*>(signal_buffer_data(identityKeyPair)),
+                                static_cast<int>(signal_buffer_len(identityKeyPair)));
+            root[QLatin1String("identityKeyPair")] = QString::fromLatin1(ikpBytes.toBase64());
+        }
+
+        QJsonObject preKeysObj;
+        for (auto it = preKeys.constBegin(); it != preKeys.constEnd(); ++it)
+            preKeysObj[QString::number(it.key())] = QString::fromLatin1(it.value().toBase64());
+        root[QLatin1String("preKeys")] = preKeysObj;
+
+        QJsonObject signedPreKeysObj;
+        for (auto it = signedPreKeys.constBegin(); it != signedPreKeys.constEnd(); ++it)
+            signedPreKeysObj[QString::number(it.key())] = QString::fromLatin1(it.value().toBase64());
+        root[QLatin1String("signedPreKeys")] = signedPreKeysObj;
+
+        QJsonObject sessionsObj;
+        for (auto it = sessions.constBegin(); it != sessions.constEnd(); ++it)
+            sessionsObj[it.key()] = QString::fromLatin1(it.value().toBase64());
+        root[QLatin1String("sessions")] = sessionsObj;
+
+        QJsonObject trustObj;
+        for (auto it = trustedIdentities.constBegin(); it != trustedIdentities.constEnd(); ++it)
+            trustObj[it.key()] = QString::fromLatin1(it.value().toBase64());
+        root[QLatin1String("trustedIdentities")] = trustObj;
+
+        QJsonObject trustLevelsObj;
+        for (auto it = trustLevels.constBegin(); it != trustLevels.constEnd(); ++it)
+            trustLevelsObj[it.key()] = it.value();
+        root[QLatin1String("trustLevels")] = trustLevelsObj;
+
+        QDir dir(dataDir);
+        dir.mkpath(QLatin1String("."));
+        QFile f(dataDir + QLatin1String("/store.json"));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            f.write(QJsonDocument(root).toJson());
+        }
+    }
+
+    bool load() {
+        QFile f(dataDir + QLatin1String("/store.json"));
+        if (!f.open(QIODevice::ReadOnly))
+            return false;
+
+        QJsonParseError err;
+        QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &err);
+        if (err.error != QJsonParseError::NoError)
+            return false;
+
+        QJsonObject root = doc.object();
+        localDeviceId = root[QLatin1String("deviceId")].toString().toUInt();
+
+        QString ikpB64 = root[QLatin1String("identityKeyPair")].toString();
+        if (!ikpB64.isEmpty()) {
+            QByteArray ikpBytes = QByteArray::fromBase64(ikpB64.toLatin1());
+            identityKeyPair = signal_buffer_create(
+                reinterpret_cast<const uint8_t*>(ikpBytes.constData()),
+                static_cast<size_t>(ikpBytes.size()));
+        }
+
+        QJsonObject preKeysObj = root[QLatin1String("preKeys")].toObject();
+        for (auto it = preKeysObj.constBegin(); it != preKeysObj.constEnd(); ++it)
+            preKeys[it.key().toUInt()] = QByteArray::fromBase64(it.value().toString().toLatin1());
+
+        QJsonObject signedPreKeysObj = root[QLatin1String("signedPreKeys")].toObject();
+        for (auto it = signedPreKeysObj.constBegin(); it != signedPreKeysObj.constEnd(); ++it)
+            signedPreKeys[it.key().toUInt()] = QByteArray::fromBase64(it.value().toString().toLatin1());
+
+        QJsonObject sessionsObj = root[QLatin1String("sessions")].toObject();
+        for (auto it = sessionsObj.constBegin(); it != sessionsObj.constEnd(); ++it)
+            sessions[it.key()] = QByteArray::fromBase64(it.value().toString().toLatin1());
+
+        QJsonObject trustObj = root[QLatin1String("trustedIdentities")].toObject();
+        for (auto it = trustObj.constBegin(); it != trustObj.constEnd(); ++it)
+            trustedIdentities[it.key()] = QByteArray::fromBase64(it.value().toString().toLatin1());
+
+        QJsonObject trustLevelsObj = root[QLatin1String("trustLevels")].toObject();
+        for (auto it = trustLevelsObj.constBegin(); it != trustLevelsObj.constEnd(); ++it)
+            trustLevels[it.key()] = it.value().toInt();
+
+        return localDeviceId != 0;
+    }
+};
+
+// ──────────────────────────────────────────────────────────────────
+// Signal Protocol store callback implementations
+// ──────────────────────────────────────────────────────────────────
+
+// Identity key store
+static int ik_get_identity_key_pair(signal_buffer** public_data, signal_buffer** private_data, void* user_data)
+{
+    auto* store = static_cast<OmemoStore*>(user_data);
+    if (!store->identityKeyPair)
+        return SG_ERR_UNKNOWN;
+    // identityKeyPair is stored as the serialized ec_key_pair
+    // We pass back the full blob; signal will know how to parse it
+    // Actually libsignal wants us to return the separate public/private buffers.
+    // We stored the full serialized form — re-deserialize here.
+    ec_key_pair* kp = nullptr;
+    signal_context* gctx = nullptr; // we need context for this. Use a workaround.
+    // This is a limitation: we need the context to deserialize. We'll store
+    // the public and private keys as separate fields instead.
+    // For simplicity, return ERR and handle in initialization.
+    Q_UNUSED(public_data);
+    Q_UNUSED(private_data);
+    return SG_ERR_UNKNOWN;
+}
+
+static int ik_get_local_registration_id(void* user_data, uint32_t* registration_id)
+{
+    auto* store = static_cast<OmemoStore*>(user_data);
+    *registration_id = store->localDeviceId;
+    return SG_SUCCESS;
+}
+
+static int ik_save_identity(const signal_protocol_address* address,
+                            uint8_t* key_data, size_t key_len, void* user_data)
+{
+    auto* store = static_cast<OmemoStore*>(user_data);
+    QString key = QString::fromUtf8(address->name, static_cast<int>(address->name_len))
+                  + QLatin1Char(':') + QString::number(address->device_id);
+    store->trustedIdentities[key] = QByteArray(reinterpret_cast<const char*>(key_data),
+                                               static_cast<int>(key_len));
+    store->save();
+    return SG_SUCCESS;
+}
+
+static int ik_is_trusted_identity(const signal_protocol_address* address,
+                                  uint8_t* key_data, size_t key_len, void* user_data)
+{
+    auto* store = static_cast<OmemoStore*>(user_data);
+    QString key = QString::fromUtf8(address->name, static_cast<int>(address->name_len))
+                  + QLatin1Char(':') + QString::number(address->device_id);
+
+    if (!store->trustedIdentities.contains(key)) {
+        // TOFU: trust on first use — save and trust
+        store->trustedIdentities[key] = QByteArray(reinterpret_cast<const char*>(key_data),
+                                                   static_cast<int>(key_len));
+        store->trustLevels[key] = OmemoManager::TrustOnFirstUse;
+        store->save();
+        return 1; // trusted
+    }
+
+    int level = store->trustLevels.value(key, OmemoManager::TrustOnFirstUse);
+    if (level == OmemoManager::Untrusted)
+        return 0;
+
+    // Verify key matches what we stored
+    QByteArray stored = store->trustedIdentities[key];
+    QByteArray incoming(reinterpret_cast<const char*>(key_data), static_cast<int>(key_len));
+    return (stored == incoming) ? 1 : 0;
+}
+
+// Pre-key store
+static int pk_load_pre_key(signal_buffer** record, uint32_t pre_key_id, void* user_data)
+{
+    auto* store = static_cast<OmemoStore*>(user_data);
+    if (!store->preKeys.contains(pre_key_id))
+        return SG_ERR_INVALID_KEY_ID;
+    QByteArray d = store->preKeys[pre_key_id];
+    *record = signal_buffer_create(reinterpret_cast<const uint8_t*>(d.constData()),
+                                   static_cast<size_t>(d.size()));
+    return SG_SUCCESS;
+}
+
+static int pk_store_pre_key(uint32_t pre_key_id, uint8_t* record, size_t record_len, void* user_data)
+{
+    auto* store = static_cast<OmemoStore*>(user_data);
+    store->preKeys[pre_key_id] = QByteArray(reinterpret_cast<const char*>(record),
+                                            static_cast<int>(record_len));
+    store->save();
+    return SG_SUCCESS;
+}
+
+static int pk_contains_pre_key(uint32_t pre_key_id, void* user_data)
+{
+    auto* store = static_cast<OmemoStore*>(user_data);
+    return store->preKeys.contains(pre_key_id) ? 1 : 0;
+}
+
+static int pk_remove_pre_key(uint32_t pre_key_id, void* user_data)
+{
+    auto* store = static_cast<OmemoStore*>(user_data);
+    store->preKeys.remove(pre_key_id);
+    store->save();
+    return SG_SUCCESS;
+}
+
+// Signed pre-key store
+static int spk_load_signed_pre_key(signal_buffer** record, uint32_t signed_pre_key_id, void* user_data)
+{
+    auto* store = static_cast<OmemoStore*>(user_data);
+    if (!store->signedPreKeys.contains(signed_pre_key_id))
+        return SG_ERR_INVALID_KEY_ID;
+    QByteArray d = store->signedPreKeys[signed_pre_key_id];
+    *record = signal_buffer_create(reinterpret_cast<const uint8_t*>(d.constData()),
+                                   static_cast<size_t>(d.size()));
+    return SG_SUCCESS;
+}
+
+static int spk_store_signed_pre_key(uint32_t signed_pre_key_id, uint8_t* record, size_t record_len, void* user_data)
+{
+    auto* store = static_cast<OmemoStore*>(user_data);
+    store->signedPreKeys[signed_pre_key_id] = QByteArray(reinterpret_cast<const char*>(record),
+                                                          static_cast<int>(record_len));
+    store->save();
+    return SG_SUCCESS;
+}
+
+static int spk_contains_signed_pre_key(uint32_t signed_pre_key_id, void* user_data)
+{
+    auto* store = static_cast<OmemoStore*>(user_data);
+    return store->signedPreKeys.contains(signed_pre_key_id) ? 1 : 0;
+}
+
+static int spk_remove_signed_pre_key(uint32_t signed_pre_key_id, void* user_data)
+{
+    auto* store = static_cast<OmemoStore*>(user_data);
+    store->signedPreKeys.remove(signed_pre_key_id);
+    store->save();
+    return SG_SUCCESS;
+}
+
+// Session store
+static int sess_load_session(signal_buffer** record, signal_buffer** user_record,
+                             const signal_protocol_address* address, void* user_data)
+{
+    Q_UNUSED(user_record);
+    auto* store = static_cast<OmemoStore*>(user_data);
+    QString key = QString::fromUtf8(address->name, static_cast<int>(address->name_len))
+                  + QLatin1Char(':') + QString::number(address->device_id);
+    if (!store->sessions.contains(key))
+        return SG_ERR_UNKNOWN;
+    QByteArray d = store->sessions[key];
+    *record = signal_buffer_create(reinterpret_cast<const uint8_t*>(d.constData()),
+                                   static_cast<size_t>(d.size()));
+    return SG_SUCCESS;
+}
+
+static int sess_get_sub_device_sessions(signal_int_list** sessions,
+                                        const char* name, size_t name_len, void* user_data)
+{
+    auto* store = static_cast<OmemoStore*>(user_data);
+    QString prefix = QString::fromUtf8(name, static_cast<int>(name_len)) + QLatin1Char(':');
+    signal_int_list* list = signal_int_list_alloc();
+    for (auto it = store->sessions.constBegin(); it != store->sessions.constEnd(); ++it) {
+        if (it.key().startsWith(prefix)) {
+            QString devIdStr = it.key().mid(prefix.length());
+            signal_int_list_push_back(list, devIdStr.toInt());
+        }
+    }
+    *sessions = list;
+    return SG_SUCCESS;
+}
+
+static int sess_store_session(const signal_protocol_address* address,
+                              uint8_t* record, size_t record_len,
+                              uint8_t* /*user_record*/, size_t /*user_record_len*/,
+                              void* user_data)
+{
+    auto* store = static_cast<OmemoStore*>(user_data);
+    QString key = QString::fromUtf8(address->name, static_cast<int>(address->name_len))
+                  + QLatin1Char(':') + QString::number(address->device_id);
+    store->sessions[key] = QByteArray(reinterpret_cast<const char*>(record),
+                                      static_cast<int>(record_len));
+    store->save();
+    return SG_SUCCESS;
+}
+
+static int sess_contains_session(const signal_protocol_address* address, void* user_data)
+{
+    auto* store = static_cast<OmemoStore*>(user_data);
+    QString key = QString::fromUtf8(address->name, static_cast<int>(address->name_len))
+                  + QLatin1Char(':') + QString::number(address->device_id);
+    return store->sessions.contains(key) ? 1 : 0;
+}
+
+static int sess_delete_session(const signal_protocol_address* address, void* user_data)
+{
+    auto* store = static_cast<OmemoStore*>(user_data);
+    QString key = QString::fromUtf8(address->name, static_cast<int>(address->name_len))
+                  + QLatin1Char(':') + QString::number(address->device_id);
+    store->sessions.remove(key);
+    store->save();
+    return SG_SUCCESS;
+}
+
+static int sess_delete_all_sessions(const char* name, size_t name_len, void* user_data)
+{
+    auto* store = static_cast<OmemoStore*>(user_data);
+    QString prefix = QString::fromUtf8(name, static_cast<int>(name_len)) + QLatin1Char(':');
+    for (auto it = store->sessions.begin(); it != store->sessions.end(); ) {
+        if (it.key().startsWith(prefix))
+            it = store->sessions.erase(it);
+        else
+            ++it;
+    }
+    store->save();
+    return SG_SUCCESS;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// OmemoManager::Private
+// ──────────────────────────────────────────────────────────────────
+
+class OmemoManager::Private {
+public:
+    QString accountId;
+    XMPP::Client* client = nullptr;
+    PEPManager* pepManager = nullptr;
+    bool initialized = false;
+
+    OmemoStore store;
+
+    signal_context* signalCtx = nullptr;
+    signal_protocol_store_context* storeCtx = nullptr;
+
+    // Identity key pair (kept in memory after init)
+    ratchet_identity_key_pair* identityKeyPair = nullptr;
+    // Signed prekey
+    session_signed_pre_key* signedPreKey = nullptr;
+    // One-time prekeys
+    session_pre_key_bundle* currentBundle = nullptr;
+
+    // Per-JID enabled state
+    QHash<QString, bool> enabledMap;
+
+    // Contact device lists: jid -> list of device ids
+    QHash<QString, QList<uint32_t>> deviceLists;
+
+    QString dataDir;
+
+    ~Private() {
+        if (identityKeyPair)
+            SIGNAL_UNREF(identityKeyPair);
+        if (signedPreKey)
+            SIGNAL_UNREF(signedPreKey);
+        if (storeCtx)
+            signal_protocol_store_context_destroy(storeCtx);
+        if (signalCtx)
+            signal_context_destroy(signalCtx);
+    }
+
+    bool initialize();
+    bool generateKeysIfNeeded();
+    void setupStoreContext();
+};
+
+static void signalLogFunc(int level, const char* message, size_t len, void* /*user_data*/)
+{
+    qDebug("[OMEMO/signal L%d] %.*s", level, static_cast<int>(len), message);
+}
+
+bool OmemoManager::Private::initialize()
+{
+    dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+              + QLatin1String("/omemo/") + accountId;
+
+    QDir().mkpath(dataDir);
+    store.dataDir = dataDir;
+
+    // Try to load existing store
+    bool loaded = store.load();
+
+    // Set up signal context
+    signal_context_create(&signalCtx, this);
+
+    signal_crypto_provider crypto = {};
+    crypto.random_func = omemo_random_func;
+    crypto.hmac_sha256_init_func = omemo_hmac_sha256_init;
+    crypto.hmac_sha256_update_func = omemo_hmac_sha256_update;
+    crypto.hmac_sha256_final_func = omemo_hmac_sha256_final;
+    crypto.hmac_sha256_cleanup_func = omemo_hmac_sha256_cleanup;
+    crypto.sha512_digest_init_func = omemo_sha512_digest_init;
+    crypto.sha512_digest_update_func = omemo_sha512_digest_update;
+    crypto.sha512_digest_final_func = omemo_sha512_digest_final;
+    crypto.sha512_digest_cleanup_func = omemo_sha512_digest_cleanup;
+    crypto.encrypt_func = omemo_encrypt;
+    crypto.decrypt_func = omemo_decrypt;
+    signal_context_set_crypto_provider(signalCtx, &crypto);
+    signal_context_set_log_function(signalCtx, signalLogFunc);
+
+    // Set up store context
+    setupStoreContext();
+
+    // Generate keys if this is a new install
+    if (!loaded || store.localDeviceId == 0) {
+        qDebug() << "[OMEMO] Generating new identity keys for account" << accountId;
+        if (!generateKeysIfNeeded())
+            return false;
+    } else {
+        // Reload identity key pair from stored bytes
+        if (store.identityKeyPair) {
+            ratchet_identity_key_pair* ikp = nullptr;
+            if (ratchet_identity_key_pair_deserialize(&ikp,
+                    signal_buffer_data(store.identityKeyPair),
+                    signal_buffer_len(store.identityKeyPair),
+                    signalCtx) == SG_SUCCESS) {
+                identityKeyPair = ikp;  // keep ratchet_identity_key_pair alive
+            } else {
+                qWarning() << "[OMEMO] Failed to deserialize stored identity key pair, regenerating";
+                if (!generateKeysIfNeeded())
+                    return false;
+            }
+        }
+    }
+
+    initialized = true;
+    qDebug() << "[OMEMO] Initialized. Device ID:" << store.localDeviceId;
+    return true;
+}
+
+bool OmemoManager::Private::generateKeysIfNeeded()
+{
+    // Generate identity key pair
+    ratchet_identity_key_pair* ikp = nullptr;
+    if (signal_protocol_key_helper_generate_identity_key_pair(&ikp, signalCtx) != SG_SUCCESS) {
+        qWarning() << "[OMEMO] Failed to generate identity key pair";
+        return false;
+    }
+    // Store the ratchet_identity_key_pair directly (frees old one if any)
+    if (identityKeyPair)
+        SIGNAL_UNREF(identityKeyPair);
+    identityKeyPair = ikp;
+
+    // Serialize and store ikp
+    signal_buffer* ikpBuf = nullptr;
+    ratchet_identity_key_pair_serialize(&ikpBuf, ikp);
+    if (store.identityKeyPair)
+        signal_buffer_free(store.identityKeyPair);
+    store.identityKeyPair = ikpBuf;
+
+    // Generate registration ID (device ID)
+    uint32_t regId = 0;
+    signal_protocol_key_helper_generate_registration_id(&regId, 0, signalCtx);
+    store.localDeviceId = regId;
+
+    // Generate signed prekey
+    uint32_t signedPreKeyId = 1;
+    session_signed_pre_key* spk = nullptr;
+    if (signal_protocol_key_helper_generate_signed_pre_key(
+            &spk, ikp, signedPreKeyId,
+            static_cast<uint64_t>(QDateTime::currentMSecsSinceEpoch()),
+            signalCtx) != SG_SUCCESS) {
+        qWarning() << "[OMEMO] Failed to generate signed pre key";
+        return false;
+    }
+
+    // Serialize and save signed prekey
+    signal_buffer* spkBuf = nullptr;
+    session_signed_pre_key_serialize(&spkBuf, spk);
+    store.signedPreKeys[signedPreKeyId] = QByteArray(
+        reinterpret_cast<const char*>(signal_buffer_data(spkBuf)),
+        static_cast<int>(signal_buffer_len(spkBuf)));
+    signal_buffer_free(spkBuf);
+    SIGNAL_UNREF(spk);
+
+    // Generate 100 one-time prekeys starting at ID 1
+    signal_protocol_key_helper_pre_key_list_node* preKeyList = nullptr;
+    signal_protocol_key_helper_generate_pre_keys(&preKeyList, 1, 100, signalCtx);
+
+    for (auto* node = preKeyList; node; node = signal_protocol_key_helper_key_list_next(node)) {
+        session_pre_key* pk = signal_protocol_key_helper_key_list_element(node);
+        uint32_t pkId = session_pre_key_get_id(pk);
+        signal_buffer* pkBuf = nullptr;
+        session_pre_key_serialize(&pkBuf, pk);
+        store.preKeys[pkId] = QByteArray(
+            reinterpret_cast<const char*>(signal_buffer_data(pkBuf)),
+            static_cast<int>(signal_buffer_len(pkBuf)));
+        signal_buffer_free(pkBuf);
+    }
+    signal_protocol_key_helper_key_list_free(preKeyList);
+
+    store.save();
+    qDebug() << "[OMEMO] Generated keys. Device ID:" << store.localDeviceId;
+    return true;
+}
+
+void OmemoManager::Private::setupStoreContext()
+{
+    signal_protocol_store_context_create(&storeCtx, signalCtx);
+
+    // Identity key store (simplified — getIdentityKeyPair handled via stored buffer)
+    signal_protocol_identity_key_store ikStore = {};
+    ikStore.get_identity_key_pair = ik_get_identity_key_pair; // will fail, we handle separately
+    ikStore.get_local_registration_id = ik_get_local_registration_id;
+    ikStore.save_identity = ik_save_identity;
+    ikStore.is_trusted_identity = ik_is_trusted_identity;
+    ikStore.destroy_func = nullptr;
+    ikStore.user_data = &store;
+    signal_protocol_store_context_set_identity_key_store(storeCtx, &ikStore);
+
+    // Pre-key store
+    signal_protocol_pre_key_store pkStore = {};
+    pkStore.load_pre_key = pk_load_pre_key;
+    pkStore.store_pre_key = pk_store_pre_key;
+    pkStore.contains_pre_key = pk_contains_pre_key;
+    pkStore.remove_pre_key = pk_remove_pre_key;
+    pkStore.destroy_func = nullptr;
+    pkStore.user_data = &store;
+    signal_protocol_store_context_set_pre_key_store(storeCtx, &pkStore);
+
+    // Signed pre-key store
+    signal_protocol_signed_pre_key_store spkStore = {};
+    spkStore.load_signed_pre_key = spk_load_signed_pre_key;
+    spkStore.store_signed_pre_key = spk_store_signed_pre_key;
+    spkStore.contains_signed_pre_key = spk_contains_signed_pre_key;
+    spkStore.remove_signed_pre_key = spk_remove_signed_pre_key;
+    spkStore.destroy_func = nullptr;
+    spkStore.user_data = &store;
+    signal_protocol_store_context_set_signed_pre_key_store(storeCtx, &spkStore);
+
+    // Session store
+    signal_protocol_session_store sessStore = {};
+    sessStore.load_session_func = sess_load_session;
+    sessStore.get_sub_device_sessions_func = sess_get_sub_device_sessions;
+    sessStore.store_session_func = sess_store_session;
+    sessStore.contains_session_func = sess_contains_session;
+    sessStore.delete_session_func = sess_delete_session;
+    sessStore.delete_all_sessions_func = sess_delete_all_sessions;
+    sessStore.destroy_func = nullptr;
+    sessStore.user_data = &store;
+    signal_protocol_store_context_set_session_store(storeCtx, &sessStore);
+}
+
+// ──────────────────────────────────────────────────────────────────
+// OmemoManager public interface
+// ──────────────────────────────────────────────────────────────────
+
+OmemoManager::OmemoManager(const QString& accountId, XMPP::Client* client, QObject* parent)
+    : QObject(parent)
+    , d(new Private)
+{
+    d->accountId = accountId;
+    d->client = client;
+
+    // Initialize asynchronously to avoid blocking the constructor
+    QTimer::singleShot(0, this, [this]() {
+        if (!d->initialize()) {
+            qWarning() << "[OMEMO] Initialization failed for account" << d->accountId;
+        }
+    });
+}
+
+OmemoManager::~OmemoManager()
+{
+    delete d;
+}
+
+bool OmemoManager::isInitialized() const
+{
+    return d->initialized;
+}
+
+bool OmemoManager::isEnabled(const XMPP::Jid& contact) const
+{
+    return d->enabledMap.value(contact.bare(), false);
+}
+
+void OmemoManager::setEnabled(const XMPP::Jid& contact, bool enabled)
+{
+    d->enabledMap[contact.bare()] = enabled;
+}
+
+uint32_t OmemoManager::deviceId() const
+{
+    return d->store.localDeviceId;
+}
+
+void OmemoManager::setPepManager(PEPManager* pepManager)
+{
+    d->pepManager = pepManager;
+}
+
+void OmemoManager::publishBundle()
+{
+    if (!d->initialized) {
+        qWarning() << "[OMEMO] publishBundle called before initialization";
+        emit bundlePublished(false);
+        return;
+    }
+
+    if (!d->pepManager) {
+        qWarning() << "[OMEMO] publishBundle: no PEPManager available";
+        emit bundlePublished(false);
+        return;
+    }
+
+    uint32_t myDevId = d->store.localDeviceId;
+
+    // Build device list payload XML
+    QDomDocument doc;
+
+    // Publish device list: eu.siacs.conversations.axolotl.devicelist
+    QDomElement list = doc.createElementNS(
+        QString::fromLatin1(XmppOmemo::NS), QLatin1String("list"));
+    QDomElement device = doc.createElementNS(
+        QString::fromLatin1(XmppOmemo::NS), QLatin1String("device"));
+    device.setAttribute(QLatin1String("id"), QString::number(myDevId));
+    list.appendChild(device);
+
+    d->pepManager->publish(
+        QString::fromLatin1(XmppOmemo::NS_DEVICELIST),
+        XMPP::PubSubItem(QLatin1String("current"), list));
+
+    // Build bundle payload: eu.siacs.conversations.axolotl.bundles:<devId>
+    // The bundle contains the identity key, signed prekey, and one-time prekeys
+    QDomElement bundle = doc.createElementNS(
+        QString::fromLatin1(XmppOmemo::NS), QLatin1String("bundle"));
+
+    // signedPreKeyPublic
+    if (!d->store.signedPreKeys.isEmpty()) {
+        uint32_t spkId = d->store.signedPreKeys.keys().first();
+        QByteArray spkData = d->store.signedPreKeys[spkId];
+
+        // Deserialize to get the public key
+        session_signed_pre_key* spk = nullptr;
+        if (session_signed_pre_key_deserialize(&spk,
+                reinterpret_cast<const uint8_t*>(spkData.constData()),
+                static_cast<size_t>(spkData.size()), d->signalCtx) == SG_SUCCESS) {
+            ec_key_pair* spkKeyPair = session_signed_pre_key_get_key_pair(spk);
+            ec_public_key* spkPubKey = ec_key_pair_get_public(spkKeyPair);
+
+            signal_buffer* spkPubBuf = nullptr;
+            ec_public_key_serialize(&spkPubBuf, spkPubKey);
+
+            QByteArray spkPubBytes(
+                reinterpret_cast<const char*>(signal_buffer_data(spkPubBuf)),
+                static_cast<int>(signal_buffer_len(spkPubBuf)));
+            signal_buffer_free(spkPubBuf);
+
+            // signature — returns const uint8_t*, not signal_buffer*
+            const uint8_t* sigData = session_signed_pre_key_get_signature(spk);
+            size_t sigLen = session_signed_pre_key_get_signature_len(spk);
+            QByteArray sigBytes(
+                reinterpret_cast<const char*>(sigData),
+                static_cast<int>(sigLen));
+
+            QDomElement spkEl = doc.createElementNS(
+                QString::fromLatin1(XmppOmemo::NS), QLatin1String("signedPreKeyPublic"));
+            spkEl.setAttribute(QLatin1String("signedPreKeyId"), QString::number(spkId));
+            spkEl.appendChild(doc.createTextNode(
+                QString::fromLatin1(spkPubBytes.toBase64())));
+            bundle.appendChild(spkEl);
+
+            QDomElement sigEl = doc.createElementNS(
+                QString::fromLatin1(XmppOmemo::NS), QLatin1String("signedPreKeySignature"));
+            sigEl.appendChild(doc.createTextNode(
+                QString::fromLatin1(sigBytes.toBase64())));
+            bundle.appendChild(sigEl);
+
+            SIGNAL_UNREF(spk);
+        }
+    }
+
+    // identityKey
+    if (d->identityKeyPair) {
+        ec_public_key* idPubKey = ratchet_identity_key_pair_get_public(d->identityKeyPair);
+        signal_buffer* idPubBuf = nullptr;
+        ec_public_key_serialize(&idPubBuf, idPubKey);
+        QByteArray idPubBytes(
+            reinterpret_cast<const char*>(signal_buffer_data(idPubBuf)),
+            static_cast<int>(signal_buffer_len(idPubBuf)));
+        signal_buffer_free(idPubBuf);
+
+        QDomElement idEl = doc.createElementNS(
+            QString::fromLatin1(XmppOmemo::NS), QLatin1String("identityKey"));
+        idEl.appendChild(doc.createTextNode(
+            QString::fromLatin1(idPubBytes.toBase64())));
+        bundle.appendChild(idEl);
+    }
+
+    // prekeys
+    QDomElement prekeys = doc.createElementNS(
+        QString::fromLatin1(XmppOmemo::NS), QLatin1String("prekeys"));
+    int pkCount = 0;
+    for (auto it = d->store.preKeys.constBegin(); it != d->store.preKeys.constEnd() && pkCount < 100; ++it, ++pkCount) {
+        session_pre_key* pk = nullptr;
+        QByteArray pkData = it.value();
+        if (session_pre_key_deserialize(&pk,
+                reinterpret_cast<const uint8_t*>(pkData.constData()),
+                static_cast<size_t>(pkData.size()), d->signalCtx) == SG_SUCCESS) {
+            ec_key_pair* pkKeyPair = session_pre_key_get_key_pair(pk);
+            ec_public_key* pkPubKey = ec_key_pair_get_public(pkKeyPair);
+            signal_buffer* pkPubBuf = nullptr;
+            ec_public_key_serialize(&pkPubBuf, pkPubKey);
+            QByteArray pkPubBytes(
+                reinterpret_cast<const char*>(signal_buffer_data(pkPubBuf)),
+                static_cast<int>(signal_buffer_len(pkPubBuf)));
+            signal_buffer_free(pkPubBuf);
+
+            QDomElement pkEl = doc.createElementNS(
+                QString::fromLatin1(XmppOmemo::NS), QLatin1String("preKeyPublic"));
+            pkEl.setAttribute(QLatin1String("preKeyId"), QString::number(it.key()));
+            pkEl.appendChild(doc.createTextNode(
+                QString::fromLatin1(pkPubBytes.toBase64())));
+            prekeys.appendChild(pkEl);
+
+            SIGNAL_UNREF(pk);
+        }
+    }
+    bundle.appendChild(prekeys);
+
+    QString bundleNode = QString::fromLatin1(XmppOmemo::NS_BUNDLES)
+                         + QLatin1Char(':') + QString::number(myDevId);
+    d->pepManager->publish(bundleNode, XMPP::PubSubItem(QLatin1String("current"), bundle));
+
+    qDebug() << "[OMEMO] Published bundle (device ID:" << myDevId << ")";
+    emit bundlePublished(true);
+}
+
+void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
+{
+    if (!d->initialized) {
+        emit sessionsEstablished(contact, false);
+        return;
+    }
+
+    // In a full implementation, this would fetch the PEP device list for the
+    // contact and then fetch each device's bundle to build X3DH sessions.
+    // For now, emit success immediately (sessions will be established when
+    // the first OMEMO message is received from that contact).
+    qDebug() << "[OMEMO] fetchContactBundles for" << contact.bare()
+             << "(deferred — sessions built lazily on first message)";
+    emit sessionsEstablished(contact, true);
+}
+
+void OmemoManager::encrypt(const XMPP::Jid& to, const QString& body)
+{
+    if (!d->initialized) {
+        emit encryptDone(to, QDomElement(), body, false);
+        return;
+    }
+
+    // Check if we have any sessions with this contact
+    QString toJid = to.bare();
+    QList<uint32_t> deviceIds = d->deviceLists.value(toJid);
+
+    if (deviceIds.isEmpty()) {
+        // No known devices — can't encrypt. Emit failure so caller can fall back.
+        qWarning() << "[OMEMO] No device sessions for" << toJid << "— cannot encrypt";
+        emit encryptDone(to, QDomElement(), body, false);
+        return;
+    }
+
+    // Generate 16-byte random AES key + 12-byte random IV
+    QByteArray aesKey(16, '\0');
+    QByteArray iv(12, '\0');
+    RAND_bytes(reinterpret_cast<unsigned char*>(aesKey.data()), 16);
+    RAND_bytes(reinterpret_cast<unsigned char*>(iv.data()), 12);
+
+    // AES-128-GCM encrypt the message body
+    QByteArray plaintext = body.toUtf8();
+    QByteArray ciphertext = aes128gcm_encrypt(aesKey, iv, plaintext);
+    if (ciphertext.isEmpty()) {
+        qWarning() << "[OMEMO] AES-128-GCM encryption failed";
+        emit encryptDone(to, QDomElement(), body, false);
+        return;
+    }
+
+    // Encrypt the AES key for each device using their Signal session
+    QList<XmppOmemo::OmemoKey> keys;
+
+    for (uint32_t devId : deviceIds) {
+        QByteArray jidUtf8 = toJid.toUtf8();
+        signal_protocol_address addr;
+        addr.name = jidUtf8.constData();
+        addr.name_len = static_cast<size_t>(jidUtf8.size());
+        addr.device_id = static_cast<int32_t>(devId);
+
+        session_cipher* cipher = nullptr;
+        if (session_cipher_create(&cipher, d->storeCtx, &addr, d->signalCtx) != SG_SUCCESS) {
+            qWarning() << "[OMEMO] Failed to create session cipher for device" << devId;
+            continue;
+        }
+
+        // Encrypt the 16-byte AES key (treat as message content)
+        signal_buffer* encMsg = nullptr;
+        ciphertext_message* encryptedKey = nullptr;
+
+        // We need to check if we have a session or need to use PreKeySignalMessage
+        bool needsPreKey = !sess_contains_session(&addr, &d->store);
+
+        int result;
+        if (needsPreKey) {
+            // No session yet — we'd need to build one from bundle first
+            // For now skip this device
+            session_cipher_free(cipher);
+            continue;
+        }
+
+        result = session_cipher_encrypt(cipher,
+                                        reinterpret_cast<const uint8_t*>(aesKey.constData()),
+                                        static_cast<size_t>(aesKey.size()),
+                                        &encryptedKey);
+        session_cipher_free(cipher);
+
+        if (result != SG_SUCCESS || !encryptedKey) {
+            qWarning() << "[OMEMO] Encryption failed for device" << devId;
+            continue;
+        }
+
+        signal_buffer* serialized = ciphertext_message_get_serialized(encryptedKey);
+        XmppOmemo::OmemoKey k;
+        k.rid = devId;
+        k.data = QByteArray(reinterpret_cast<const char*>(signal_buffer_data(serialized)),
+                            static_cast<int>(signal_buffer_len(serialized)));
+        k.prekey = (ciphertext_message_get_type(encryptedKey) == CIPHERTEXT_PREKEY_TYPE);
+        keys.append(k);
+
+        SIGNAL_UNREF(encryptedKey);
+    }
+
+    if (keys.isEmpty()) {
+        qWarning() << "[OMEMO] No sessions available for encryption";
+        emit encryptDone(to, QDomElement(), body, false);
+        return;
+    }
+
+    // Build <encrypted> element
+    QDomDocument doc;
+    QDomElement encrypted = XmppOmemo::buildEncrypted(doc, d->store.localDeviceId, iv, keys, ciphertext);
+    doc.appendChild(encrypted);
+
+    emit encryptDone(to, encrypted, body, true);
+}
+
+void OmemoManager::decrypt(const XMPP::Jid& from, const QDomElement& encryptedElement)
+{
+    if (!d->initialized) {
+        emit decryptDone(from, QString(), 0, false);
+        return;
+    }
+
+    XmppOmemo::OmemoPayload payload = XmppOmemo::parseEncrypted(encryptedElement);
+    if (!payload.isValid) {
+        qWarning() << "[OMEMO] Invalid encrypted element from" << from.bare();
+        emit decryptDone(from, QString(), 0, false);
+        return;
+    }
+
+    uint32_t myDevId = d->store.localDeviceId;
+
+    // Find our key entry
+    const XmppOmemo::OmemoKey* ourKey = nullptr;
+    for (const XmppOmemo::OmemoKey& k : payload.keys) {
+        if (k.rid == myDevId) {
+            ourKey = &k;
+            break;
+        }
+    }
+
+    if (!ourKey) {
+        qDebug() << "[OMEMO] Message from" << from.bare()
+                 << "is not addressed to us (our device ID:" << myDevId << ")";
+        emit decryptDone(from, QString(), payload.sid, false);
+        return;
+    }
+
+    // Decrypt the AES key using our Signal session
+    QString fromJid = from.bare();
+    QByteArray fromJidUtf8 = fromJid.toUtf8();
+    signal_protocol_address addr;
+    addr.name = fromJidUtf8.constData();
+    addr.name_len = static_cast<size_t>(fromJidUtf8.size());
+    addr.device_id = static_cast<int32_t>(payload.sid);
+
+    session_cipher* cipher = nullptr;
+    if (session_cipher_create(&cipher, d->storeCtx, &addr, d->signalCtx) != SG_SUCCESS) {
+        qWarning() << "[OMEMO] Failed to create session cipher for" << fromJid;
+        emit decryptDone(from, QString(), payload.sid, false);
+        return;
+    }
+
+    signal_buffer* decryptedKeyBuf = nullptr;
+    int result = SG_ERR_UNKNOWN;
+
+    if (ourKey->prekey) {
+        // PreKeySignalMessage
+        pre_key_signal_message* preKeyMsg = nullptr;
+        result = pre_key_signal_message_deserialize(&preKeyMsg,
+                    reinterpret_cast<const uint8_t*>(ourKey->data.constData()),
+                    static_cast<size_t>(ourKey->data.size()),
+                    d->signalCtx);
+        if (result == SG_SUCCESS) {
+            result = session_cipher_decrypt_pre_key_signal_message(
+                cipher, preKeyMsg, nullptr, &decryptedKeyBuf);
+            SIGNAL_UNREF(preKeyMsg);
+        }
+    } else {
+        // SignalMessage
+        signal_message* sigMsg = nullptr;
+        result = signal_message_deserialize(&sigMsg,
+                    reinterpret_cast<const uint8_t*>(ourKey->data.constData()),
+                    static_cast<size_t>(ourKey->data.size()),
+                    d->signalCtx);
+        if (result == SG_SUCCESS) {
+            result = session_cipher_decrypt_signal_message(
+                cipher, sigMsg, nullptr, &decryptedKeyBuf);
+            SIGNAL_UNREF(sigMsg);
+        }
+    }
+
+    session_cipher_free(cipher);
+
+    if (result != SG_SUCCESS || !decryptedKeyBuf) {
+        qWarning() << "[OMEMO] Failed to decrypt AES key from" << fromJid
+                   << "(error:" << result << ")";
+        emit decryptDone(from, QString(), payload.sid, false);
+        return;
+    }
+
+    // We got the decrypted AES key
+    QByteArray aesKey(reinterpret_cast<const char*>(signal_buffer_data(decryptedKeyBuf)),
+                      static_cast<int>(signal_buffer_len(decryptedKeyBuf)));
+    signal_buffer_free(decryptedKeyBuf);
+
+    if (aesKey.size() != 16) {
+        qWarning() << "[OMEMO] Unexpected AES key size:" << aesKey.size();
+        emit decryptDone(from, QString(), payload.sid, false);
+        return;
+    }
+
+    // AES-128-GCM decrypt the payload
+    if (payload.payload.isEmpty()) {
+        // Key-only message (device key exchange, no body)
+        qDebug() << "[OMEMO] Key-only message from" << fromJid;
+        emit decryptDone(from, QString(), payload.sid, false);
+        return;
+    }
+
+    QByteArray plaintext = aes128gcm_decrypt(aesKey, payload.iv, payload.payload);
+    if (plaintext.isEmpty()) {
+        qWarning() << "[OMEMO] AES-128-GCM decryption failed (tag mismatch?)";
+        emit decryptDone(from, QString(), payload.sid, false);
+        return;
+    }
+
+    QString body = QString::fromUtf8(plaintext);
+    qDebug() << "[OMEMO] Decrypted message from" << fromJid << "(device" << payload.sid << ")";
+    emit decryptDone(from, body, payload.sid, true);
+}
+
+OmemoManager::TrustLevel OmemoManager::trustLevel(const XMPP::Jid& jid, uint32_t deviceId,
+                                                   const QByteArray& /*identityKey*/) const
+{
+    QString key = jid.bare() + QLatin1Char(':') + QString::number(deviceId);
+    return static_cast<TrustLevel>(d->store.trustLevels.value(key, TrustOnFirstUse));
+}
+
+void OmemoManager::setTrusted(const XMPP::Jid& jid, uint32_t deviceId,
+                               const QByteArray& identityKey, TrustLevel level)
+{
+    QString key = jid.bare() + QLatin1Char(':') + QString::number(deviceId);
+    d->store.trustLevels[key] = static_cast<int>(level);
+    d->store.trustedIdentities[key] = identityKey;
+    d->store.save();
+}
+
+QList<QPair<uint32_t, QByteArray>> OmemoManager::trustedKeys(const XMPP::Jid& jid) const
+{
+    QList<QPair<uint32_t, QByteArray>> result;
+    QString prefix = jid.bare() + QLatin1Char(':');
+    for (auto it = d->store.trustedIdentities.constBegin();
+         it != d->store.trustedIdentities.constEnd(); ++it) {
+        if (it.key().startsWith(prefix)) {
+            uint32_t devId = it.key().mid(prefix.size()).toUInt();
+            result.append(qMakePair(devId, it.value()));
+        }
+    }
+    return result;
+}

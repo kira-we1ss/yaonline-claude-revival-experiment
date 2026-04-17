@@ -28,6 +28,7 @@
 
 #include <QList>
 #include <QObject>
+#include <cstdint>
 
 #include "xmpp_rosterx.h"
 #include "xmpp_status.h"
@@ -448,6 +449,8 @@ private slots:
 	void pingServer();
 	void serverPingTimeout();
 	void applicationStateChanged(Qt::ApplicationState state);
+	void omemo_decryptFinished(const XMPP::Jid& from, const QString& plainBody,
+	                           uint32_t senderDeviceId, bool success);
 
 signals:
 	void addedContact(PsiContact*);

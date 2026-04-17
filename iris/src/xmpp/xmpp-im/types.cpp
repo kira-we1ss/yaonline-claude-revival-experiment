@@ -1471,6 +1471,12 @@ const QDomElement& XMPP::Message::getExtension(const QString& ns) const
 	return d->unknownExtensions[ns];
 }
 
+void XMPP::Message::addExtension(const QDomElement& el)
+{
+	if (!el.isNull())
+		d->unknownExtensions[el.namespaceURI()] = el;
+}
+
 Stanza Message::toStanza(Stream *stream) const
 {
 	Stanza s = stream->createStanza(Stanza::Message, d->to, d->type);
@@ -1705,6 +1711,12 @@ Stanza Message::toStanza(Stream *stream) const
 		s.appendChild(yaMessageId);
 	}
 #endif
+
+	// Serialize any unknown/extension elements (e.g. XEP-0384 OMEMO <encrypted>)
+	for (auto it = d->unknownExtensions.constBegin(); it != d->unknownExtensions.constEnd(); ++it) {
+		if (!it.value().isNull())
+			s.appendChild(s.doc().importNode(it.value(), true).toElement());
+	}
 
 	return s;
 }

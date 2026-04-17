@@ -150,6 +150,12 @@ breakpad {
 	include($$BREAKPAD_PRI)
 }
 
+# XEP-0384 OMEMO — libsignal-protocol-c
+HEADERS += $$PWD/omemomanager.h
+SOURCES += $$PWD/omemomanager.cpp
+INCLUDEPATH += /usr/local/opt/libsignal-protocol-c/include
+LIBS += -L/usr/local/opt/libsignal-protocol-c/lib -lsignal-protocol-c
+
 # Platform specifics
 unix:!mac {
 	QMAKE_POST_LINK = rm -f ../yachat ; ln -s src/yachat ../yachat

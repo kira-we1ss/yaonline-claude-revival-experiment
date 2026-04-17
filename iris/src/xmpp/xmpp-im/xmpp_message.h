@@ -180,6 +180,7 @@ namespace XMPP {
 #endif
 
 		const QDomElement& getExtension(const QString& ns) const;
+		void addExtension(const QDomElement& el);
 
 	private:
 		class Private;

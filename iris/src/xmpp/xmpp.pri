@@ -72,6 +72,12 @@ HEADERS += \
 	$$PWD/xmpp-im/xmpp_yalastmail.h \
 	$$PWD/xmpp-core/xmpp_yadatetime.h
 
+HEADERS += \
+	$$PWD/xmpp-im/xmpp_omemo.h
+
+SOURCES += \
+	$$PWD/xmpp-im/xmpp_omemo.cpp
+
 SOURCES += \
 	$$PWD/xmpp-core/connector.cpp \
 	$$PWD/xmpp-core/tlshandler.cpp \
