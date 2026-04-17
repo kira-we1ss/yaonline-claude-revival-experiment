@@ -211,11 +211,20 @@ void YaGroupchatDlg::presence(const QString& nick, const Status& s)
 
 	// XEP-0384 OMEMO MUC: maintain nick → real JID map from MUC presence
 	// <x xmlns='muc#user'><item jid='real@server'/> is exposed via mucItem().jid()
+	qDebug() << "[OMEMO-MUC-presence] room=" << jid().bare()
+	         << "nick=" << nick
+	         << "mucItem.jid=" << s.mucItem().jid().full()
+	         << "hasMUCItem=" << s.hasMUCItem()
+	         << "available=" << s.isAvailable()
+	         << "role=" << (int)s.mucItem().role()
+	         << "aff=" << (int)s.mucItem().affiliation();
 	if (!nick.isEmpty() && !s.mucItem().jid().isEmpty()) {
 		const XMPP::Jid newReal = s.mucItem().jid().withResource(QString());
 		const bool fresh = !nickToRealJid_.contains(nick) ||
 		                   nickToRealJid_[nick].bare() != newReal.bare();
 		nickToRealJid_[nick] = newReal;
+		qDebug() << "[OMEMO-MUC-presence] Stored map:" << nick << "->" << newReal.bare()
+		         << "(fresh=" << fresh << ", mapSize=" << nickToRealJid_.size() << ")";
 
 		// When a new occupant's real JID becomes known for the first time
 		// (or changes), pre-fetch their OMEMO bundle so we can encrypt to
@@ -229,9 +238,11 @@ void YaGroupchatDlg::presence(const QString& nick, const Status& s)
 			if (om && om->isEnabled(jid()))
 				om->ensureMucSessions(jid(), nickToRealJid_);
 		}
-	} else if (!nick.isEmpty() && s.mucItem().jid().isEmpty() && !s.isAvailable()) {
-		// Occupant leaving and we had a real JID: keep the mapping (useful for
-		// in-flight OMEMO messages that arrive after the leave presence)
+	} else if (!nick.isEmpty() && !s.hasMUCItem()) {
+		qDebug() << "[OMEMO-MUC-presence] No MUCItem — presence lacks muc#user wrapper";
+	} else if (!nick.isEmpty() && s.mucItem().jid().isEmpty()) {
+		qDebug() << "[OMEMO-MUC-presence] MUCItem has empty jid — room is semi-anonymous "
+		         << "for our role, cannot map nick to real JID. OMEMO inbound will fail.";
 	}
 
 	if ((nick.isEmpty()) && (s.getMUCStatuses().contains(100))) {
