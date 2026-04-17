@@ -67,9 +67,14 @@ TabDlg* TabManager::newTabs()
 
 void TabManager::tabDestroyed(QObject* obj)
 {
-	TabDlg *tabDlg = qobject_cast<TabDlg*>(obj);
-	Q_ASSERT(tabDlg);
-	Q_ASSERT(tabs_.contains(tabDlg));
+	// Qt5 regression: qobject_cast fails during QObject::~QObject() because
+	// the vtable has already been reset from TabDlg* to QObject* by the time
+	// destroyed() is emitted. qobject_cast returns null, Q_ASSERT is a no-op
+	// in release, removeAll(nullptr) is a no-op → TabDlg stays in the list as
+	// a dangling pointer → crash when managesTab() dereferences freed memory.
+	// Fix: static_cast is safe because this slot is only connected to TabDlg
+	// objects (see newTabs() — the only place this connection is made).
+	TabDlg *tabDlg = static_cast<TabDlg*>(obj);
 	tabs_.removeAll(tabDlg);
 }
 
