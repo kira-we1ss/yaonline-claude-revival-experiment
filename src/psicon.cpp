@@ -627,7 +627,10 @@ bool PsiCon::init(bool autoStart)
 #ifdef YAPSI
 	PsiOptions::instance()->setOption("options.ui.message.enabled", false);
 	PsiOptions::instance()->setOption("options.ya.main-window.status-bar.show", false);
-	PsiOptions::instance()->setOption("options.muc.bookmarks.auto-join", false);
+	// XEP-0048: auto-join enabled — BookmarkManager reads this option
+	// and calls actionJoin() for bookmarks with autoJoin=true on connect.
+	// Previously suppressed; modern XMPP servers support it fine.
+	// PsiOptions::instance()->setOption("options.muc.bookmarks.auto-join", false);
 	PsiOptions::instance()->removeOption("options.ui.muc.enabled", true);
 #endif
 
@@ -838,6 +841,8 @@ bool PsiCon::init(bool autoStart)
 #ifdef YAPSI
 	registerCaps("mr", QStringList("urn:xmpp:receipts"));
 #endif
+	registerCaps("ping", QStringList("urn:xmpp:ping"));
+	registerCaps("csi", QStringList("urn:xmpp:csi:0"));
 
 	// load accounts
 	d->contactList->loadAccounts(d->pro.acc);

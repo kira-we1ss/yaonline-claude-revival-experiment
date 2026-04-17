@@ -1489,6 +1489,12 @@ PsiAccount::PsiAccount(const UserAccount &acc, PsiContactList *parent, CapsRegis
 	d->client->addExtension("mr", Features("urn:xmpp:receipts"));
 #endif
 
+	// XEP-0199: XMPP Ping — advertise that we respond to pings (PongServer is active)
+	d->client->addExtension("ping", Features("urn:xmpp:ping"));
+
+	// XEP-0352: Client State Indication — already wired up in constructor
+	d->client->addExtension("csi", Features("urn:xmpp:csi:0"));
+
 	d->selfContact = new PsiSelfContact(d->self, this);
 
 	// restore cached roster

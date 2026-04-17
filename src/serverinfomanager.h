@@ -38,11 +38,19 @@ public:
 	const QString& multicastService() const;
 	bool hasPEP() const;
 
+	// Layer 5 XEP service detection
+	bool hasMAM() const;
+	bool hasCarbons() const;
+	bool hasHttpUpload() const;
+	QString httpUploadService() const;
+
 signals:
 	void featuresChanged();
 
 private slots:
 	void disco_finished();
+	void items_finished();
+	void item_info_finished();
 	void initialize();
 	void deinitialize();
 	void reset();
@@ -52,6 +60,12 @@ private:
 	QString multicastService_;
 	bool featuresRequested_;
 	bool hasPEP_;
+
+	// Layer 5 XEP detection state
+	bool hasMAM_;
+	bool hasCarbons_;
+	bool hasHttpUpload_;
+	QString httpUploadService_;
 };
 
 #endif
