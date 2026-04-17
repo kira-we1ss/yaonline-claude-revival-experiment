@@ -25,6 +25,7 @@
 #include <QMutex>
 #include <QTimer>
 #include <QDomDocument>
+#include <QSet>
 #include <QTextStream>
 
 #include <QtCrypto>
@@ -1525,8 +1526,21 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
                         state->anySuccess = true;
 
                     state->pendingBundles--;
-                    if (state->pendingBundles <= 0)
-                        finishFetch(state->anySuccess);
+                    if (state->pendingBundles <= 0) {
+                        // If no new sessions could be established, fall back to
+                        // checking whether ANY stored session exists for this JID.
+                        // If so, we can still encrypt to that existing session even
+                        // if the contact has since retracted or rolled their device.
+                        bool hasAnySession = state->anySuccess;
+                        if (!hasAnySession) {
+                            QString prefix = state->bareJid + QLatin1Char(':');
+                            for (auto it = d->store.sessions.constBegin();
+                                 it != d->store.sessions.constEnd(); ++it) {
+                                if (it.key().startsWith(prefix)) { hasAnySession = true; break; }
+                            }
+                        }
+                        finishFetch(hasAnySession);
+                    }
                 });
 
             // Connect bundle error handler: PEP 404 / empty / network failure for bundles
@@ -1555,8 +1569,19 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
                              qPrintable(state->bareJid), qPrintable(errNode));
 
                     state->pendingBundles--;
-                    if (state->pendingBundles <= 0)
-                        finishFetch(state->anySuccess);
+                    if (state->pendingBundles <= 0) {
+                        // Same fallback as the success handler: if any stored
+                        // session for this JID exists, we can still encrypt.
+                        bool hasAnySession = state->anySuccess;
+                        if (!hasAnySession) {
+                            QString prefix = state->bareJid + QLatin1Char(':');
+                            for (auto it = d->store.sessions.constBegin();
+                                 it != d->store.sessions.constEnd(); ++it) {
+                                if (it.key().startsWith(prefix)) { hasAnySession = true; break; }
+                            }
+                        }
+                        finishFetch(hasAnySession);
+                    }
                 });
 
             // Fetch a bundle for each device that needs a session
@@ -1602,14 +1627,35 @@ void OmemoManager::encrypt(const XMPP::Jid& to, const QString& body)
         return;
     }
 
-    // Check if we have any sessions with this contact
+    // Collect target device IDs: union of the current PEP devicelist AND any
+    // stored Signal sessions we have for this JID. This survives the case
+    // where the contact retracted a device from their devicelist but we still
+    // have a valid ratchet session with it (common in practice — Conversations
+    // / Cheogram roll device IDs on reinstall, so sometimes the only usable
+    // session is one for a device no longer in the current devicelist).
     QString toJid = to.bare();
-    QList<uint32_t> deviceIds = d->deviceLists.value(toJid);
+    QSet<uint32_t> targetDevices;
+    for (uint32_t d0 : d->deviceLists.value(toJid))
+        targetDevices.insert(d0);
 
-    qDebug() << "[OMEMO] encrypt() for" << toJid << "— known devices:" << deviceIds.size();
+    // Scan stored sessions for "toJid:DEVICE_ID"
+    QString sessionPrefix = toJid + QLatin1Char(':');
+    for (auto it = d->store.sessions.constBegin(); it != d->store.sessions.constEnd(); ++it) {
+        if (it.key().startsWith(sessionPrefix)) {
+            bool ok = false;
+            uint32_t devId = it.key().mid(sessionPrefix.size()).toUInt(&ok);
+            if (ok)
+                targetDevices.insert(devId);
+        }
+    }
+
+    QList<uint32_t> deviceIds = targetDevices.values();
+    qDebug() << "[OMEMO] encrypt() for" << toJid << "— target devices:" << deviceIds.size()
+             << "(advertised:" << d->deviceLists.value(toJid).size()
+             << " stored sessions:" << (deviceIds.size() - d->deviceLists.value(toJid).size()) << ")";
 
     if (deviceIds.isEmpty()) {
-        // No known devices — can't encrypt. Emit failure so caller can fall back.
+        // No known devices AND no stored sessions — can't encrypt.
         qWarning() << "[OMEMO] No device sessions for" << toJid << "— cannot encrypt";
         emit encryptDone(to, QDomElement(), body, false);
         return;
@@ -1933,15 +1979,28 @@ void OmemoManager::decrypt(const XMPP::Jid& from, const QDomElement& encryptedEl
     qDebug() << "[OMEMO] Decrypted key material from" << fromJid
              << "— size:" << keyMaterial.size() << "bytes";
 
+    // Key-only handshake messages (used by Conversations/Cheogram to sync sessions
+    // and pre-establish ratchets) have NO <payload>, and the key material may be
+    // as small as 16 bytes or as large as 32. These are NOT errors — successful
+    // Signal decryption + empty payload means the session advanced. Report
+    // success-but-empty so psiaccount drops the stanza (instead of showing the
+    // fallback "I sent you an OMEMO encrypted message" body).
+    if (payload.payload.isEmpty()) {
+        qDebug() << "[OMEMO] Key-only handshake from" << fromJid
+                 << "(keyMat=" << keyMaterial.size() << "B) — session advanced";
+        emit decryptDone(from, QString(), payload.sid, true);
+        return;
+    }
+
     QByteArray aesKey;
     QByteArray authTag;
 
     if (keyMaterial.size() == 32) {
-        // Conversations / XEP-0384 v0.3+: key||tag
+        // Conversations / XEP-0384 v0.3+: key||tag (most common)
         aesKey  = keyMaterial.left(16);
         authTag = keyMaterial.right(16);
     } else if (keyMaterial.size() == 16 && payload.payload.size() >= 16) {
-        // Legacy: tag is the last 16 bytes of <payload>
+        // Legacy: 16-byte key, tag is last 16 bytes of <payload>
         aesKey  = keyMaterial;
         authTag = payload.payload.right(16);
         payload.payload = payload.payload.left(payload.payload.size() - 16);
@@ -1949,15 +2008,6 @@ void OmemoManager::decrypt(const XMPP::Jid& from, const QDomElement& encryptedEl
         qWarning() << "[OMEMO] Unexpected key material size:" << keyMaterial.size()
                    << "(payload size:" << payload.payload.size() << ")";
         emit decryptDone(from, QString(), payload.sid, false);
-        return;
-    }
-
-    if (payload.payload.isEmpty()) {
-        // Key-only message (device key exchange, no body). Successful handshake —
-        // NOT an error; just nothing to display. Tell caller success-but-empty.
-        qDebug() << "[OMEMO] Key-only handshake message from" << fromJid
-                 << "(session established/advanced)";
-        emit decryptDone(from, QString(), payload.sid, true);
         return;
     }
 
