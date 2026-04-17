@@ -115,6 +115,7 @@
 #include "pepmanager.h"
 #include "serverinfomanager.h"
 #include "xmpp_csi.h"
+#include "xmpp_mam.h"
 #ifdef WHITEBOARDING
 #include "wbmanager.h"
 #endif
@@ -3015,6 +3016,30 @@ void PsiAccount::resolveContactName()
 void PsiAccount::serverFeaturesChanged()
 {
 	setPEPAvailable(d->serverInfoManager->hasPEP());
+
+	// XEP-0313: trigger MAM sync if server advertises urn:xmpp:mam:2
+	if (d->serverInfoManager->hasMAM()) {
+		// Load last 7 days of message history on connect.
+		// Messages arrive as intermediate <message> push stanzas during
+		// the query; the messageReceived signal routes each one through
+		// the normal incoming-message path (spooled=true suppresses
+		// sounds/notifications in ChatDlg::incomingMessage).
+		JT_MAMQuery* mam = new JT_MAMQuery(d->client->rootTask());
+		mam->setStart(QDateTime::currentDateTimeUtc().addDays(-7));
+		mam->setMax(200);
+		connect(mam, &JT_MAMQuery::messageReceived, this,
+		        [this](const XMPP::Message& m) {
+			// spooled() == true so ChatDlg won't play a sound or
+			// raise a notification — it just inserts into history.
+			client_messageReceived(m);
+		});
+		connect(mam, &JT_MAMQuery::finished, this, [mam]() {
+			qDebug("MAM sync: %d archived messages received, complete=%s",
+			       mam->results().count(),
+			       mam->isComplete() ? "yes" : "no");
+		});
+		mam->go(true);
+	}
 
 	// XEP-0352: check if server supports Client State Indication
 	if (d->csiManager_) {
