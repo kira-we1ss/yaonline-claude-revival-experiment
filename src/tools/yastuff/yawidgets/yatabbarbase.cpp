@@ -215,10 +215,6 @@ void YaTabBarBase::drawTab(QPainter* painter, int index, const QRect& tabRect)
 	QRect textRect = tabTextRect(index);
 	QString text = tabText(index);
 
-	// Force black tab text — palette-inherited pen is invisible in dark mode.
-	painter->save();
-	painter->setPen(Qt::black);
-
 	if (drawTabNumbers_ && index < 10) {
 		int numberToDraw = index + 1;
 		if (numberToDraw > 9) {
@@ -229,12 +225,11 @@ void YaTabBarBase::drawTab(QPainter* painter, int index, const QRect& tabRect)
 		painter->setPen(Qt::gray);
 		QString numberToDrawText = QString::number(numberToDraw) + " ";
 		painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine, numberToDrawText);
-		textRect.adjust(fontMetrics().width(numberToDrawText), 0, 0, 0);
+		textRect.adjust(fontMetrics().horizontalAdvance(numberToDrawText), 0, 0, 0);
 		painter->restore();
 	}
 
 	painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine, text);
-	painter->restore();
 #ifndef WIDGET_PLUGIN
 	if (textWidth(text) > textRect.width() && backgroundColor.isValid()) {
 		Ya::VisualUtil::drawTextFadeOut(painter, textRect.adjusted(1, 0, 1, 0), backgroundColor, 15);
@@ -530,7 +525,7 @@ int YaTabBarBase::textWidth(const QString& text) const
 {
 	int result = cachedTextWidth_[text];
 	if (!result) {
-		result = fontMetrics().width(text);
+		result = fontMetrics().horizontalAdvance(text);
 		cachedTextWidth_[text] = result;
 	}
 	return result;
