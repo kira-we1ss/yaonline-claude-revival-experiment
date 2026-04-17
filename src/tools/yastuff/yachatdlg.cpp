@@ -230,7 +230,8 @@ void YaChatDlg::capsChanged()
 
 bool YaChatDlg::isEncryptionEnabled() const
 {
-	return false;
+	OmemoManager* mgr = account() ? account()->omemoManager() : nullptr;
+	return mgr && mgr->isEnabled(jid());
 }
 
 void YaChatDlg::contactUpdated(UserListItem* u, int status, const QString& statusString)

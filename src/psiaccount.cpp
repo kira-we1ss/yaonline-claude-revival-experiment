@@ -500,6 +500,7 @@ public:
 	// OMEMO
 	OmemoManager* omemoManager;
 	QList<Message> omemoQueue; // messages awaiting OMEMO decryption
+	bool omemoBundlePublished = false; // guard: publish bundle at most once per session
 
 	QList<GCContact*> gcbank;
 	QStringList groupchats;
@@ -2516,6 +2517,9 @@ void PsiAccount::cs_authenticated()
 		return;
 	}
 
+	// XEP-0384: reset publish guard on every new session so bundle is re-published
+	d->omemoBundlePublished = false;
+
 	//printf("PsiAccount: [%s] authenticated\n", name().toLatin1().constData());
 	d->conn->changePollInterval(10); // for http poll, slow down after login
 
@@ -3072,6 +3076,15 @@ void PsiAccount::serverFeaturesChanged()
 		});
 		jt->get(d->client->jid().domain());
 		jt->go(true);
+	}
+
+	// XEP-0384 OMEMO: publish device bundle when PEP is confirmed available.
+	// This is the canonical hook — sentInitialPresence() also tries but may fire
+	// before the server's feature advertisement arrives.
+	if (d->serverInfoManager->hasPEP() && d->omemoManager
+	    && d->omemoManager->isInitialized() && !d->omemoBundlePublished) {
+		d->omemoBundlePublished = true;
+		d->omemoManager->publishBundle();
 	}
 }
 
@@ -4154,14 +4167,20 @@ void PsiAccount::sentInitialPresence()
 {
 	QTimer::singleShot(15000, this, SLOT(enableNotifyOnline()));
 
-	// XEP-0384 OMEMO: publish device bundle after login
-	if (d->omemoManager && d->omemoManager->isInitialized()) {
+	// XEP-0384 OMEMO: publish device bundle after login.
+	// Note: serverFeaturesChanged() is the canonical hook; this is a backup for
+	// the case where PEP availability was already known before sentInitialPresence().
+	if (d->omemoManager && d->omemoManager->isInitialized()
+	    && d->serverInfoManager->hasPEP() && !d->omemoBundlePublished) {
+		d->omemoBundlePublished = true;
 		d->omemoManager->publishBundle();
-	} else if (d->omemoManager) {
+	} else if (d->omemoManager && !d->omemoBundlePublished) {
 		// Initialize may still be in progress (deferred via QTimer::singleShot)
-		// Connect to bundlePublished to publish once ready
-		QTimer::singleShot(2000, this, [this]() {
-			if (d->omemoManager && d->omemoManager->isInitialized()) {
+		// or PEP availability not yet known — try again after 3 seconds.
+		QTimer::singleShot(3000, this, [this]() {
+			if (d->omemoManager && d->omemoManager->isInitialized()
+			    && d->serverInfoManager->hasPEP() && !d->omemoBundlePublished) {
+				d->omemoBundlePublished = true;
 				d->omemoManager->publishBundle();
 			}
 		});

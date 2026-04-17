@@ -40,6 +40,7 @@
 #include <signal/key_helper.h>
 #include <signal/session_pre_key.h>
 #include <signal/protocol.h>
+#include <signal/curve.h>
 
 #include <xmpp_jid.h>
 #include <xmpp_client.h>
@@ -1074,6 +1075,135 @@ void OmemoManager::publishBundle()
     emit bundlePublished(true);
 }
 
+// ──────────────────────────────────────────────────────────────────
+// Bundle parsing helper: parse a <bundle> element into Signal pre-key bundle
+// Returns SG_SUCCESS or negative error code.
+// ──────────────────────────────────────────────────────────────────
+static int parseAndProcessBundle(const QDomElement& bundleEl,
+                                 uint32_t deviceId,
+                                 const QString& contactJid,
+                                 signal_protocol_store_context* storeCtx,
+                                 signal_context* signalCtx)
+{
+    // <signedPreKeyPublic signedPreKeyId='N'>base64</signedPreKeyPublic>
+    QDomElement spkEl = bundleEl.firstChildElement(QLatin1String("signedPreKeyPublic"));
+    if (spkEl.isNull()) {
+        qWarning("[OMEMO] Bundle missing signedPreKeyPublic for device %u", deviceId);
+        return SG_ERR_INVALID_KEY;
+    }
+    uint32_t signedPreKeyId = spkEl.attribute(QLatin1String("signedPreKeyId")).toUInt();
+    QByteArray spkPubBytes = QByteArray::fromBase64(spkEl.text().toLatin1());
+
+    // <signedPreKeySignature>base64</signedPreKeySignature>
+    QDomElement sigEl = bundleEl.firstChildElement(QLatin1String("signedPreKeySignature"));
+    if (sigEl.isNull()) {
+        qWarning("[OMEMO] Bundle missing signedPreKeySignature for device %u", deviceId);
+        return SG_ERR_INVALID_KEY;
+    }
+    QByteArray sigBytes = QByteArray::fromBase64(sigEl.text().toLatin1());
+
+    // <identityKey>base64</identityKey>
+    QDomElement idKeyEl = bundleEl.firstChildElement(QLatin1String("identityKey"));
+    if (idKeyEl.isNull()) {
+        qWarning("[OMEMO] Bundle missing identityKey for device %u", deviceId);
+        return SG_ERR_INVALID_KEY;
+    }
+    QByteArray idKeyBytes = QByteArray::fromBase64(idKeyEl.text().toLatin1());
+
+    // Pick first prekey from <prekeys>
+    QDomElement prekeysEl = bundleEl.firstChildElement(QLatin1String("prekeys"));
+    QDomElement pkEl;
+    uint32_t preKeyId = 0;
+    QByteArray pkPubBytes;
+    if (!prekeysEl.isNull()) {
+        pkEl = prekeysEl.firstChildElement(QLatin1String("preKeyPublic"));
+        if (!pkEl.isNull()) {
+            preKeyId = pkEl.attribute(QLatin1String("preKeyId")).toUInt();
+            pkPubBytes = QByteArray::fromBase64(pkEl.text().toLatin1());
+        }
+    }
+
+    // Deserialize EC keys
+    ec_public_key* spkPub = nullptr;
+    if (curve_decode_point(&spkPub,
+            reinterpret_cast<const uint8_t*>(spkPubBytes.constData()),
+            static_cast<size_t>(spkPubBytes.size()),
+            signalCtx) != SG_SUCCESS) {
+        qWarning("[OMEMO] Failed to decode signed pre-key for device %u", deviceId);
+        return SG_ERR_INVALID_KEY;
+    }
+
+    ec_public_key* idKey = nullptr;
+    if (curve_decode_point(&idKey,
+            reinterpret_cast<const uint8_t*>(idKeyBytes.constData()),
+            static_cast<size_t>(idKeyBytes.size()),
+            signalCtx) != SG_SUCCESS) {
+        SIGNAL_UNREF(spkPub);
+        qWarning("[OMEMO] Failed to decode identity key for device %u", deviceId);
+        return SG_ERR_INVALID_KEY;
+    }
+
+    ec_public_key* pkPub = nullptr;
+    if (!pkPubBytes.isEmpty()) {
+        curve_decode_point(&pkPub,
+            reinterpret_cast<const uint8_t*>(pkPubBytes.constData()),
+            static_cast<size_t>(pkPubBytes.size()),
+            signalCtx);
+    }
+
+    // Create Signal pre-key bundle
+    session_pre_key_bundle* bundle = nullptr;
+    int result = session_pre_key_bundle_create(&bundle,
+        deviceId,            // registration_id (reuse device id)
+        static_cast<int>(deviceId), // device_id
+        preKeyId,            // pre_key_id (0 if none)
+        pkPub,               // pre_key_public (may be null)
+        signedPreKeyId,      // signed_pre_key_id
+        spkPub,              // signed_pre_key_public
+        reinterpret_cast<const uint8_t*>(sigBytes.constData()),
+        static_cast<size_t>(sigBytes.size()),
+        idKey                // identity_key
+    );
+
+    if (result != SG_SUCCESS) {
+        qWarning("[OMEMO] session_pre_key_bundle_create failed for device %u: %d",
+                 deviceId, result);
+        SIGNAL_UNREF(spkPub);
+        SIGNAL_UNREF(idKey);
+        if (pkPub) SIGNAL_UNREF(pkPub);
+        return result;
+    }
+
+    // Build the Signal session via the bundle
+    QByteArray jidUtf8 = contactJid.toUtf8();
+    signal_protocol_address addr;
+    addr.name = jidUtf8.constData();
+    addr.name_len = static_cast<size_t>(jidUtf8.size());
+    addr.device_id = static_cast<int32_t>(deviceId);
+
+    session_builder* builder = nullptr;
+    result = session_builder_create(&builder, storeCtx, &addr, signalCtx);
+    if (result == SG_SUCCESS) {
+        result = session_builder_process_pre_key_bundle(builder, bundle);
+        session_builder_free(builder);
+        if (result == SG_SUCCESS) {
+            qDebug("[OMEMO] Session established with %s device %u",
+                   qPrintable(contactJid), deviceId);
+        } else {
+            qWarning("[OMEMO] session_builder_process_pre_key_bundle failed for %s device %u: %d",
+                     qPrintable(contactJid), deviceId, result);
+        }
+    }
+
+    SIGNAL_UNREF(bundle);
+    // Keys are ref'd by the bundle; SIGNAL_UNREF them after bundle is destroyed
+    if (spkPub) SIGNAL_UNREF(spkPub);
+    if (idKey) SIGNAL_UNREF(idKey);
+    if (pkPub) SIGNAL_UNREF(pkPub);
+
+    return result;
+}
+
 void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
 {
     if (!d->initialized) {
@@ -1081,13 +1211,180 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
         return;
     }
 
-    // In a full implementation, this would fetch the PEP device list for the
-    // contact and then fetch each device's bundle to build X3DH sessions.
-    // For now, emit success immediately (sessions will be established when
-    // the first OMEMO message is received from that contact).
-    qDebug() << "[OMEMO] fetchContactBundles for" << contact.bare()
-             << "(deferred — sessions built lazily on first message)";
-    emit sessionsEstablished(contact, true);
+    if (!d->pepManager) {
+        qWarning() << "[OMEMO] fetchContactBundles: no PEPManager — cannot fetch bundles for" << contact.bare();
+        // Still emit success so we try to encrypt; we may have sessions from earlier
+        emit sessionsEstablished(contact, true);
+        return;
+    }
+
+    // Check if we already have sessions for this contact's known devices
+    QString bareJid = contact.bare();
+    QList<uint32_t> knownDevices = d->deviceLists.value(bareJid);
+    bool allHaveSessions = !knownDevices.isEmpty();
+    if (allHaveSessions) {
+        for (uint32_t devId : knownDevices) {
+            QByteArray jidUtf8 = bareJid.toUtf8();
+            signal_protocol_address addr;
+            addr.name = jidUtf8.constData();
+            addr.name_len = static_cast<size_t>(jidUtf8.size());
+            addr.device_id = static_cast<int32_t>(devId);
+            if (!sess_contains_session(&addr, &d->store)) {
+                allHaveSessions = false;
+                break;
+            }
+        }
+    }
+
+    if (allHaveSessions) {
+        qDebug() << "[OMEMO] fetchContactBundles: sessions already established for" << bareJid;
+        emit sessionsEstablished(contact, true);
+        return;
+    }
+
+    qDebug() << "[OMEMO] fetchContactBundles: fetching devicelist for" << bareJid;
+
+    // Step 1: fetch devicelist node
+    // PEPManager::get() emits itemPublished(jid, node, item) via getFinished()
+    // We connect once, one-shot style
+    OmemoManager* self = this;
+    XMPP::Jid contactCopy = contact;
+
+    // Use a shared state for the multi-fetch operation
+    struct FetchState : public QObject {
+        XMPP::Jid contact;
+        QString bareJid;
+        int pendingBundles = 0;
+        bool anySuccess = false;
+        OmemoManager* manager = nullptr;
+        // Connections we need to disconnect
+        QMetaObject::Connection devicelistConn;
+        QMetaObject::Connection bundleConn;
+    };
+    FetchState* state = new FetchState();
+    state->contact = contact;
+    state->bareJid = bareJid;
+    state->manager = this;
+
+    // Connect to devicelist arrival
+    state->devicelistConn = connect(d->pepManager, &PEPManager::itemPublished,
+        this, [this, state](const XMPP::Jid& from, const QString& node,
+                            const XMPP::PubSubItem& item) {
+            // Only handle devicelist for our target contact
+            if (!from.compare(state->contact, false))
+                return;
+            if (node != QString::fromLatin1(XmppOmemo::NS_DEVICELIST))
+                return;
+
+            // Disconnect devicelist handler now that we got it
+            disconnect(state->devicelistConn);
+
+            QDomElement listEl = item.payload();
+            if (listEl.isNull()) {
+                qWarning() << "[OMEMO] Empty devicelist for" << state->bareJid;
+                emit sessionsEstablished(state->contact, false);
+                state->deleteLater();
+                return;
+            }
+
+            // Parse device IDs
+            QList<uint32_t> devices;
+            QDomElement devEl = listEl.firstChildElement(QLatin1String("device"));
+            while (!devEl.isNull()) {
+                bool ok = false;
+                uint32_t devId = devEl.attribute(QLatin1String("id")).toUInt(&ok);
+                if (ok && devId != 0)
+                    devices.append(devId);
+                devEl = devEl.nextSiblingElement(QLatin1String("device"));
+            }
+
+            if (devices.isEmpty()) {
+                qWarning() << "[OMEMO] No devices in devicelist for" << state->bareJid;
+                emit sessionsEstablished(state->contact, false);
+                state->deleteLater();
+                return;
+            }
+
+            // Update our known device list
+            d->deviceLists[state->bareJid] = devices;
+
+            // Filter to only devices we don't already have sessions for
+            QList<uint32_t> needSession;
+            for (uint32_t devId : devices) {
+                QByteArray jidUtf8 = state->bareJid.toUtf8();
+                signal_protocol_address addr;
+                addr.name = jidUtf8.constData();
+                addr.name_len = static_cast<size_t>(jidUtf8.size());
+                addr.device_id = static_cast<int32_t>(devId);
+                if (!sess_contains_session(&addr, &d->store))
+                    needSession.append(devId);
+            }
+
+            if (needSession.isEmpty()) {
+                qDebug() << "[OMEMO] All sessions already established for" << state->bareJid;
+                emit sessionsEstablished(state->contact, true);
+                state->deleteLater();
+                return;
+            }
+
+            qDebug() << "[OMEMO] Need to fetch bundles for" << needSession.size()
+                     << "devices of" << state->bareJid;
+
+            state->pendingBundles = needSession.size();
+            state->anySuccess = false;
+
+            // Connect bundle handler
+            state->bundleConn = connect(d->pepManager, &PEPManager::itemPublished,
+                this, [this, state, needSession](const XMPP::Jid& from2,
+                                                  const QString& node2,
+                                                  const XMPP::PubSubItem& item2) {
+                    if (!from2.compare(state->contact, false))
+                        return;
+
+                    // Check if this is one of the bundle nodes we need
+                    uint32_t matchedDevId = 0;
+                    for (uint32_t devId : needSession) {
+                        QString expectedNode = QString::fromLatin1(XmppOmemo::NS_BUNDLES)
+                                               + QLatin1Char(':') + QString::number(devId);
+                        if (node2 == expectedNode) {
+                            matchedDevId = devId;
+                            break;
+                        }
+                    }
+                    if (matchedDevId == 0)
+                        return;
+
+                    // Process this bundle
+                    QDomElement bundleEl = item2.payload();
+                    int result = parseAndProcessBundle(
+                        bundleEl, matchedDevId, state->bareJid,
+                        d->storeCtx, d->signalCtx);
+                    if (result == SG_SUCCESS)
+                        state->anySuccess = true;
+
+                    state->pendingBundles--;
+                    if (state->pendingBundles <= 0) {
+                        disconnect(state->bundleConn);
+                        emit sessionsEstablished(state->contact, state->anySuccess);
+                        state->deleteLater();
+                    }
+                });
+
+            // Fetch a bundle for each device that needs a session
+            for (uint32_t devId : needSession) {
+                QString bundleNode = QString::fromLatin1(XmppOmemo::NS_BUNDLES)
+                                     + QLatin1Char(':') + QString::number(devId);
+                qDebug() << "[OMEMO] Fetching bundle node" << bundleNode << "for" << state->bareJid;
+                d->pepManager->get(state->contact, bundleNode, QLatin1String("current"));
+            }
+        });
+
+    // Kick off devicelist fetch
+    d->pepManager->get(contact, QString::fromLatin1(XmppOmemo::NS_DEVICELIST),
+                       QLatin1String("current"));
+
+    Q_UNUSED(self);
+    Q_UNUSED(contactCopy);
 }
 
 void OmemoManager::encrypt(const XMPP::Jid& to, const QString& body)

@@ -79,6 +79,8 @@
 #ifdef HAVE_PGPUTIL
 #include "pgputil.h"
 #endif
+#include "omemomanager.h"
+#include "xmpp_omemo.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -688,6 +690,63 @@ void ChatDlg::sendMessage(XMPP::Message m, bool userAction)
 	m_ = m;
 
 	if (isEncryptionEnabled()) {
+		// XEP-0384 OMEMO: encrypt via OmemoManager if available
+		OmemoManager* omemoMgr = account() ? account()->omemoManager() : nullptr;
+		if (omemoMgr && omemoMgr->isEnabled(jid())) {
+			// Disable chat edit while we fetch bundles + encrypt
+			chatEdit()->setEnabled(false);
+
+			// Step 1: fetch contact's device bundles (establishes sessions)
+			// Step 2: after sessionsEstablished, encrypt
+			// Step 3: after encryptDone, send
+			connect(omemoMgr, &OmemoManager::sessionsEstablished,
+			        this, [this, omemoMgr, m](const XMPP::Jid& to, bool ok) mutable {
+				if (!to.compare(jid(), false))
+					return;
+				// One-shot: disconnect this lambda
+				disconnect(omemoMgr, &OmemoManager::sessionsEstablished, this, nullptr);
+
+				if (!ok) {
+					qWarning("[OMEMO] Sessions not established — sending plaintext fallback");
+					chatEdit()->setEnabled(true);
+					emit aSend(m);
+					doneSend(m);
+					return;
+				}
+
+				// Connect encrypt callback
+				connect(omemoMgr, &OmemoManager::encryptDone,
+				        this, [this, omemoMgr, m](
+				                const XMPP::Jid& to2, const QDomElement& enc,
+				                const QString& /*plainBody*/, bool encOk) mutable {
+					if (!to2.compare(jid(), false))
+						return;
+					disconnect(omemoMgr, &OmemoManager::encryptDone, this, nullptr);
+					chatEdit()->setEnabled(true);
+					if (encOk) {
+						XMPP::Message em = m;
+						em.setBody(QLatin1String(
+						    "I sent you an OMEMO encrypted message "
+						    "but your client doesn't seem to support that. "
+						    "https://conversations.im/omemo"));
+						em.addExtension(enc);
+						emit aSend(em);
+						doneSend(m); // log original plaintext locally
+					} else {
+						qWarning("[OMEMO] Encryption failed — sending plaintext fallback");
+						emit aSend(m);
+						doneSend(m);
+					}
+				});
+				Q_UNUSED(to); // suppress warning about lambda capture
+				omemoMgr->encrypt(jid(), m.body());
+			});
+			omemoMgr->fetchContactBundles(jid());
+			chatEdit()->setFocus();
+			return;
+		}
+
+		// PGP fallback (no OMEMO manager)
 		chatEdit()->setEnabled(false);
 		transid_ = account()->sendMessageEncrypted(m);
 		if (transid_ == -1) {
