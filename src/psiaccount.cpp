@@ -3510,6 +3510,10 @@ void PsiAccount::client_messageReceived(const Message &m)
 	// XEP-0384 OMEMO encrypted message?
 	{
 		QDomElement omemoEl = _m.getExtension(QString::fromLatin1(XmppOmemo::NS));
+		qDebug() << "[OMEMO] client_messageReceived: from=" << _m.from().full()
+		         << "type=" << _m.type()
+		         << "hasOmemoExt=" << !omemoEl.isNull()
+		         << "body[:40]=" << _m.body().left(40);
 		if (!omemoEl.isNull() && d->omemoManager) {
 			// For MUC messages the 'from' is room@conference/nick.
 			// Signal sessions are keyed by the sender's real bare JID.
@@ -7666,8 +7670,19 @@ void PsiAccount::omemo_decryptFinished(const XMPP::Jid& from, const QString& pla
         if (matched) {
             Message m = d->omemoQueue.takeAt(i);
             if (success) {
+                if (plainBody.isEmpty()) {
+                    // Key-only handshake / session-advance message — no body to display.
+                    // Drop silently so user doesn't see empty or fallback stanza text.
+                    qDebug() << "[OMEMO] key-only message (no body) from" << from.bare()
+                             << "— dropping silently";
+                    return;
+                }
                 m.setBody(plainBody);
                 m.setWasEncrypted(true);
+                qDebug() << "[OMEMO] decryption success: displaying decrypted message from" << from.bare();
+            } else {
+                qWarning() << "[OMEMO] decryption failed from" << from.bare()
+                           << "— keeping fallback body for display";
             }
             processIncomingMessage(m);
             return;

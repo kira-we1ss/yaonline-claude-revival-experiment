@@ -226,7 +226,12 @@ static int omemo_decrypt(signal_buffer** output,
 
 // Encrypts plaintext with AES-128-GCM.
 // Returns ciphertext + 16-byte GCM auth tag concatenated.
-static QByteArray aes128gcm_encrypt(const QByteArray& key, const QByteArray& iv, const QByteArray& plaintext)
+// Encrypts plaintext with AES-128-GCM. Returns ciphertext only (no tag).
+// The 16-byte GCM tag is returned via the tagOut parameter.
+// This matches the Conversations OMEMO spec where <payload> carries
+// ciphertext only and the tag is appended to the AES key for Signal-encryption.
+static QByteArray aes128gcm_encrypt(const QByteArray& key, const QByteArray& iv,
+                                     const QByteArray& plaintext, QByteArray& tagOut)
 {
     Q_ASSERT(key.size() == 16);
     Q_ASSERT(iv.size() == 12);
@@ -263,25 +268,25 @@ static QByteArray aes128gcm_encrypt(const QByteArray& key, const QByteArray& iv,
     totalLen += len;
     ciphertext.resize(totalLen);
 
-    // Get 16-byte GCM tag
-    QByteArray tag(16, '\0');
+    // Extract 16-byte GCM tag separately
+    tagOut.resize(16);
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16,
-                        reinterpret_cast<unsigned char*>(tag.data()));
+                        reinterpret_cast<unsigned char*>(tagOut.data()));
     EVP_CIPHER_CTX_free(ctx);
 
-    return ciphertext + tag;
+    return ciphertext;
 }
 
-// Decrypts ciphertext (last 16 bytes = GCM tag) with AES-128-GCM.
-static QByteArray aes128gcm_decrypt(const QByteArray& key, const QByteArray& iv, const QByteArray& ciphertextWithTag)
+// Decrypts ciphertext with AES-128-GCM using a separate tag.
+// Matches Conversations OMEMO spec: tag comes from the Signal-encrypted
+// key material, not from the <payload>.
+static QByteArray aes128gcm_decrypt(const QByteArray& key, const QByteArray& iv,
+                                     const QByteArray& ciphertext, const QByteArray& tag)
 {
     Q_ASSERT(key.size() == 16);
     Q_ASSERT(iv.size() == 12);
-    if (ciphertextWithTag.size() < 16)
+    if (tag.size() != 16)
         return {};
-
-    QByteArray ciphertext = ciphertextWithTag.left(ciphertextWithTag.size() - 16);
-    QByteArray tag = ciphertextWithTag.right(16);
 
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     if (!ctx)
@@ -1489,6 +1494,8 @@ void OmemoManager::encrypt(const XMPP::Jid& to, const QString& body)
     QString toJid = to.bare();
     QList<uint32_t> deviceIds = d->deviceLists.value(toJid);
 
+    qDebug() << "[OMEMO] encrypt() for" << toJid << "— known devices:" << deviceIds.size();
+
     if (deviceIds.isEmpty()) {
         // No known devices — can't encrypt. Emit failure so caller can fall back.
         qWarning() << "[OMEMO] No device sessions for" << toJid << "— cannot encrypt";
@@ -1502,20 +1509,31 @@ void OmemoManager::encrypt(const XMPP::Jid& to, const QString& body)
     RAND_bytes(reinterpret_cast<unsigned char*>(aesKey.data()), 16);
     RAND_bytes(reinterpret_cast<unsigned char*>(iv.data()), 12);
 
-    // AES-128-GCM encrypt the message body
+    // AES-128-GCM encrypt the message body.
+    // ciphertext = encrypted body (no tag); authTag is returned separately.
+    QByteArray authTag;
     QByteArray plaintext = body.toUtf8();
-    QByteArray ciphertext = aes128gcm_encrypt(aesKey, iv, plaintext);
-    if (ciphertext.isEmpty()) {
+    QByteArray ciphertext = aes128gcm_encrypt(aesKey, iv, plaintext, authTag);
+    if (ciphertext.isEmpty() || authTag.size() != 16) {
         qWarning() << "[OMEMO] AES-128-GCM encryption failed";
         emit encryptDone(to, QDomElement(), body, false);
         return;
     }
 
-    // Encrypt the AES key for each device using their Signal session
+    // Per Conversations OMEMO spec, the key material Signal-encrypts to each
+    // device is (16-byte AES key || 16-byte GCM auth tag) = 32 bytes.
+    // The <payload> then carries ciphertext ONLY.
+    QByteArray keyMaterial = aesKey + authTag;
+    Q_ASSERT(keyMaterial.size() == 32);
+
+    // Encrypt keyMaterial for each device using their Signal session.
+    // libsignal handles both the "fresh session" (emits PreKeySignalMessage) and
+    // "established session" (emits SignalMessage) cases automatically.
+    // Also include our own other devices so they can see our sent messages.
     QList<XmppOmemo::OmemoKey> keys;
 
-    for (uint32_t devId : deviceIds) {
-        QByteArray jidUtf8 = toJid.toUtf8();
+    auto encryptToDevice = [&](const QString& jid, uint32_t devId) {
+        QByteArray jidUtf8 = jid.toUtf8();
         signal_protocol_address addr;
         addr.name = jidUtf8.constData();
         addr.name_len = static_cast<size_t>(jidUtf8.size());
@@ -1523,34 +1541,21 @@ void OmemoManager::encrypt(const XMPP::Jid& to, const QString& body)
 
         session_cipher* cipher = nullptr;
         if (session_cipher_create(&cipher, d->storeCtx, &addr, d->signalCtx) != SG_SUCCESS) {
-            qWarning() << "[OMEMO] Failed to create session cipher for device" << devId;
-            continue;
+            qWarning() << "[OMEMO] Failed to create session cipher for" << jid << "device" << devId;
+            return;
         }
 
-        // Encrypt the 16-byte AES key (treat as message content)
-        signal_buffer* encMsg = nullptr;
         ciphertext_message* encryptedKey = nullptr;
-
-        // We need to check if we have a session or need to use PreKeySignalMessage
-        bool needsPreKey = !sess_contains_session(&addr, &d->store);
-
-        int result;
-        if (needsPreKey) {
-            // No session yet — we'd need to build one from bundle first
-            // For now skip this device
-            session_cipher_free(cipher);
-            continue;
-        }
-
-        result = session_cipher_encrypt(cipher,
-                                        reinterpret_cast<const uint8_t*>(aesKey.constData()),
-                                        static_cast<size_t>(aesKey.size()),
-                                        &encryptedKey);
+        int result = session_cipher_encrypt(cipher,
+                                             reinterpret_cast<const uint8_t*>(keyMaterial.constData()),
+                                             static_cast<size_t>(keyMaterial.size()),
+                                             &encryptedKey);
         session_cipher_free(cipher);
 
         if (result != SG_SUCCESS || !encryptedKey) {
-            qWarning() << "[OMEMO] Encryption failed for device" << devId;
-            continue;
+            qWarning() << "[OMEMO] session_cipher_encrypt failed for" << jid
+                       << "device" << devId << "result:" << result;
+            return;
         }
 
         signal_buffer* serialized = ciphertext_message_get_serialized(encryptedKey);
@@ -1560,21 +1565,44 @@ void OmemoManager::encrypt(const XMPP::Jid& to, const QString& body)
                             static_cast<int>(signal_buffer_len(serialized)));
         k.prekey = (ciphertext_message_get_type(encryptedKey) == CIPHERTEXT_PREKEY_TYPE);
         keys.append(k);
+        qDebug() << "[OMEMO]   -> encrypted for" << jid << "device" << devId
+                 << (k.prekey ? "(PreKey)" : "(SignalMsg)") << k.data.size() << "bytes";
 
         SIGNAL_UNREF(encryptedKey);
+    };
+
+    // Encrypt for recipient's devices
+    for (uint32_t devId : deviceIds)
+        encryptToDevice(toJid, devId);
+
+    // Also encrypt for our OTHER devices (not ourselves) so our other clients
+    // can read what we sent (Conversations does this by design)
+    QString ourJid = d->accountId;
+    if (ourJid != toJid) {
+        QList<uint32_t> ownDevs = d->deviceLists.value(ourJid);
+        for (uint32_t devId : ownDevs) {
+            if (devId != d->store.localDeviceId)
+                encryptToDevice(ourJid, devId);
+        }
     }
 
     if (keys.isEmpty()) {
-        qWarning() << "[OMEMO] No sessions available for encryption";
+        qWarning() << "[OMEMO] encrypt: no Signal sessions available — all encryptToDevice calls failed";
         emit encryptDone(to, QDomElement(), body, false);
         return;
     }
 
-    // Build <encrypted> element
+    // Build <encrypted> element with ciphertext-only payload.
+    // The parent QDomDocument owns the element tree; we return the element
+    // which stays valid as long as caller keeps a QDomNode referencing the
+    // tree. addExtension() stores the QDomElement in unknownExtensions[]
+    // which holds the tree alive implicitly via QDomNode ref-counting.
     QDomDocument doc;
     QDomElement encrypted = XmppOmemo::buildEncrypted(doc, d->store.localDeviceId, iv, keys, ciphertext);
     doc.appendChild(encrypted);
 
+    qDebug() << "[OMEMO] encrypt: SUCCESS — produced" << keys.size() << "<key> entries,"
+             << ciphertext.size() << "bytes ciphertext";
     emit encryptDone(to, encrypted, body, true);
 }
 
@@ -1618,16 +1646,20 @@ void OmemoManager::encryptForMuc(const XMPP::Jid& roomJid, const QString& body,
     RAND_bytes(reinterpret_cast<unsigned char*>(aesKey.data()), 16);
     RAND_bytes(reinterpret_cast<unsigned char*>(iv.data()), 12);
 
-    // AES-128-GCM encrypt the body
+    // AES-128-GCM encrypt body; tag returned separately per OMEMO spec
+    QByteArray authTag;
     QByteArray plaintext = body.toUtf8();
-    QByteArray ciphertext = aes128gcm_encrypt(aesKey, iv, plaintext);
-    if (ciphertext.isEmpty()) {
+    QByteArray ciphertext = aes128gcm_encrypt(aesKey, iv, plaintext, authTag);
+    if (ciphertext.isEmpty() || authTag.size() != 16) {
         qWarning() << "[OMEMO] encryptForMuc: AES encryption failed";
         emit encryptDone(roomJid, QDomElement(), body, false);
         return;
     }
 
-    // Encrypt AES key for each participant device that has a session
+    // Signal-encrypt 32-byte key material (key || tag) per Conversations spec
+    QByteArray keyMaterial = aesKey + authTag;
+
+    // Encrypt key material for each participant device that has a session
     QList<XmppOmemo::OmemoKey> keys;
 
     for (auto it = nickToRealJid.constBegin(); it != nickToRealJid.constEnd(); ++it) {
@@ -1645,8 +1677,8 @@ void OmemoManager::encryptForMuc(const XMPP::Jid& roomJid, const QString& body,
             addr.name_len = static_cast<size_t>(jidUtf8.size());
             addr.device_id = static_cast<int32_t>(devId);
 
-            if (!sess_contains_session(&addr, &d->store))
-                continue;
+            // libsignal handles both fresh and established sessions —
+            // no pre-check needed.
 
             session_cipher* cipher = nullptr;
             if (session_cipher_create(&cipher, d->storeCtx, &addr, d->signalCtx) != SG_SUCCESS) {
@@ -1657,13 +1689,14 @@ void OmemoManager::encryptForMuc(const XMPP::Jid& roomJid, const QString& body,
 
             ciphertext_message* encryptedKey = nullptr;
             int result = session_cipher_encrypt(cipher,
-                             reinterpret_cast<const uint8_t*>(aesKey.constData()),
-                             static_cast<size_t>(aesKey.size()),
+                             reinterpret_cast<const uint8_t*>(keyMaterial.constData()),
+                             static_cast<size_t>(keyMaterial.size()),
                              &encryptedKey);
             session_cipher_free(cipher);
 
             if (result != SG_SUCCESS || !encryptedKey) {
-                qWarning() << "[OMEMO] encryptForMuc: encrypt failed for" << bareJid << devId;
+                qWarning() << "[OMEMO] encryptForMuc: encrypt failed for" << bareJid << devId
+                           << "result:" << result;
                 continue;
             }
 
@@ -1778,34 +1811,55 @@ void OmemoManager::decrypt(const XMPP::Jid& from, const QDomElement& encryptedEl
         return;
     }
 
-    // We got the decrypted AES key
-    QByteArray aesKey(reinterpret_cast<const char*>(signal_buffer_data(decryptedKeyBuf)),
-                      static_cast<int>(signal_buffer_len(decryptedKeyBuf)));
+    // We got the decrypted key material.
+    // Per Conversations OMEMO spec, this is (16-byte AES key || 16-byte GCM tag).
+    // Older/variant senders may send just 16 bytes (key only, tag was in payload).
+    QByteArray keyMaterial(reinterpret_cast<const char*>(signal_buffer_data(decryptedKeyBuf)),
+                            static_cast<int>(signal_buffer_len(decryptedKeyBuf)));
     signal_buffer_free(decryptedKeyBuf);
 
-    if (aesKey.size() != 16) {
-        qWarning() << "[OMEMO] Unexpected AES key size:" << aesKey.size();
+    qDebug() << "[OMEMO] Decrypted key material from" << fromJid
+             << "— size:" << keyMaterial.size() << "bytes";
+
+    QByteArray aesKey;
+    QByteArray authTag;
+
+    if (keyMaterial.size() == 32) {
+        // Conversations / XEP-0384 v0.3+: key||tag
+        aesKey  = keyMaterial.left(16);
+        authTag = keyMaterial.right(16);
+    } else if (keyMaterial.size() == 16 && payload.payload.size() >= 16) {
+        // Legacy: tag is the last 16 bytes of <payload>
+        aesKey  = keyMaterial;
+        authTag = payload.payload.right(16);
+        payload.payload = payload.payload.left(payload.payload.size() - 16);
+    } else {
+        qWarning() << "[OMEMO] Unexpected key material size:" << keyMaterial.size()
+                   << "(payload size:" << payload.payload.size() << ")";
         emit decryptDone(from, QString(), payload.sid, false);
         return;
     }
 
-    // AES-128-GCM decrypt the payload
     if (payload.payload.isEmpty()) {
-        // Key-only message (device key exchange, no body)
-        qDebug() << "[OMEMO] Key-only message from" << fromJid;
-        emit decryptDone(from, QString(), payload.sid, false);
+        // Key-only message (device key exchange, no body). Successful handshake —
+        // NOT an error; just nothing to display. Tell caller success-but-empty.
+        qDebug() << "[OMEMO] Key-only handshake message from" << fromJid
+                 << "(session established/advanced)";
+        emit decryptDone(from, QString(), payload.sid, true);
         return;
     }
 
-    QByteArray plaintext = aes128gcm_decrypt(aesKey, payload.iv, payload.payload);
+    // AES-128-GCM decrypt the <payload> using key+tag.
+    QByteArray plaintext = aes128gcm_decrypt(aesKey, payload.iv, payload.payload, authTag);
     if (plaintext.isEmpty()) {
-        qWarning() << "[OMEMO] AES-128-GCM decryption failed (tag mismatch?)";
+        qWarning() << "[OMEMO] AES-128-GCM decryption failed (tag mismatch?) from" << fromJid;
         emit decryptDone(from, QString(), payload.sid, false);
         return;
     }
 
     QString body = QString::fromUtf8(plaintext);
-    qDebug() << "[OMEMO] Decrypted message from" << fromJid << "(device" << payload.sid << ")";
+    qDebug() << "[OMEMO] Decrypted message from" << fromJid << "(device" << payload.sid
+             << "):" << body.left(50);
     emit decryptDone(from, body, payload.sid, true);
 }
 

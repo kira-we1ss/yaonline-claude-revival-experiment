@@ -21,6 +21,7 @@
 #include "serverinfomanager.h"
 #include "xmpp_tasks.h"
 #include "xmpp_discoinfotask.h"
+#include <QDebug>
 
 using namespace XMPP;
 
@@ -124,11 +125,17 @@ void ServerInfoManager::disco_finished()
 void ServerInfoManager::items_finished()
 {
 	JT_DiscoItems *jt = (JT_DiscoItems *)sender();
-	if (!jt->success())
+	if (!jt->success()) {
+		qDebug() << "[ServerInfo] disco#items failed on" << client_->jid().domain();
 		return;
+	}
+
+	qDebug() << "[ServerInfo] disco#items on" << client_->jid().domain()
+	         << "returned" << jt->items().size() << "items";
 
 	// For each discovered item, query its disco#info to detect upload services
 	foreach(const DiscoItem& item, jt->items()) {
+		qDebug() << "[ServerInfo]   -> querying sub-component:" << item.jid().full();
 		DiscoInfoTask *infoTask = new DiscoInfoTask(client_->rootTask());
 		infoTask->setProperty("itemJid", item.jid().full());
 		connect(infoTask, SIGNAL(finished()), SLOT(item_info_finished()));
@@ -140,8 +147,11 @@ void ServerInfoManager::items_finished()
 void ServerInfoManager::item_info_finished()
 {
 	DiscoInfoTask *jt = (DiscoInfoTask *)sender();
-	if (!jt->success())
+	if (!jt->success()) {
+		qDebug() << "[ServerInfo] disco#info failed for"
+		         << jt->property("itemJid").toString();
 		return;
+	}
 
 	// XEP-0363 HTTP File Upload detection.
 	//
@@ -152,7 +162,8 @@ void ServerInfoManager::item_info_finished()
 	//
 	// Fallback check: identity category="store" type="file" — required by the
 	// spec but rarely advertised in practice.
-	bool isUploadService = jt->item().features().test(
+	Features feats = jt->item().features();
+	bool isUploadService = feats.test(
 		QStringList() << QLatin1String("urn:xmpp:http:upload:0")
 		              << QLatin1String("urn:xmpp:http:upload"));
 
@@ -165,9 +176,29 @@ void ServerInfoManager::item_info_finished()
 		}
 	}
 
+	// Debug: log what we found on each sub-component
+	{
+		QString svc = jt->jid().full();
+		QStringList feat_list;
+		// Report a few interesting features only
+		foreach (const QString& f, feats.list()) {
+			if (f.contains("upload") || f.contains("file") ||
+			    f.contains("mam") || f.contains("carbons"))
+				feat_list << f;
+		}
+		QStringList idents;
+		foreach (const DiscoItem::Identity& i, jt->item().identities())
+			idents << (i.category + "/" + i.type);
+		qDebug() << "[ServerInfo] disco#info" << svc
+		         << "identities=" << idents.join(",")
+		         << "relevant_features=" << feat_list.join(",")
+		         << "isUploadService=" << isUploadService;
+	}
+
 	if (isUploadService && (!hasHttpUpload_ || httpUploadService_.isEmpty())) {
 		hasHttpUpload_ = true;
 		httpUploadService_ = jt->jid().full();
+		qDebug() << "[ServerInfo] XEP-0363 HTTP Upload: service =" << httpUploadService_;
 		emit featuresChanged();
 	}
 }
