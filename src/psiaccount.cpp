@@ -3559,14 +3559,28 @@ void PsiAccount::client_messageReceived(const Message &m)
 					XMPP::Jid realJid = muc->realJidForNick(nick);
 					if (!realJid.isEmpty()) {
 						decryptFrom = realJid;
+						qDebug() << "[OMEMO-MUC] Resolved nick" << nick
+						         << "-> real JID" << realJid.bare()
+						         << "(room" << _m.from().userHost() << ")";
 					} else {
 						// Real JID unknown — non-anonymous room not yet seen presence
 						// or anonymous room. Fall through to plain display.
+						qWarning() << "[OMEMO-MUC] Cannot decrypt MUC message from nick"
+						           << nick << ": real JID not in map. "
+						           << "Either (a) room is semi-anonymous and we can't "
+						           << "see real JIDs, (b) presence from this occupant "
+						           << "hasn't been processed yet, or (c) nick casing "
+						           << "mismatch. Map has"
+						           << muc->nickToRealJidMap().size() << "entries:"
+						           << muc->nickToRealJidMap().keys().join(',');
 						processIncomingMessage(_m);
 						return;
 					}
 				} else {
 					// No MUC dialog found — fall through.
+					qWarning() << "[OMEMO-MUC] No GCMainDlg found for MUC"
+					           << _m.from().userHost() << "nick=" << nick
+					           << "- cannot decrypt OMEMO message. Fallback shown.";
 					processIncomingMessage(_m);
 					return;
 				}
