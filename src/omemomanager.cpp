@@ -793,6 +793,22 @@ public:
     qint64 lastPublishBundleMs = 0;
     static constexpr qint64 kPublishBundleDebounceMs = 10 * 1000; // 10s
 
+    // MUC own-echo plaintext cache. In MUC rooms libsignal refuses
+    // self-sessions, so we can't decrypt our own echoed MUC messages
+    // via the normal Signal path. Before sending a MUC-OMEMO message,
+    // encryptForMuc() stashes {iv → plaintext}. When the MUC server
+    // echoes our own ciphertext back to us, the decrypt() path consults
+    // this cache using the incoming stanza's iv; if it matches, we emit
+    // the cached plaintext as a successful decryption result.
+    //
+    // The iv is 12 bytes of crypto RNG per send — more than enough
+    // uniqueness for a session-lifetime cache, and leaks nothing
+    // sensitive if it ages out. We cap to kMucEchoCacheMax entries
+    // (LIFO evict) so the hash can't grow unbounded in a busy room.
+    QHash<QByteArray, QString> mucEchoPlaintext;
+    QList<QByteArray> mucEchoIvOrder; // insertion order for LIFO eviction
+    static constexpr int kMucEchoCacheMax = 256;
+
     QString dataDir;
 
     ~Private() {
@@ -2046,6 +2062,18 @@ void OmemoManager::encryptForMuc(const XMPP::Jid& roomJid, const QString& body,
     doc.appendChild(encrypted);
 
     qDebug() << "[OMEMO] encryptForMuc: encrypted for" << keys.size() << "devices in room" << roomJid.bare();
+
+    // Stash plaintext so the MUC echo (which we cannot Signal-decrypt because
+    // libsignal refuses self-sessions) can be displayed as plaintext when it
+    // arrives back from the server. Keyed by iv (12B random per send), LIFO
+    // evict past kMucEchoCacheMax to keep the hash bounded.
+    d->mucEchoPlaintext.insert(iv, body);
+    d->mucEchoIvOrder.append(iv);
+    while (d->mucEchoIvOrder.size() > Private::kMucEchoCacheMax) {
+        QByteArray old = d->mucEchoIvOrder.takeFirst();
+        d->mucEchoPlaintext.remove(old);
+    }
+
     emit encryptDone(roomJid, encrypted, body, true);
 }
 
@@ -2064,6 +2092,23 @@ void OmemoManager::decrypt(const XMPP::Jid& from, const QDomElement& encryptedEl
     }
 
     uint32_t myDevId = d->store.localDeviceId;
+
+    // Self-MUC-echo shortcut: if the sender's bare JID matches our own
+    // account JID and the iv was produced by our own encryptForMuc call
+    // earlier, return the cached plaintext instead of trying to Signal-
+    // decrypt (which would fail — libsignal does not allow self-sessions).
+    // This is how our own MUC OMEMO messages render as plaintext in the
+    // room history we see. See Private::mucEchoPlaintext for the producer
+    // side in encryptForMuc().
+    if (from.bare() == d->accountId && d->mucEchoPlaintext.contains(payload.iv)) {
+        QString body = d->mucEchoPlaintext.value(payload.iv);
+        d->mucEchoPlaintext.remove(payload.iv);
+        d->mucEchoIvOrder.removeAll(payload.iv);
+        qDebug() << "[OMEMO] Own MUC echo — serving cached plaintext ("
+                 << body.size() << "chars)";
+        emit decryptDone(from, body, payload.sid, true);
+        return;
+    }
 
     // Find our key entry
     const XmppOmemo::OmemoKey* ourKey = nullptr;
