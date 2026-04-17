@@ -57,6 +57,8 @@ public:
 	static QSize defaultSize();
 	bool readyToHide();
 
+	QString lastSentBody() const { return lastSentBody_; }
+
 	// reimplemented
 	virtual TabbableWidget::State state() const;
 	virtual QString desiredCaption() const;
@@ -171,6 +173,7 @@ private:
 
 	QString lastReceivedMsgId_; // XEP-0333: id of the last incoming message (for <displayed> marker)
 	QString lastSentMsgId_;     // XEP-0308: id of last sent message (for correction)
+	QString lastSentBody_;      // XEP-0308: body of last sent message (for correction button)
 
 	QTimer* selfDestruct_;
 

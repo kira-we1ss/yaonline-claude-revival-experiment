@@ -84,6 +84,7 @@ class AvatarFactory;
 class PEPManager;
 class ServerInfoManager;
 class TabManager;
+class OmemoManager;
 #ifdef GOOGLE_FT
 class GoogleFileTransfer;
 #endif
@@ -215,6 +216,7 @@ public:
 	PEPManager* pepManager();
 	ServerInfoManager* serverInfoManager();
 	BookmarkManager* bookmarkManager();
+	OmemoManager* omemoManager() const;
 
 	void clearCurrentConnectionError();
 	QString currentConnectionError() const;

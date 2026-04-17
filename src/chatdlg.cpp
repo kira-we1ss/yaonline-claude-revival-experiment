@@ -716,8 +716,10 @@ void ChatDlg::doneSend(const XMPP::Message& m)
 		// This was itself a correction — update lastSentMsgId_ to the new message id
 		// so the user can correct this correction if needed
 		lastSentMsgId_ = m.id();
+		lastSentBody_  = m.body();
 	} else if (!m.body().isEmpty()) {
 		lastSentMsgId_ = m.id();
+		lastSentBody_  = m.body();
 	}
 
 	appendMessage(m, true);

@@ -7390,6 +7390,11 @@ BookmarkManager* PsiAccount::bookmarkManager()
 	return d->bookmarkManager;
 }
 
+OmemoManager* PsiAccount::omemoManager() const
+{
+	return d->omemoManager;
+}
+
 /**
  * TODO
  */

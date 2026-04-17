@@ -30,6 +30,7 @@ class YaChatSendButton;
 class YaChatSeparator;
 class QAction;
 class QScrollBar;
+class QToolButton;
 
 class YaChatEdit : public QFrame
 {
@@ -42,6 +43,9 @@ public:
 	YaChatSeparator* separator() const;
 
 	void setSendAction(QAction* sendAction);
+
+signals:
+	void correctionRequested(); // XEP-0308: user clicked pencil button
 
 protected:
 	// reimplemented
@@ -56,6 +60,7 @@ private:
 	YaChatSendButton* sendButton_;
 	YaChatSeparator* separator_;
 	QScrollBar* stubScrollBar_;
+	QToolButton* correctionButton_; // XEP-0308: message correction
 };
 
 #endif

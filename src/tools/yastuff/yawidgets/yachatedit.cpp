@@ -34,6 +34,7 @@
 #include "yachatseparator.h"
 #include "yachatsendbutton.h"
 #include "psioptions.h"
+#include <QToolButton>
 
 //----------------------------------------------------------------------------
 // YaChatEditFakeScrollBar
@@ -160,6 +161,16 @@ YaChatEdit::YaChatEdit(QWidget* parent)
 	QSpacerItem* verticalSpacer = new QSpacerItem(0, 0, QSizePolicy::Minimum, QSizePolicy::Expanding);
 
 	vboxLayout7->addItem(verticalSpacer);
+
+	// XEP-0308: correction (pencil) button — sits above the send button
+	correctionButton_ = new QToolButton(this);
+	correctionButton_->setObjectName(QString::fromUtf8("correctionButton"));
+	correctionButton_->setToolTip(tr("Edit last sent message (~)"));
+	correctionButton_->setFixedSize(24, 20);
+	correctionButton_->setText(QString::fromUtf8("\xE2\x9C\x8F")); // ✏
+	correctionButton_->setStyleSheet("QToolButton { font-size: 12px; border: none; }");
+	vboxLayout7->addWidget(correctionButton_);
+	connect(correctionButton_, SIGNAL(clicked()), this, SIGNAL(correctionRequested()));
 
 	sendButton_ = new YaChatSendButton(this);
 	sendButton_->setObjectName(QString::fromUtf8("sendButton"));

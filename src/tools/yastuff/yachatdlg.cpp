@@ -25,6 +25,8 @@
 #include <QMimeData>
 #include <QLabel>
 #include <QVBoxLayout>
+#include <QToolButton>
+#include <QTextCursor>
 
 #include "yachatdlg.h"
 #include "yatrayicon.h"
@@ -61,6 +63,7 @@
 #include "msgmle.h"
 #include "yanaroddiskmanager.h"
 #include "xmpp_xmlcommon.h"
+#include "omemomanager.h"
 
 //----------------------------------------------------------------------------
 // YaChatDlg
@@ -72,6 +75,7 @@ YaChatDlg::YaChatDlg(const Jid& jid, PsiAccount* acc, TabManager* tabManager)
 	, contactProfile_(YaProfile::create(acc, jid))
 	, showAuthButton_(true)
 	, typingLabel_(0)
+	, omemoButton_(0)
 {
 	connect(this, SIGNAL(invalidateTabInfo()), SLOT(updateComposingMessage()));
 }
@@ -126,6 +130,33 @@ void YaChatDlg::initUi()
 	if (topLayout) {
 		topLayout->addWidget(typingLabel_);
 	}
+
+	// XEP-0384: OMEMO padlock toggle button — add to the right-column VBox in chatTopFrame
+	// The third QVBoxLayout in chatTopFrame contains: spacer, contactInfo, spacer
+	// We find it via the contactInfo widget's parent layout
+	omemoButton_ = new QToolButton(ui_.chatTopFrame);
+	omemoButton_->setToolTip(tr("OMEMO encryption"));
+	omemoButton_->setCheckable(true);
+	omemoButton_->setFixedSize(24, 24);
+	// Walk the layout tree: chatTopFrame → QHBoxLayout → inner QHBoxLayout → right QVBoxLayout
+	QLayout* topFrameLayout = ui_.chatTopFrame->layout();
+	if (topFrameLayout && topFrameLayout->count() > 0) {
+		QLayoutItem* innerItem = topFrameLayout->itemAt(0);
+		QLayout* innerLayout = innerItem ? innerItem->layout() : 0;
+		if (innerLayout) {
+			// The right-side VBox is the third item (index 2) in the inner HBox
+			QLayoutItem* rightItem = innerLayout->count() > 2 ? innerLayout->itemAt(2) : 0;
+			QVBoxLayout* rightVBox = rightItem ? qobject_cast<QVBoxLayout*>(rightItem->layout()) : 0;
+			if (rightVBox) {
+				rightVBox->addWidget(omemoButton_);
+			}
+		}
+	}
+	connect(omemoButton_, SIGNAL(clicked(bool)), this, SLOT(toggleOmemo()));
+	updateOmemoButton();
+
+	// XEP-0308: correction button — connect signal from YaChatEdit
+	connect(ui_.bottomFrame, SIGNAL(correctionRequested()), this, SLOT(onCorrectionRequested()));
 
 	resize(sizeHint());
 	doClear();
@@ -509,5 +540,51 @@ void YaChatDlg::dropEvent(QDropEvent* event)
 		foreach(const QUrl& f, files) {
 			uploadFile(f.toLocalFile());
 		}
+	}
+}
+
+// XEP-0384: update the padlock button appearance from the current OMEMO state
+void YaChatDlg::updateOmemoButton()
+{
+	if (!omemoButton_)
+		return;
+	OmemoManager* mgr = account() ? account()->omemoManager() : 0;
+	bool enabled = mgr && mgr->isEnabled(jid());
+	omemoButton_->setChecked(enabled);
+	if (enabled) {
+		omemoButton_->setStyleSheet(
+			"QToolButton { background: #4CAF50; border-radius: 4px; "
+			"color: white; font-size: 14px; border: none; }");
+		omemoButton_->setText(QString::fromUtf8("\xF0\x9F\x94\x92")); // 🔒
+	} else {
+		omemoButton_->setStyleSheet(
+			"QToolButton { background: #9E9E9E; border-radius: 4px; "
+			"color: white; font-size: 14px; border: none; }");
+		omemoButton_->setText(QString::fromUtf8("\xF0\x9F\x94\x93")); // 🔓
+	}
+}
+
+// XEP-0384: toggle OMEMO on/off for this conversation
+void YaChatDlg::toggleOmemo()
+{
+	OmemoManager* mgr = account() ? account()->omemoManager() : 0;
+	if (mgr) {
+		bool current = mgr->isEnabled(jid());
+		mgr->setEnabled(jid(), !current);
+		updateOmemoButton();
+	}
+}
+
+// XEP-0308: pre-fill the chat input with "~" + last sent body for correction
+void YaChatDlg::onCorrectionRequested()
+{
+	QString lastBody = lastSentBody();
+	if (!lastBody.isEmpty()) {
+		chatEdit()->clear();
+		chatEdit()->setPlainText("~" + lastBody);
+		QTextCursor c = chatEdit()->textCursor();
+		c.movePosition(QTextCursor::End);
+		chatEdit()->setTextCursor(c);
+		chatEdit()->setFocus();
 	}
 }

@@ -23,6 +23,7 @@
 
 #include <QDateTime>
 #include <QLabel>
+#include <QToolButton>
 
 #include "chatdlg.h"
 #include "ui_yachatdialog.h"
@@ -69,6 +70,10 @@ private slots:
 	void showContactProfile();
 	void showAlternateContactProfile();
 
+	void updateOmemoButton();
+	void toggleOmemo();
+	void onCorrectionRequested();
+
 protected:
 	// reimplemented
 	bool eventFilter(QObject* obj, QEvent* e);
@@ -114,6 +119,7 @@ private:
 	QString alternateContactProfile_;
 	mutable QPointer<PsiContact> fakeContact_;
 	QLabel* typingLabel_; // XEP-0085: "Name is typing..." text label above input
+	QToolButton* omemoButton_; // XEP-0384: OMEMO padlock toggle
 };
 
 #endif
