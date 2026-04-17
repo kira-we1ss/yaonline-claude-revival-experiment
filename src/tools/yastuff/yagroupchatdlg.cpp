@@ -209,6 +209,15 @@ void YaGroupchatDlg::presence(const QString& nick, const Status& s)
 		return;
 	}
 
+	// XEP-0384 OMEMO MUC: maintain nick → real JID map from MUC presence
+	// <x xmlns='muc#user'><item jid='real@server'/> is exposed via mucItem().jid()
+	if (!nick.isEmpty() && !s.mucItem().jid().isEmpty()) {
+		nickToRealJid_[nick] = s.mucItem().jid().withResource(QString());
+	} else if (!nick.isEmpty() && s.mucItem().jid().isEmpty() && !s.isAvailable()) {
+		// Occupant leaving and we had a real JID: keep the mapping (useful for
+		// in-flight OMEMO messages that arrive after the leave presence)
+	}
+
 	if ((nick.isEmpty()) && (s.getMUCStatuses().contains(100))) {
 		setNonAnonymous(true);
 	}

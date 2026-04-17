@@ -29,6 +29,7 @@
 #include "yagroupchatdlg.h"
 #endif
 #include "psiaccount.h"
+#include "omemomanager.h"
 #include "msgmle.h"
 #include "mucmanager.h"
 #include "mucconfigdlg.h"
@@ -239,6 +240,36 @@ void GCMainDlg::doSendMessage(const XMPP::Message& _m)
 {
 	XMPP::Message m = _m;
 	m.setType("groupchat");
+
+	// XEP-0384 OMEMO encryption for MUC
+	OmemoManager* om = account() ? account()->omemoManager() : nullptr;
+	if (om && om->isEnabled(jid()) && om->hasMucSessions(jid(), nickToRealJid_)) {
+		// Async: encrypt for all participants that have Signal sessions.
+		// Lambda captures 'this' with QPointer guard so we don't crash if
+		// the dialog is closed before encryptDone fires.
+		QPointer<GCMainDlg> self(this);
+		XMPP::Message msgCopy = m;
+		connect(om, &OmemoManager::encryptDone, this,
+		        [self, om, msgCopy](const XMPP::Jid& to, const QDomElement& enc,
+		                            const QString& /*plainBody*/, bool ok) mutable {
+			if (!to.compare(self ? self->jid() : to, false))
+				return; // not our room
+			if (!self)
+				return;
+			// One-shot: disconnect after first matching signal
+			disconnect(om, &OmemoManager::encryptDone, self.data(), nullptr);
+			XMPP::Message em = msgCopy;
+			if (ok && !enc.isNull()) {
+				em.setBody(QObject::tr("[This message is OMEMO encrypted]"));
+				em.addExtension(enc);
+			}
+			// If encryption failed, fall back to plain
+			emit self->aSend(em);
+		});
+		om->encryptForMuc(jid(), m.body(), nickToRealJid_);
+		return;
+	}
+
 	emit aSend(m);
 }
 
@@ -440,6 +471,16 @@ void GCMainDlg::setSubject(const QString& subject)
 QString GCMainDlg::lastReferrer() const
 {
 	return lastReferrer_;
+}
+
+XMPP::Jid GCMainDlg::realJidForNick(const QString& nick) const
+{
+	return nickToRealJid_.value(nick);
+}
+
+const QHash<QString, XMPP::Jid>& GCMainDlg::nickToRealJidMap() const
+{
+	return nickToRealJid_;
 }
 
 void GCMainDlg::setLastReferrer(const QString& referer)

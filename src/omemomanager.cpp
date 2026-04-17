@@ -1567,6 +1567,121 @@ void OmemoManager::encrypt(const XMPP::Jid& to, const QString& body)
     emit encryptDone(to, encrypted, body, true);
 }
 
+bool OmemoManager::hasMucSessions(const XMPP::Jid& /*roomJid*/,
+                                   const QHash<QString, XMPP::Jid>& nickToRealJid) const
+{
+    if (!d->initialized)
+        return false;
+
+    for (auto it = nickToRealJid.constBegin(); it != nickToRealJid.constEnd(); ++it) {
+        const XMPP::Jid& realJid = it.value();
+        if (realJid.isEmpty())
+            continue;
+
+        QString bareJid = realJid.bare();
+        QList<uint32_t> devices = d->deviceLists.value(bareJid);
+        for (uint32_t devId : devices) {
+            QByteArray jidUtf8 = bareJid.toUtf8();
+            signal_protocol_address addr;
+            addr.name = jidUtf8.constData();
+            addr.name_len = static_cast<size_t>(jidUtf8.size());
+            addr.device_id = static_cast<int32_t>(devId);
+            if (sess_contains_session(&addr, &d->store))
+                return true;
+        }
+    }
+    return false;
+}
+
+void OmemoManager::encryptForMuc(const XMPP::Jid& roomJid, const QString& body,
+                                  const QHash<QString, XMPP::Jid>& nickToRealJid)
+{
+    if (!d->initialized) {
+        emit encryptDone(roomJid, QDomElement(), body, false);
+        return;
+    }
+
+    // Generate 16-byte AES key + 12-byte IV
+    QByteArray aesKey(16, '\0');
+    QByteArray iv(12, '\0');
+    RAND_bytes(reinterpret_cast<unsigned char*>(aesKey.data()), 16);
+    RAND_bytes(reinterpret_cast<unsigned char*>(iv.data()), 12);
+
+    // AES-128-GCM encrypt the body
+    QByteArray plaintext = body.toUtf8();
+    QByteArray ciphertext = aes128gcm_encrypt(aesKey, iv, plaintext);
+    if (ciphertext.isEmpty()) {
+        qWarning() << "[OMEMO] encryptForMuc: AES encryption failed";
+        emit encryptDone(roomJid, QDomElement(), body, false);
+        return;
+    }
+
+    // Encrypt AES key for each participant device that has a session
+    QList<XmppOmemo::OmemoKey> keys;
+
+    for (auto it = nickToRealJid.constBegin(); it != nickToRealJid.constEnd(); ++it) {
+        const XMPP::Jid& realJid = it.value();
+        if (realJid.isEmpty())
+            continue;
+
+        QString bareJid = realJid.bare();
+        QList<uint32_t> devices = d->deviceLists.value(bareJid);
+
+        for (uint32_t devId : devices) {
+            QByteArray jidUtf8 = bareJid.toUtf8();
+            signal_protocol_address addr;
+            addr.name = jidUtf8.constData();
+            addr.name_len = static_cast<size_t>(jidUtf8.size());
+            addr.device_id = static_cast<int32_t>(devId);
+
+            if (!sess_contains_session(&addr, &d->store))
+                continue;
+
+            session_cipher* cipher = nullptr;
+            if (session_cipher_create(&cipher, d->storeCtx, &addr, d->signalCtx) != SG_SUCCESS) {
+                qWarning() << "[OMEMO] encryptForMuc: failed to create cipher for"
+                           << bareJid << "device" << devId;
+                continue;
+            }
+
+            ciphertext_message* encryptedKey = nullptr;
+            int result = session_cipher_encrypt(cipher,
+                             reinterpret_cast<const uint8_t*>(aesKey.constData()),
+                             static_cast<size_t>(aesKey.size()),
+                             &encryptedKey);
+            session_cipher_free(cipher);
+
+            if (result != SG_SUCCESS || !encryptedKey) {
+                qWarning() << "[OMEMO] encryptForMuc: encrypt failed for" << bareJid << devId;
+                continue;
+            }
+
+            signal_buffer* serialized = ciphertext_message_get_serialized(encryptedKey);
+            XmppOmemo::OmemoKey k;
+            k.rid = devId;
+            k.data = QByteArray(reinterpret_cast<const char*>(signal_buffer_data(serialized)),
+                                static_cast<int>(signal_buffer_len(serialized)));
+            k.prekey = (ciphertext_message_get_type(encryptedKey) == CIPHERTEXT_PREKEY_TYPE);
+            keys.append(k);
+
+            SIGNAL_UNREF(encryptedKey);
+        }
+    }
+
+    if (keys.isEmpty()) {
+        qWarning() << "[OMEMO] encryptForMuc: no sessions — falling back to plain";
+        emit encryptDone(roomJid, QDomElement(), body, false);
+        return;
+    }
+
+    QDomDocument doc;
+    QDomElement encrypted = XmppOmemo::buildEncrypted(doc, d->store.localDeviceId, iv, keys, ciphertext);
+    doc.appendChild(encrypted);
+
+    qDebug() << "[OMEMO] encryptForMuc: encrypted for" << keys.size() << "devices in room" << roomJid.bare();
+    emit encryptDone(roomJid, encrypted, body, true);
+}
+
 void OmemoManager::decrypt(const XMPP::Jid& from, const QDomElement& encryptedElement)
 {
     if (!d->initialized) {

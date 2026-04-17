@@ -53,6 +53,17 @@ public:
     // Encrypt: async — emits encryptDone(to, encryptedElement, plainBody, success)
     void encrypt(const XMPP::Jid& to, const QString& body);
 
+    // MUC encryption helpers
+    // Returns true if at least one participant in the nickToRealJid map has an
+    // established Signal session (i.e. we can encrypt for this MUC).
+    bool hasMucSessions(const XMPP::Jid& roomJid,
+                        const QHash<QString, XMPP::Jid>& nickToRealJid) const;
+
+    // Encrypt body for all MUC participants that have sessions.
+    // Emits encryptDone(roomJid, encrypted, plainBody, success) when done.
+    void encryptForMuc(const XMPP::Jid& roomJid, const QString& body,
+                       const QHash<QString, XMPP::Jid>& nickToRealJid);
+
     // Decrypt: async — emits decryptDone(from, plaintextBody, senderDeviceId, success)
     void decrypt(const XMPP::Jid& from, const QDomElement& encryptedElement);
 

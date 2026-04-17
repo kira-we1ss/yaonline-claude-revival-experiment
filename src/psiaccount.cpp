@@ -3511,8 +3511,31 @@ void PsiAccount::client_messageReceived(const Message &m)
 	{
 		QDomElement omemoEl = _m.getExtension(QString::fromLatin1(XmppOmemo::NS));
 		if (!omemoEl.isNull() && d->omemoManager) {
+			// For MUC messages the 'from' is room@conference/nick.
+			// Signal sessions are keyed by the sender's real bare JID.
+			// Resolve nick → real JID via the GCMainDlg nick map.
+			XMPP::Jid decryptFrom = _m.from();
+			if (_m.type() == QLatin1String("groupchat")) {
+				QString nick = _m.from().resource();
+				GCMainDlg* muc = findDialog<GCMainDlg*>(Jid(_m.from().userHost()));
+				if (muc && !nick.isEmpty()) {
+					XMPP::Jid realJid = muc->realJidForNick(nick);
+					if (!realJid.isEmpty()) {
+						decryptFrom = realJid;
+					} else {
+						// Real JID unknown — non-anonymous room not yet seen presence
+						// or anonymous room. Fall through to plain display.
+						processIncomingMessage(_m);
+						return;
+					}
+				} else {
+					// No MUC dialog found — fall through.
+					processIncomingMessage(_m);
+					return;
+				}
+			}
 			d->omemoQueue.append(_m);
-			d->omemoManager->decrypt(_m.from(), omemoEl);
+			d->omemoManager->decrypt(decryptFrom, omemoEl);
 			return; // decryptDone signal will call processIncomingMessage
 		}
 	}
@@ -7619,9 +7642,28 @@ bool PsiAccount::addPendingMessagesForJid(const XMPP::Jid& jid)
 void PsiAccount::omemo_decryptFinished(const XMPP::Jid& from, const QString& plainBody,
                                         uint32_t /*senderDeviceId*/, bool success)
 {
-    // Find the queued message from this JID and process it
+    // Find the queued message matching this decryption result.
+    // For 1:1 messages: match on bare JID directly.
+    // For MUC messages: 'from' is the real bare JID; the queued entry has the
+    // occupant JID (room@conf/nick). Match by resolving nick → real JID via the
+    // GCMainDlg nick map.
     for (int i = 0; i < d->omemoQueue.size(); ++i) {
-        if (d->omemoQueue[i].from().compare(from)) {
+        const Message& qm = d->omemoQueue[i];
+        bool matched = false;
+
+        if (qm.type() == QLatin1String("groupchat")) {
+            // Resolve occupant nick to real JID and compare
+            QString nick = qm.from().resource();
+            GCMainDlg* muc = findDialog<GCMainDlg*>(Jid(qm.from().userHost()));
+            if (muc && !nick.isEmpty()) {
+                XMPP::Jid realJid = muc->realJidForNick(nick);
+                matched = realJid.compare(from, false);
+            }
+        } else {
+            matched = qm.from().compare(from, false);
+        }
+
+        if (matched) {
             Message m = d->omemoQueue.takeAt(i);
             if (success) {
                 m.setBody(plainBody);

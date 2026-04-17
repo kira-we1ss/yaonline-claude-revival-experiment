@@ -22,6 +22,7 @@
 #define GROUPCHATDLG_H
 
 #include "chatdlgbase.h"
+#include <QHash>
 #include <QPointer>
 
 using namespace XMPP;
@@ -69,6 +70,10 @@ public:
 
 	// reimplemented
 	virtual TabbableWidget::State state() const;
+
+	// XEP-0384 OMEMO MUC: nick → real bare JID accessor (populated from MUC presence)
+	XMPP::Jid realJidForNick(const QString& nick) const;
+	const QHash<QString, XMPP::Jid>& nickToRealJidMap() const;
 
 signals:
 	void aSend(const Message &);
@@ -146,6 +151,10 @@ protected:
 	void setLastReferrer(const QString& referer);
 
 	void mucInfoDialog(const QString& title, const QString& message, const Jid& actor, const QString& reason);
+
+	// XEP-0384 OMEMO MUC: nick → real bare JID (populated from <x muc#user><item jid=.../>)
+	// Protected so YaGroupchatDlg (and other subclasses) can write to it in presence().
+	QHash<QString, XMPP::Jid> nickToRealJid_;
 
 private:
 	GC_State gcState_;
