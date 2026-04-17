@@ -111,6 +111,17 @@ void ServerInfoManager::disco_finished()
 		if (f.test(QStringList("urn:xmpp:carbons:2")))
 			hasCarbons_ = true;
 
+		// XEP-0363 sometimes advertised on the bare server (not a sub-component).
+		// Accept either namespace variant and use the server JID as upload service.
+		if (!hasHttpUpload_ && f.test(QStringList()
+		        << QLatin1String("urn:xmpp:http:upload:0")
+		        << QLatin1String("urn:xmpp:http:upload"))) {
+			hasHttpUpload_ = true;
+			httpUploadService_ = client_->jid().domain();
+			qDebug() << "[ServerInfo] Server advertises HTTP Upload directly at"
+			         << httpUploadService_;
+		}
+
 		// Identities
 		DiscoItem::Identities is = jt->item().identities();
 		foreach(DiscoItem::Identity i, is) {
@@ -118,7 +129,14 @@ void ServerInfoManager::disco_finished()
 				hasPEP_ = true;
 		}
 
+		qDebug() << "[ServerInfo] disco#info" << client_->jid().domain()
+		         << "hasPEP=" << hasPEP_ << "hasMAM=" << hasMAM_
+		         << "hasCarbons=" << hasCarbons_
+		         << "hasHttpUpload=" << hasHttpUpload_;
+
 		emit featuresChanged();
+	} else {
+		qDebug() << "[ServerInfo] disco#info on" << client_->jid().domain() << "FAILED";
 	}
 }
 

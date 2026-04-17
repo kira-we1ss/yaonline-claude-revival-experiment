@@ -340,6 +340,19 @@ struct TrustEntry {
     OmemoManager::TrustLevel level;
 };
 
+// Forward declaration so IdentityContext can reference it
+struct OmemoStore;
+
+// Passed as user_data to the identity_key_store callbacks.
+// Holds a pointer to the OmemoStore (for trusted-identity storage) AND
+// a pointer to the live ratchet_identity_key_pair (needed by
+// ik_get_identity_key_pair to serve the public/private EC key buffers
+// that libsignal needs for X3DH during session_builder_process_pre_key_bundle).
+struct IdentityContext {
+    OmemoStore* store = nullptr;
+    ratchet_identity_key_pair** identityKeyPairRef = nullptr; // ptr-to-ptr because Private::identityKeyPair may be set later
+};
+
 // ──────────────────────────────────────────────────────────────────
 // Signal Protocol store callbacks
 // ──────────────────────────────────────────────────────────────────
@@ -458,48 +471,64 @@ struct OmemoStore {
 // ──────────────────────────────────────────────────────────────────
 
 // Identity key store
+// Called by libsignal during X3DH (session_builder_process_pre_key_bundle) to get
+// our public+private identity EC keys. Without this libsignal returns SG_ERR_UNKNOWN
+// and every outgoing session establishment fails with -1000.
 static int ik_get_identity_key_pair(signal_buffer** public_data, signal_buffer** private_data, void* user_data)
 {
-    auto* store = static_cast<OmemoStore*>(user_data);
-    if (!store->identityKeyPair)
+    auto* ctx = static_cast<IdentityContext*>(user_data);
+    if (!ctx || !ctx->identityKeyPairRef || !*ctx->identityKeyPairRef) {
+        qWarning("[OMEMO] ik_get_identity_key_pair: no identity key pair loaded");
         return SG_ERR_UNKNOWN;
-    // identityKeyPair is stored as the serialized ec_key_pair
-    // We pass back the full blob; signal will know how to parse it
-    // Actually libsignal wants us to return the separate public/private buffers.
-    // We stored the full serialized form — re-deserialize here.
-    ec_key_pair* kp = nullptr;
-    signal_context* gctx = nullptr; // we need context for this. Use a workaround.
-    // This is a limitation: we need the context to deserialize. We'll store
-    // the public and private keys as separate fields instead.
-    // For simplicity, return ERR and handle in initialization.
-    Q_UNUSED(public_data);
-    Q_UNUSED(private_data);
-    return SG_ERR_UNKNOWN;
+    }
+    ratchet_identity_key_pair* ikp = *ctx->identityKeyPairRef;
+
+    ec_public_key* pub = ratchet_identity_key_pair_get_public(ikp);
+    ec_private_key* priv = ratchet_identity_key_pair_get_private(ikp);
+    if (!pub || !priv) {
+        qWarning("[OMEMO] ik_get_identity_key_pair: null pub/priv");
+        return SG_ERR_UNKNOWN;
+    }
+
+    int r = ec_public_key_serialize(public_data, pub);
+    if (r != SG_SUCCESS) {
+        qWarning("[OMEMO] ec_public_key_serialize failed: %d", r);
+        return r;
+    }
+    r = ec_private_key_serialize(private_data, priv);
+    if (r != SG_SUCCESS) {
+        qWarning("[OMEMO] ec_private_key_serialize failed: %d", r);
+        signal_buffer_free(*public_data);
+        *public_data = nullptr;
+        return r;
+    }
+    return SG_SUCCESS;
 }
 
 static int ik_get_local_registration_id(void* user_data, uint32_t* registration_id)
 {
-    auto* store = static_cast<OmemoStore*>(user_data);
-    *registration_id = store->localDeviceId;
+    auto* ctx = static_cast<IdentityContext*>(user_data);
+    *registration_id = ctx->store->localDeviceId;
     return SG_SUCCESS;
 }
 
 static int ik_save_identity(const signal_protocol_address* address,
                             uint8_t* key_data, size_t key_len, void* user_data)
 {
-    auto* store = static_cast<OmemoStore*>(user_data);
+    auto* ctx = static_cast<IdentityContext*>(user_data);
     QString key = QString::fromUtf8(address->name, static_cast<int>(address->name_len))
                   + QLatin1Char(':') + QString::number(address->device_id);
-    store->trustedIdentities[key] = QByteArray(reinterpret_cast<const char*>(key_data),
-                                               static_cast<int>(key_len));
-    store->save();
+    ctx->store->trustedIdentities[key] = QByteArray(reinterpret_cast<const char*>(key_data),
+                                                     static_cast<int>(key_len));
+    ctx->store->save();
     return SG_SUCCESS;
 }
 
 static int ik_is_trusted_identity(const signal_protocol_address* address,
                                   uint8_t* key_data, size_t key_len, void* user_data)
 {
-    auto* store = static_cast<OmemoStore*>(user_data);
+    auto* ctx = static_cast<IdentityContext*>(user_data);
+    OmemoStore* store = ctx->store;
     QString key = QString::fromUtf8(address->name, static_cast<int>(address->name_len))
                   + QLatin1Char(':') + QString::number(address->device_id);
 
@@ -686,8 +715,11 @@ public:
     signal_context* signalCtx = nullptr;
     signal_protocol_store_context* storeCtx = nullptr;
 
-    // Identity key pair (kept in memory after init)
+    // Identity key pair (kept in memory after init).
+    // ikContext.identityKeyPairRef points to this member so the callback
+    // sees updates (e.g. regeneration) without re-registering the store.
     ratchet_identity_key_pair* identityKeyPair = nullptr;
+    IdentityContext ikContext;
     // Signed prekey
     session_signed_pre_key* signedPreKey = nullptr;
     // One-time prekeys
@@ -851,14 +883,18 @@ void OmemoManager::Private::setupStoreContext()
 {
     signal_protocol_store_context_create(&storeCtx, signalCtx);
 
-    // Identity key store (simplified — getIdentityKeyPair handled via stored buffer)
+    // Identity key store — user_data is an IdentityContext so the callbacks
+    // can access both the OmemoStore (for trust) and the live
+    // ratchet_identity_key_pair (for X3DH in get_identity_key_pair).
+    ikContext.store = &store;
+    ikContext.identityKeyPairRef = &identityKeyPair;
     signal_protocol_identity_key_store ikStore = {};
-    ikStore.get_identity_key_pair = ik_get_identity_key_pair; // will fail, we handle separately
+    ikStore.get_identity_key_pair = ik_get_identity_key_pair;
     ikStore.get_local_registration_id = ik_get_local_registration_id;
     ikStore.save_identity = ik_save_identity;
     ikStore.is_trusted_identity = ik_is_trusted_identity;
     ikStore.destroy_func = nullptr;
-    ikStore.user_data = &store;
+    ikStore.user_data = &ikContext;
     signal_protocol_store_context_set_identity_key_store(storeCtx, &ikStore);
 
     // Pre-key store

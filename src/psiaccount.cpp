@@ -3081,9 +3081,14 @@ void PsiAccount::serverFeaturesChanged()
 	// XEP-0384 OMEMO: publish device bundle when PEP is confirmed available.
 	// This is the canonical hook — sentInitialPresence() also tries but may fire
 	// before the server's feature advertisement arrives.
+	qDebug() << "[OMEMO] serverFeaturesChanged: hasPEP=" << d->serverInfoManager->hasPEP()
+	         << " om=" << (d->omemoManager != nullptr)
+	         << " init=" << (d->omemoManager ? d->omemoManager->isInitialized() : false)
+	         << " published=" << d->omemoBundlePublished;
 	if (d->serverInfoManager->hasPEP() && d->omemoManager
 	    && d->omemoManager->isInitialized() && !d->omemoBundlePublished) {
 		d->omemoBundlePublished = true;
+		qDebug() << "[OMEMO] Triggering publishBundle() from serverFeaturesChanged";
 		d->omemoManager->publishBundle();
 	}
 }
@@ -4197,17 +4202,36 @@ void PsiAccount::sentInitialPresence()
 	// XEP-0384 OMEMO: publish device bundle after login.
 	// Note: serverFeaturesChanged() is the canonical hook; this is a backup for
 	// the case where PEP availability was already known before sentInitialPresence().
+	qDebug() << "[OMEMO] sentInitialPresence: om=" << (d->omemoManager != nullptr)
+	         << " init=" << (d->omemoManager ? d->omemoManager->isInitialized() : false)
+	         << " hasPEP=" << d->serverInfoManager->hasPEP()
+	         << " published=" << d->omemoBundlePublished;
 	if (d->omemoManager && d->omemoManager->isInitialized()
 	    && d->serverInfoManager->hasPEP() && !d->omemoBundlePublished) {
 		d->omemoBundlePublished = true;
+		qDebug() << "[OMEMO] Triggering publishBundle() from sentInitialPresence";
 		d->omemoManager->publishBundle();
 	} else if (d->omemoManager && !d->omemoBundlePublished) {
 		// Initialize may still be in progress (deferred via QTimer::singleShot)
-		// or PEP availability not yet known — try again after 3 seconds.
+		// or PEP availability not yet known — retry in 3s and again in 10s
+		// to catch slow server disco responses.
 		QTimer::singleShot(3000, this, [this]() {
+			qDebug() << "[OMEMO] sentInitialPresence retry@3s: hasPEP=" << d->serverInfoManager->hasPEP()
+			         << " init=" << (d->omemoManager && d->omemoManager->isInitialized())
+			         << " published=" << d->omemoBundlePublished;
 			if (d->omemoManager && d->omemoManager->isInitialized()
 			    && d->serverInfoManager->hasPEP() && !d->omemoBundlePublished) {
 				d->omemoBundlePublished = true;
+				qDebug() << "[OMEMO] Triggering publishBundle() from retry@3s";
+				d->omemoManager->publishBundle();
+			}
+		});
+		QTimer::singleShot(10000, this, [this]() {
+			if (d->omemoManager && d->omemoManager->isInitialized()
+			    && !d->omemoBundlePublished) {
+				d->omemoBundlePublished = true;
+				qDebug() << "[OMEMO] Force-publish bundle at 10s "
+				            "(server may not have advertised PEP feature)";
 				d->omemoManager->publishBundle();
 			}
 		});
