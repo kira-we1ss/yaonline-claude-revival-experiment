@@ -911,6 +911,8 @@ public:
 	QList<PubSubRetraction> pubsubRetractions;
 	QString eventId;
 	QString xencrypted, invite;
+	QString inviteReason;   // XEP-0249: reason from jabber:x:conference
+	QString invitePassword; // XEP-0249: password from jabber:x:conference
 	ChatState chatState;
 	MessageReceipt messageReceipt;
 	QString messageReceiptId; // XEP-0184: id of the message being receipted
@@ -939,6 +941,11 @@ public:
 	bool isCarbon_;
 	bool isCarbonSent_; // true = sent copy, false = received copy
 
+	// XEP-0333 Chat Markers
+	bool chatMarkable_;
+	Message::ChatMarkerType chatMarker_;
+	QString chatMarkerId_;
+
 	QHash<QString, QDomElement> unknownExtensions;
 };
 
@@ -964,6 +971,9 @@ Message::Message(const Jid &to)
 	d->messageReceiptId = QString();
 	d->isCarbon_ = false;
 	d->isCarbonSent_ = false;
+	d->chatMarkable_ = false;
+	d->chatMarker_ = Message::MarkerNone;
+	d->chatMarkerId_ = QString();
 #ifdef YAPSI
 	d->spamFlag = 0;
 	d->yaFlags = 0;
@@ -1375,6 +1385,9 @@ void Message::setInvite(const QString &s)
 	d->invite = s;
 }
 
+QString Message::inviteReason() const { return d->inviteReason; }
+QString Message::invitePassword() const { return d->invitePassword; }
+
 const QString& Message::nick() const
 {
 	return d->nick;
@@ -1439,6 +1452,13 @@ void Message::setWasEncrypted(bool b)
 bool Message::isCarbon() const { return d->isCarbon_; }
 bool Message::isCarbonSent() const { return d->isCarbonSent_; }
 void Message::setCarbon(bool isSent) { d->isCarbon_ = true; d->isCarbonSent_ = isSent; }
+
+// XEP-0333 Chat Markers accessors
+bool Message::isChatMarkable() const { return d->chatMarkable_; }
+void Message::setChatMarkable(bool m) { d->chatMarkable_ = m; }
+Message::ChatMarkerType Message::chatMarker() const { return d->chatMarker_; }
+void Message::setChatMarker(Message::ChatMarkerType t, const QString& id) { d->chatMarker_ = t; d->chatMarkerId_ = id; }
+QString Message::chatMarkerId() const { return d->chatMarkerId_; }
 
 #ifdef YAPSI
 const YaLastMail& XMPP::Message::lastMailNotify() const
@@ -1629,6 +1649,29 @@ Stanza Message::toStanza(Stream *stream) const
 			}
 			default: 
 				break;
+		}
+	}
+
+	// XEP-0333 Chat Markers
+	{
+		const QString markersNS = "urn:xmpp:chat-markers:0";
+		if (d->chatMarkable_) {
+			s.appendChild(s.createElement(markersNS, "markable"));
+		}
+		if (d->chatMarker_ != Message::MarkerNone) {
+			QString tagName;
+			switch (d->chatMarker_) {
+				case Message::MarkerReceived:     tagName = "received"; break;
+				case Message::MarkerDisplayed:    tagName = "displayed"; break;
+				case Message::MarkerAcknowledged: tagName = "acknowledged"; break;
+				default: break;
+			}
+			if (!tagName.isEmpty()) {
+				QDomElement e = s.createElement(markersNS, tagName);
+				if (!d->chatMarkerId_.isEmpty())
+					e.setAttribute("id", d->chatMarkerId_);
+				s.appendChild(e);
+			}
 		}
 	}
 
@@ -1914,6 +1957,37 @@ bool Message::fromStanza(const Stanza &s, int timeZoneOffset)
 	}
 	XMLHelper::removeNodes(root, t);
 
+	// XEP-0333 Chat Markers
+	{
+		const QString markersNS = "urn:xmpp:chat-markers:0";
+		QDomElement markableEl = root.elementsByTagNameNS(markersNS, "markable").item(0).toElement();
+		if (!markableEl.isNull()) {
+			d->chatMarkable_ = true;
+			XMLHelper::removeNodes(root, markableEl);
+		}
+
+		QDomElement markerEl = root.elementsByTagNameNS(markersNS, "received").item(0).toElement();
+		if (!markerEl.isNull()) {
+			d->chatMarker_ = Message::MarkerReceived;
+			d->chatMarkerId_ = markerEl.attribute("id");
+			XMLHelper::removeNodes(root, markerEl);
+		} else {
+			markerEl = root.elementsByTagNameNS(markersNS, "displayed").item(0).toElement();
+			if (!markerEl.isNull()) {
+				d->chatMarker_ = Message::MarkerDisplayed;
+				d->chatMarkerId_ = markerEl.attribute("id");
+				XMLHelper::removeNodes(root, markerEl);
+			} else {
+				markerEl = root.elementsByTagNameNS(markersNS, "acknowledged").item(0).toElement();
+				if (!markerEl.isNull()) {
+					d->chatMarker_ = Message::MarkerAcknowledged;
+					d->chatMarkerId_ = markerEl.attribute("id");
+					XMLHelper::removeNodes(root, markerEl);
+				}
+			}
+		}
+	}
+
 	// xencrypted
 	t = root.elementsByTagNameNS("jabber:x:encrypted", "x").item(0).toElement();
 	if(!t.isNull())
@@ -1948,12 +2022,18 @@ bool Message::fromStanza(const Stanza &s, int timeZoneOffset)
 	}
 	XMLHelper::removeNodes(root, nl);
 
-	// invite
+	// invite (XEP-0249 Direct MUC Invitation)
 	t = root.elementsByTagNameNS("jabber:x:conference", "x").item(0).toElement();
-	if(!t.isNull())
+	if(!t.isNull()) {
 		d->invite = t.attribute("jid");
-	else
+		d->inviteReason = t.attribute("reason");
+		d->invitePassword = t.attribute("password");
+	}
+	else {
 		d->invite = QString();
+		d->inviteReason = QString();
+		d->invitePassword = QString();
+	}
 	XMLHelper::removeNodes(root, t);
 	
 	// nick

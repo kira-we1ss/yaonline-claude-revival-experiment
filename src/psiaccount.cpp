@@ -1498,6 +1498,9 @@ PsiAccount::PsiAccount(const UserAccount &acc, PsiContactList *parent, CapsRegis
 	// XEP-0280: Message Carbons — advertise support
 	d->client->addExtension("carbons", Features("urn:xmpp:carbons:2"));
 
+	// XEP-0333: Chat Markers — advertise support
+	d->client->addExtension("chat-markers", Features("urn:xmpp:chat-markers:0"));
+
 	d->selfContact = new PsiSelfContact(d->self, this);
 
 	// restore cached roster
@@ -3511,8 +3514,60 @@ void PsiAccount::processIncomingMessage(const Message &_m)
 		}
 		return;
 	}
+
+	// XEP-0249 Direct MUC Invitation (jabber:x:conference)
+	if (!_m.invite().isEmpty() && GCMainDlg::mucEnabled()) {
+		// _m.from() is the inviter, _m.invite() is the room JID
+		Jid inviter = _m.from();
+		Jid roomJid = _m.invite();
+
+		bool createNewInvite = true;
+		foreach(int id, GlobalEventQueue::instance()->ids()) {
+			PsiEvent* event = GlobalEventQueue::instance()->peek(id);
+			Q_ASSERT(event);
+			if (!event)
+				continue;
+
+			if (event->type() == PsiEvent::GroupchatInvite) {
+				GroupchatInviteEvent* inviteEvent = static_cast<GroupchatInviteEvent*>(event);
+				if (inviteEvent &&
+				    inviteEvent->jid().compare(inviter, false) &&
+				    inviteEvent->groupchat().compare(roomJid, false))
+				{
+					createNewInvite = false;
+					break;
+				}
+			}
+		}
+
+		if (createNewInvite) {
+			GroupchatInviteEvent* event = new GroupchatInviteEvent(
+			    inviter, roomJid,
+			    _m.inviteReason(), _m.invitePassword(), this);
+			handleEvent(event, IncomingStanza);
+		}
+		return;
+	}
 #endif
 
+
+#ifdef YAPSI
+	// XEP-0333 Chat Markers: handle incoming <received>/<displayed>/<acknowledged>
+	if (_m.chatMarker() == XMPP::Message::MarkerDisplayed ||
+	    _m.chatMarker() == XMPP::Message::MarkerReceived  ||
+	    _m.chatMarker() == XMPP::Message::MarkerAcknowledged)
+	{
+		QString markedId = _m.chatMarkerId();
+		if (!markedId.isEmpty()) {
+			YaChatViewModel::DeliveryConfirmationType state =
+			    (_m.chatMarker() == XMPP::Message::MarkerDisplayed)
+			    ? YaChatViewModel::DeliveryConfirmation_Verified
+			    : YaChatViewModel::DeliveryConfirmation_DeliveredToLocalServer;
+			emit deliveryConfirmationManager()->deliveryConfirmationUpdated(markedId, state);
+		}
+		return; // Marker stanzas carry no body — do not process further
+	}
+#endif
 
 #ifdef YAPSI
 	if (deliveryConfirmationManager()->processIncomingMessage(_m)) {

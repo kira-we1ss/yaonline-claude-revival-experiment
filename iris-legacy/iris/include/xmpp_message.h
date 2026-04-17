@@ -156,6 +156,10 @@ namespace XMPP {
 		QString invite() const;
 		void setInvite(const QString &s);
 
+		// XEP-0249 Direct MUC Invitation extras
+		QString inviteReason() const;
+		QString invitePassword() const;
+
 		// for compatibility.  delete me later
 		bool spooled() const;
 		void setSpooled(bool);
@@ -166,6 +170,14 @@ namespace XMPP {
 		bool isCarbon() const;
 		bool isCarbonSent() const; // true=sent copy, false=received copy
 		void setCarbon(bool isSent);
+
+		// XEP-0333 Chat Markers
+		enum ChatMarkerType { MarkerNone, MarkerReceived, MarkerDisplayed, MarkerAcknowledged };
+		bool isChatMarkable() const;
+		void setChatMarkable(bool markable);
+		ChatMarkerType chatMarker() const;
+		void setChatMarker(ChatMarkerType type, const QString& id);
+		QString chatMarkerId() const;
 
 		Stanza toStanza(Stream *stream) const;
 		bool fromStanza(const Stanza &s, int tzoffset);
