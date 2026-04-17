@@ -25,11 +25,13 @@
 #include <QMutex>
 #include <QTimer>
 #include <QDomDocument>
+#include <QTextStream>
 
 #include <QtCrypto>
 
-// OpenSSL AES-128-GCM
+// OpenSSL AES-128-GCM, HMAC, SHA-512
 #include <openssl/evp.h>
+#include <openssl/hmac.h>
 #include <openssl/rand.h>
 #include <openssl/err.h>
 
@@ -60,66 +62,83 @@ static int omemo_random_func(uint8_t* data, size_t len, void* /*user_data*/)
     return SG_SUCCESS;
 }
 
+// HMAC-SHA256 via OpenSSL (known-correct; replaced QCA which produced wrong
+// output in libsignal context and caused -1000 on every X3DH verification).
 static int omemo_hmac_sha256_init(void** hmac_context, const uint8_t* key, size_t key_len, void* /*user_data*/)
 {
-    QByteArray k(reinterpret_cast<const char*>(key), static_cast<int>(key_len));
-    QCA::MessageAuthenticationCode* mac = new QCA::MessageAuthenticationCode(
-        QLatin1String("hmac(sha256)"),
-        QCA::SymmetricKey(k));
-    *hmac_context = mac;
+    HMAC_CTX* ctx = HMAC_CTX_new();
+    if (!ctx)
+        return SG_ERR_UNKNOWN;
+    if (!HMAC_Init_ex(ctx, key, static_cast<int>(key_len), EVP_sha256(), nullptr)) {
+        HMAC_CTX_free(ctx);
+        return SG_ERR_UNKNOWN;
+    }
+    *hmac_context = ctx;
     return SG_SUCCESS;
 }
 
 static int omemo_hmac_sha256_update(void* hmac_context, const uint8_t* data, size_t data_len, void* /*user_data*/)
 {
-    auto* mac = static_cast<QCA::MessageAuthenticationCode*>(hmac_context);
-    mac->update(QCA::MemoryRegion(QByteArray(reinterpret_cast<const char*>(data), static_cast<int>(data_len))));
+    HMAC_CTX* ctx = static_cast<HMAC_CTX*>(hmac_context);
+    if (!HMAC_Update(ctx, data, data_len))
+        return SG_ERR_UNKNOWN;
     return SG_SUCCESS;
 }
 
 static int omemo_hmac_sha256_final(void* hmac_context, signal_buffer** output, void* /*user_data*/)
 {
-    auto* mac = static_cast<QCA::MessageAuthenticationCode*>(hmac_context);
-    QByteArray result = mac->final().toByteArray();
-    *output = signal_buffer_create(
-        reinterpret_cast<const uint8_t*>(result.constData()),
-        static_cast<size_t>(result.size()));
+    HMAC_CTX* ctx = static_cast<HMAC_CTX*>(hmac_context);
+    unsigned char md[EVP_MAX_MD_SIZE];
+    unsigned int mdLen = 0;
+    if (!HMAC_Final(ctx, md, &mdLen))
+        return SG_ERR_UNKNOWN;
+    *output = signal_buffer_create(md, static_cast<size_t>(mdLen));
     return SG_SUCCESS;
 }
 
 static void omemo_hmac_sha256_cleanup(void* hmac_context, void* /*user_data*/)
 {
-    delete static_cast<QCA::MessageAuthenticationCode*>(hmac_context);
+    HMAC_CTX_free(static_cast<HMAC_CTX*>(hmac_context));
 }
 
-// SHA-512 for Signal crypto provider — split into init/update/final/cleanup
+// SHA-512 via OpenSSL EVP (same rationale as HMAC above).
 static int omemo_sha512_digest_init(void** digest_context, void* /*user_data*/)
 {
-    QCA::Hash* hash = new QCA::Hash(QLatin1String("sha512"));
-    *digest_context = hash;
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    if (!ctx)
+        return SG_ERR_UNKNOWN;
+    if (EVP_DigestInit_ex(ctx, EVP_sha512(), nullptr) != 1) {
+        EVP_MD_CTX_free(ctx);
+        return SG_ERR_UNKNOWN;
+    }
+    *digest_context = ctx;
     return SG_SUCCESS;
 }
 
 static int omemo_sha512_digest_update(void* digest_context, const uint8_t* data, size_t data_len, void* /*user_data*/)
 {
-    auto* hash = static_cast<QCA::Hash*>(digest_context);
-    hash->update(QCA::MemoryRegion(QByteArray(reinterpret_cast<const char*>(data), static_cast<int>(data_len))));
+    EVP_MD_CTX* ctx = static_cast<EVP_MD_CTX*>(digest_context);
+    if (EVP_DigestUpdate(ctx, data, data_len) != 1)
+        return SG_ERR_UNKNOWN;
     return SG_SUCCESS;
 }
 
 static int omemo_sha512_digest_final(void* digest_context, signal_buffer** output, void* /*user_data*/)
 {
-    auto* hash = static_cast<QCA::Hash*>(digest_context);
-    QByteArray result = hash->final().toByteArray();
-    *output = signal_buffer_create(
-        reinterpret_cast<const uint8_t*>(result.constData()),
-        static_cast<size_t>(result.size()));
+    EVP_MD_CTX* ctx = static_cast<EVP_MD_CTX*>(digest_context);
+    unsigned char md[EVP_MAX_MD_SIZE];
+    unsigned int mdLen = 0;
+    if (EVP_DigestFinal_ex(ctx, md, &mdLen) != 1)
+        return SG_ERR_UNKNOWN;
+    *output = signal_buffer_create(md, static_cast<size_t>(mdLen));
+    // libsignal may call update() again after final() — reinit for reuse
+    EVP_DigestInit_ex(ctx, EVP_sha512(), nullptr);
     return SG_SUCCESS;
 }
 
 static void omemo_sha512_digest_cleanup(void* digest_context, void* /*user_data*/)
 {
-    delete static_cast<QCA::Hash*>(digest_context);
+    EVP_MD_CTX_free(static_cast<EVP_MD_CTX*>(digest_context));
 }
 
 // Signal's crypto provider callback for symmetric encryption.
@@ -1146,6 +1165,14 @@ static int parseAndProcessBundle(const QDomElement& bundleEl,
                                  signal_protocol_store_context* storeCtx,
                                  signal_context* signalCtx)
 {
+    // Serialize bundle for debugging
+    {
+        QString dumpStr;
+        QTextStream ts(&dumpStr);
+        bundleEl.save(ts, 2);
+        qDebug() << "[OMEMO] parseAndProcessBundle XML:\n" << dumpStr.left(2000);
+    }
+
     // <signedPreKeyPublic signedPreKeyId='N'>base64</signedPreKeyPublic>
     QDomElement spkEl = bundleEl.firstChildElement(QLatin1String("signedPreKeyPublic"));
     if (spkEl.isNull()) {
@@ -1171,18 +1198,34 @@ static int parseAndProcessBundle(const QDomElement& bundleEl,
     }
     QByteArray idKeyBytes = QByteArray::fromBase64(idKeyEl.text().toLatin1());
 
-    // Pick first prekey from <prekeys>
+    // Pick a RANDOM prekey from <prekeys> — Conversations does this to balance
+    // one-time-prekey consumption across a contact's many available prekeys.
+    // Picking the first one (which we used to do) means every sender to this
+    // contact would use the same OPK, defeating the purpose of one-time keys.
     QDomElement prekeysEl = bundleEl.firstChildElement(QLatin1String("prekeys"));
-    QDomElement pkEl;
     uint32_t preKeyId = 0;
     QByteArray pkPubBytes;
     if (!prekeysEl.isNull()) {
-        pkEl = prekeysEl.firstChildElement(QLatin1String("preKeyPublic"));
-        if (!pkEl.isNull()) {
+        QList<QDomElement> pkList;
+        for (QDomElement pk = prekeysEl.firstChildElement(QLatin1String("preKeyPublic"));
+             !pk.isNull();
+             pk = pk.nextSiblingElement(QLatin1String("preKeyPublic"))) {
+            pkList.append(pk);
+        }
+        if (!pkList.isEmpty()) {
+            int idx = static_cast<int>(QRandomGenerator::global()->bounded(pkList.size()));
+            QDomElement pkEl = pkList.at(idx);
             preKeyId = pkEl.attribute(QLatin1String("preKeyId")).toUInt();
             pkPubBytes = QByteArray::fromBase64(pkEl.text().toLatin1());
         }
     }
+
+    qDebug() << "[OMEMO]   signedPreKeyId=" << signedPreKeyId
+             << "spkPubBytes.size=" << spkPubBytes.size()
+             << "sigBytes.size=" << sigBytes.size()
+             << "idKeyBytes.size=" << idKeyBytes.size()
+             << "preKeyId=" << preKeyId
+             << "pkPubBytes.size=" << pkPubBytes.size();
 
     // Deserialize EC keys
     ec_public_key* spkPub = nullptr;
