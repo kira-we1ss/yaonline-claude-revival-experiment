@@ -838,6 +838,13 @@ public:
     void saveMucPeerCache();
     void loadMucPeerCache();
 
+    // Per-peer fetch-throttle timestamp: "bareJid" -> last fetchContactBundles
+    // call epoch-ms. Used by ensureMucSessions to avoid flooding PEP with
+    // devicelist IQs when presence bursts on MUC join (can be 50+ presences
+    // in one second), and to avoid re-fetching while a previous fetch is
+    // still in flight.
+    QHash<QString, qint64> lastFetchMs;
+
     QString dataDir;
 
     ~Private() {
@@ -2135,37 +2142,71 @@ void OmemoManager::ensureMucSessions(const XMPP::Jid& roomJid,
         return;
     }
 
+    // Throttle: don't re-fetch the same contact more than once per 30s.
+    // Prevents storm of PEP IQs when presence bursts happen (e.g. MUC
+    // room join where 50 presences arrive in a second).
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    static constexpr qint64 kFetchThrottleMs = 30000;
+
     int fetchedCount = 0;
-    int alreadyHaveCount = 0;
+    int skippedThrottle = 0;
+    int skippedComplete = 0;
+    int skippedPartial = 0;
     for (const QString& bareJid : qAsConst(toFetch)) {
         const QList<uint32_t> devices = d->deviceLists.value(bareJid);
-        bool haveAny = false;
+
+        // Decide whether this peer is "fully covered": we must have a
+        // session for EVERY advertised device id, not just one. Having
+        // just one is what caused the MUC inbound/outbound partial-
+        // coverage bug where multi-device peers (Conversations on
+        // phone + PC) only had one half addressed.
+        bool fullyCovered = !devices.isEmpty();
+        int sessionMisses = 0;
         for (uint32_t devId : devices) {
             const QByteArray jidUtf8 = bareJid.toUtf8();
             signal_protocol_address addr;
             addr.name = jidUtf8.constData();
             addr.name_len = static_cast<size_t>(jidUtf8.size());
             addr.device_id = static_cast<int32_t>(devId);
-            if (sess_contains_session(&addr, &d->store)) {
-                haveAny = true;
-                break;
+            if (!sess_contains_session(&addr, &d->store)) {
+                fullyCovered = false;
+                ++sessionMisses;
             }
         }
-        if (haveAny) {
-            ++alreadyHaveCount;
+
+        if (fullyCovered) {
+            ++skippedComplete;
+            continue; // already good
+        }
+
+        // Throttle: have we fetched for this peer very recently? Sessions
+        // may simply still be in-flight from a moment ago.
+        const qint64 last = d->lastFetchMs.value(bareJid, 0);
+        if (now - last < kFetchThrottleMs) {
+            ++skippedThrottle;
             continue;
         }
-        // Async — this issues a PEP devicelist+bundle fetch and builds
-        // sessions when the reply arrives. sessionsEstablished signals
-        // fire per-contact; encryptForMuc will then see the new sessions.
+        d->lastFetchMs[bareJid] = now;
+
+        // Counters for logging: "partial" = we have SOME sessions for
+        // this peer but not all (multi-device user with new device).
+        if (!devices.isEmpty() && sessionMisses < devices.size())
+            ++skippedPartial;
+
+        // Async — this issues a PEP devicelist+bundle fetch, builds
+        // sessions for every new device when replies arrive.
+        // fetchContactBundles will merge the returned devicelist into
+        // d->deviceLists so future sends see the full device set.
         fetchContactBundles(XMPP::Jid(bareJid));
         ++fetchedCount;
     }
 
     qDebug() << "[OMEMO] ensureMucSessions for" << roomJid.bare()
              << "— participants:" << toFetch.size()
-             << "(already-have:" << alreadyHaveCount
-             << "fetching:" << fetchedCount << ")";
+             << "(fully-covered:" << skippedComplete
+             << ", partial-refetch:" << skippedPartial
+             << ", throttled:" << skippedThrottle
+             << ", fetching:" << fetchedCount << ")";
 }
 
 void OmemoManager::encryptForMuc(const XMPP::Jid& roomJid, const QString& body,
