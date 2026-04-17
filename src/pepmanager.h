@@ -68,6 +68,9 @@ signals:
 	void publish_error(const QString&, const PubSubItem&);
 	void itemPublished(const Jid& jid, const QString& node, const PubSubItem&);
 	void itemRetracted(const Jid& jid, const QString& node, const PubSubRetraction&);
+	// Emitted when a PEP get() fails (404, empty result, network error, etc.)
+	// Allows listeners (e.g. OmemoManager) to count failures and unblock.
+	void getError(const Jid& jid, const QString& node);
 	//void ready(const QString& node);
 	//void getSubscriptions_success(const Jid& jid, const QList<PubSubSubscription>& subscriptions);
 	//void getSubscriptions_error(const Jid&, int, const QString&);

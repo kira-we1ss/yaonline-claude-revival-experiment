@@ -1256,20 +1256,52 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
         QString bareJid;
         int pendingBundles = 0;
         bool anySuccess = false;
+        bool done = false;  // guard: ensures sessionsEstablished is emitted exactly once
         OmemoManager* manager = nullptr;
         // Connections we need to disconnect
         QMetaObject::Connection devicelistConn;
         QMetaObject::Connection bundleConn;
+        QMetaObject::Connection errorConn;  // listens for PEPManager::getError
     };
     FetchState* state = new FetchState();
     state->contact = contact;
     state->bareJid = bareJid;
     state->manager = this;
 
+    // Helper lambda: finish with result, guarded by state->done (one-shot).
+    // Disconnects all PEP connections, emits sessionsEstablished, schedules cleanup.
+    auto finishFetch = [this, state](bool success) {
+        if (state->done)
+            return;
+        state->done = true;
+        disconnect(state->devicelistConn);
+        disconnect(state->bundleConn);
+        disconnect(state->errorConn);
+        emit sessionsEstablished(state->contact, success);
+        state->deleteLater();
+    };
+
+    // 10-second safety timeout: if PEP never replies (404 not wired, network stall, etc.),
+    // unblock the UI and fall back to plaintext send.
+    QTimer* timeoutTimer = new QTimer(this);
+    timeoutTimer->setSingleShot(true);
+    timeoutTimer->setInterval(10000);
+    connect(timeoutTimer, &QTimer::timeout, this, [this, state, timeoutTimer, finishFetch]() mutable {
+        timeoutTimer->deleteLater();
+        if (!state->done) {
+            qWarning("[OMEMO] fetchContactBundles timeout for %s — no sessions established within 10s",
+                     qPrintable(state->bareJid));
+            finishFetch(state->anySuccess);
+        }
+    });
+    timeoutTimer->start();
+
     // Connect to devicelist arrival
     state->devicelistConn = connect(d->pepManager, &PEPManager::itemPublished,
-        this, [this, state](const XMPP::Jid& from, const QString& node,
-                            const XMPP::PubSubItem& item) {
+        this, [this, state, finishFetch](const XMPP::Jid& from, const QString& node,
+                            const XMPP::PubSubItem& item) mutable {
+            if (state->done)
+                return;
             // Only handle devicelist for our target contact
             if (!from.compare(state->contact, false))
                 return;
@@ -1282,8 +1314,7 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
             QDomElement listEl = item.payload();
             if (listEl.isNull()) {
                 qWarning() << "[OMEMO] Empty devicelist for" << state->bareJid;
-                emit sessionsEstablished(state->contact, false);
-                state->deleteLater();
+                finishFetch(false);
                 return;
             }
 
@@ -1300,8 +1331,7 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
 
             if (devices.isEmpty()) {
                 qWarning() << "[OMEMO] No devices in devicelist for" << state->bareJid;
-                emit sessionsEstablished(state->contact, false);
-                state->deleteLater();
+                finishFetch(false);
                 return;
             }
 
@@ -1322,8 +1352,7 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
 
             if (needSession.isEmpty()) {
                 qDebug() << "[OMEMO] All sessions already established for" << state->bareJid;
-                emit sessionsEstablished(state->contact, true);
-                state->deleteLater();
+                finishFetch(true);
                 return;
             }
 
@@ -1333,11 +1362,13 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
             state->pendingBundles = needSession.size();
             state->anySuccess = false;
 
-            // Connect bundle handler
+            // Connect bundle success handler
             state->bundleConn = connect(d->pepManager, &PEPManager::itemPublished,
-                this, [this, state, needSession](const XMPP::Jid& from2,
+                this, [this, state, needSession, finishFetch](const XMPP::Jid& from2,
                                                   const QString& node2,
-                                                  const XMPP::PubSubItem& item2) {
+                                                  const XMPP::PubSubItem& item2) mutable {
+                    if (state->done)
+                        return;
                     if (!from2.compare(state->contact, false))
                         return;
 
@@ -1363,11 +1394,38 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
                         state->anySuccess = true;
 
                     state->pendingBundles--;
-                    if (state->pendingBundles <= 0) {
-                        disconnect(state->bundleConn);
-                        emit sessionsEstablished(state->contact, state->anySuccess);
-                        state->deleteLater();
+                    if (state->pendingBundles <= 0)
+                        finishFetch(state->anySuccess);
+                });
+
+            // Connect bundle error handler: PEP 404 / empty / network failure for bundles
+            state->errorConn = connect(d->pepManager, &PEPManager::getError,
+                this, [this, state, needSession, finishFetch](const XMPP::Jid& errJid,
+                                                               const QString& errNode) mutable {
+                    if (state->done)
+                        return;
+                    if (!errJid.compare(state->contact, false))
+                        return;
+
+                    // Check if this error matches one of the bundle nodes we're waiting for
+                    bool matched = false;
+                    for (uint32_t devId : needSession) {
+                        QString expectedNode = QString::fromLatin1(XmppOmemo::NS_BUNDLES)
+                                               + QLatin1Char(':') + QString::number(devId);
+                        if (errNode == expectedNode) {
+                            matched = true;
+                            break;
+                        }
                     }
+                    if (!matched)
+                        return;
+
+                    qWarning("[OMEMO] Bundle fetch error for %s node %s — counting as failure",
+                             qPrintable(state->bareJid), qPrintable(errNode));
+
+                    state->pendingBundles--;
+                    if (state->pendingBundles <= 0)
+                        finishFetch(state->anySuccess);
                 });
 
             // Fetch a bundle for each device that needs a session
@@ -1377,6 +1435,28 @@ void OmemoManager::fetchContactBundles(const XMPP::Jid& contact)
                 qDebug() << "[OMEMO] Fetching bundle node" << bundleNode << "for" << state->bareJid;
                 d->pepManager->get(state->contact, bundleNode, QLatin1String("current"));
             }
+        });
+
+    // Also listen for a getError on the devicelist itself (PEP 404 / unavailable)
+    // We do this inline via a second connection on errorConn BEFORE the bundle phase sets it.
+    // Since errorConn is only set during the bundle phase, we use a separate lambda here.
+    QMetaObject::Connection* devlistErrConn = new QMetaObject::Connection();
+    *devlistErrConn = connect(d->pepManager, &PEPManager::getError,
+        this, [this, state, finishFetch, devlistErrConn](const XMPP::Jid& errJid,
+                                                          const QString& errNode) mutable {
+            if (state->done)
+                return;
+            if (!errJid.compare(state->contact, false))
+                return;
+            if (errNode != QString::fromLatin1(XmppOmemo::NS_DEVICELIST))
+                return;
+
+            // Devicelist fetch failed — contact has no OMEMO devices (or PEP unavailable)
+            disconnect(*devlistErrConn);
+            delete devlistErrConn;
+            qWarning("[OMEMO] Devicelist fetch failed for %s — no OMEMO sessions possible",
+                     qPrintable(state->bareJid));
+            finishFetch(false);
         });
 
     // Kick off devicelist fetch

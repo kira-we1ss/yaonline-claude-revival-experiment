@@ -628,12 +628,24 @@ void PEPManager::getFinished()
 		if (!task->items().isEmpty()) {
 			emit itemPublished(task->jid(),task->node(),task->items().first());
 		}
+		else {
+			// Empty result — the node exists but has no items.
+			// Emit getError so async waiters (e.g. OmemoManager) can unblock.
+			qDebug("[%s] PEP Get: empty result for node '%s' on '%s'",
+			       qPrintable(client_->jid().full()),
+			       qPrintable(task->node()),
+			       qPrintable(task->jid()));
+			emit getError(task->jid(), task->node());
+		}
 	}
 	else {
-		qWarning("[%s] PEP Get failed: '%s' (%s)",
+		qWarning("[%s] PEP Get failed: '%s' (%s) node='%s' jid='%s'",
 		         qPrintable(client_->jid().full()),
 		         qPrintable(task->statusString()),
-		         qPrintable(QString::number(task->statusCode())));
+		         qPrintable(QString::number(task->statusCode())),
+		         qPrintable(task->node()),
+		         qPrintable(task->jid()));
+		emit getError(task->jid(), task->node());
 	}
 }
 
