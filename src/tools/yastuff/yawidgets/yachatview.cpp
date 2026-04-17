@@ -32,6 +32,7 @@
 #include <QTextEdit>
 #include <QDateTime>
 #include <QPainter>
+#include <QPalette>
 
 #include "yachatviewdelegate.h"
 #include "smoothscrollbar.h"
@@ -136,6 +137,15 @@ YaChatView::YaChatView(QWidget* parent)
 
 	connect(PsiOptions::instance(), SIGNAL(optionChanged(const QString&)), SLOT(optionChanged(const QString&)));
 	optionChanged("options.shortcuts.chat.send");
+
+	// Qt5/macOS: force white background on viewport to prevent dark-mode black background
+	viewport()->setAutoFillBackground(true);
+	{
+		QPalette vp = viewport()->palette();
+		vp.setColor(QPalette::Base,   Qt::white);
+		vp.setColor(QPalette::Window, Qt::white);
+		viewport()->setPalette(vp);
+	}
 }
 
 YaChatView::~YaChatView()

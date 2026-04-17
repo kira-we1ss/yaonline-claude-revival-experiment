@@ -562,6 +562,9 @@ void YaChatViewDelegate::ensureMessageLayout(const QStyleOptionViewItem& option,
 			pal.setColor(QPalette::Text, Qt::black);
 		}
 
+		// Qt5/macOS: force white background so black text remains visible
+		pal.setColor(QPalette::Base,   Qt::white);
+		pal.setColor(QPalette::Window, Qt::white);
 		data.textControl->setPalette(pal);
 
 		QTextDocument* doc = data.textControl->document();
