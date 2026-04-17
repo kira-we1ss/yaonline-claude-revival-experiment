@@ -26,7 +26,6 @@
 #include <QToolBar>
 #include <QMessageBox>
 #include <QPainter>
-#include <QColorGroup>
 #include <QSplitter>
 #include <QTimer>
 #include <QToolButton>

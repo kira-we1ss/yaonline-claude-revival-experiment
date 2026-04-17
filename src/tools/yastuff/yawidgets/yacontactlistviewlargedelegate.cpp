@@ -56,7 +56,7 @@ void YaContactListViewLargeDelegate::realDrawContact(QPainter* painter, const QS
 		nameRect.moveTop(textRect.top() + (textRect.height() - nameRect.height()) / 2);
 	}
 
-	QStyleOptionViewItemV2 n_o = nameStyle(selected, statusType(index), Ya::VisualUtil::RosterStyleLarge, hovered());
+	QStyleOptionViewItem n_o = nameStyle(selected, statusType(index), Ya::VisualUtil::RosterStyleLarge, hovered());
 
 	if (drawStatusIcon(statusType(index))) {
 		QPixmap statusPixmap = Ya::VisualUtil::rosterStatusPixmap(statusType(index));
@@ -83,7 +83,7 @@ void YaContactListViewLargeDelegate::realDrawContact(QPainter* painter, const QS
 	// painter->drawRect(statusRect);
 
 	if (!statusText(index).isEmpty()) {
-		QStyleOptionViewItemV2 sm_o = statusTextStyle(Ya::VisualUtil::RosterStyleLarge, hovered());
+		QStyleOptionViewItem sm_o = statusTextStyle(Ya::VisualUtil::RosterStyleLarge, hovered());
 		sm_o.palette.setColor(QPalette::Highlight, option.palette.color(QPalette::Highlight));
 		drawStatus(painter, sm_o, statusRect, statusText(index), index);
 	}

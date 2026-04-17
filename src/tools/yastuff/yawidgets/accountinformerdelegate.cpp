@@ -136,7 +136,7 @@ QRect AccountInformerDelegate::changePasswordRect(const QStyleOptionViewItem& op
 
 QStyleOptionButton AccountInformerDelegate::checkBoxOption(const QModelIndex& index) const
 {
-	QStyleOptionViewItemV2 statusTextOption = statusTextStyle(Ya::VisualUtil::RosterStyleNormal, hovered());
+	QStyleOptionViewItem statusTextOption = statusTextStyle(Ya::VisualUtil::RosterStyleNormal, hovered());
 
 	QStyleOptionButton result;
 	// result.font = defaultFont();

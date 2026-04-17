@@ -104,8 +104,8 @@ public:
 	XMPP::Status::Type statusType(const QModelIndex& index) const;
 
 	QPalette blackText() const;
-	QStyleOptionViewItemV2 nameStyle(bool selected, XMPP::Status::Type status, Ya::VisualUtil::RosterStyle rosterStyle, bool hovered) const;
-	QStyleOptionViewItemV2 statusTextStyle(Ya::VisualUtil::RosterStyle rosterStyle, bool hovered) const;
+	QStyleOptionViewItem nameStyle(bool selected, XMPP::Status::Type status, Ya::VisualUtil::RosterStyle rosterStyle, bool hovered) const;
+	QStyleOptionViewItem statusTextStyle(Ya::VisualUtil::RosterStyle rosterStyle, bool hovered) const;
 
 	void initEditor(YaEmptyTextLineEdit* editor) const;
 

@@ -44,7 +44,7 @@ void YaContactListViewSlimDelegate::realDrawContact(QPainter* painter, const QSt
 	}
 	// painter->drawRect(typeRect);
 
-	QStyleOptionViewItemV2 n_o = nameStyle(selected, statusType(index), Ya::VisualUtil::RosterStyleSlim, hovered());
+	QStyleOptionViewItem n_o = nameStyle(selected, statusType(index), Ya::VisualUtil::RosterStyleSlim, hovered());
 	QString name = nameText(option, index);
 
 	QRect nameRect = this->nameRect(option, index);
@@ -55,7 +55,7 @@ void YaContactListViewSlimDelegate::realDrawContact(QPainter* painter, const QSt
 	statusRect.setLeft(nameRect.left() + n_o.fontMetrics.width(name) + 3);
 
 	if (!statusText(index).isEmpty() && statusRect.width() > 10) {
-		QStyleOptionViewItemV2 sm_o = statusTextStyle(Ya::VisualUtil::RosterStyleSlim, hovered());
+		QStyleOptionViewItem sm_o = statusTextStyle(Ya::VisualUtil::RosterStyleSlim, hovered());
 		statusRect.setTop(nameRect.top() + n_o.fontMetrics.ascent() - sm_o.fontMetrics.ascent());
 		sm_o.palette.setColor(QPalette::Highlight, option.palette.color(QPalette::Highlight));
 		drawStatus(painter, sm_o, statusRect, statusText(index), index);
@@ -82,7 +82,7 @@ QRect YaContactListViewSlimDelegate::typeRect(const QStyleOptionViewItem& option
 QRect YaContactListViewSlimDelegate::nameRect(const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
 	QRect typeRect = this->typeRect(option, index);
-	QStyleOptionViewItemV2 n_o = nameStyle(true, statusType(index), Ya::VisualUtil::RosterStyleSlim, hovered());
+	QStyleOptionViewItem n_o = nameStyle(true, statusType(index), Ya::VisualUtil::RosterStyleSlim, hovered());
 
 	QRect nameRect(option.rect);
 	nameRect.setHeight(n_o.fontMetrics.height());

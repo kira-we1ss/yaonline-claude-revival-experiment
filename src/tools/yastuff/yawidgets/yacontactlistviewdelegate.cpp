@@ -159,9 +159,9 @@ QPalette YaContactListViewDelegate::blackText() const
 	return result;
 }
 
-QStyleOptionViewItemV2 YaContactListViewDelegate::nameStyle(bool selected, XMPP::Status::Type status, Ya::VisualUtil::RosterStyle rosterStyle, bool hovered) const
+QStyleOptionViewItem YaContactListViewDelegate::nameStyle(bool selected, XMPP::Status::Type status, Ya::VisualUtil::RosterStyle rosterStyle, bool hovered) const
 {
-	QStyleOptionViewItemV2 n_o = opt();
+	QStyleOptionViewItem n_o = opt();
 	n_o.font = Ya::VisualUtil::contactNameFont(rosterStyle, status);
 	n_o.fontMetrics = QFontMetrics(n_o.font);
 	QPalette namePalette = blackText();
@@ -171,9 +171,9 @@ QStyleOptionViewItemV2 YaContactListViewDelegate::nameStyle(bool selected, XMPP:
 	return n_o;
 }
 
-QStyleOptionViewItemV2 YaContactListViewDelegate::statusTextStyle(Ya::VisualUtil::RosterStyle rosterStyle, bool hovered) const
+QStyleOptionViewItem YaContactListViewDelegate::statusTextStyle(Ya::VisualUtil::RosterStyle rosterStyle, bool hovered) const
 {
-	QStyleOptionViewItemV2 sm_o = opt();
+	QStyleOptionViewItem sm_o = opt();
 	sm_o.font = Ya::VisualUtil::contactStatusFont(rosterStyle);
 	sm_o.fontMetrics = QFontMetrics(sm_o.font);
 	QPalette grayText;
@@ -219,7 +219,7 @@ void YaContactListViewDelegate::drawStatusTypeText(QPainter* painter, const QSty
 	                             XMPP::VCard::Gender(index.data(ContactListModel::GenderRole).toInt())
 	                         ));
 	QRect statusTypeRect(*rect);
-	QStyleOptionViewItemV2 st_o = option;
+	QStyleOptionViewItem st_o = option;
 	st_o.font.setPixelSize(9);
 	st_o.fontMetrics = QFontMetrics(st_o.font);
 	QPalette palette = blackText();
@@ -293,7 +293,7 @@ void YaContactListViewDelegate::realDrawContact(QPainter* painter, const QStyleO
 
 	QRect nameRect = this->nameRect(option, index);
 
-	QStyleOptionViewItemV2 n_o = nameStyle(selected, statusType(index), Ya::VisualUtil::RosterStyleNormal, hovered());
+	QStyleOptionViewItem n_o = nameStyle(selected, statusType(index), Ya::VisualUtil::RosterStyleNormal, hovered());
 
 	if (drawStatusIcon(statusType(index))) {
 		QPixmap statusPixmap = Ya::VisualUtil::rosterStatusPixmap(statusType(index));
@@ -319,7 +319,7 @@ void YaContactListViewDelegate::realDrawContact(QPainter* painter, const QStyleO
 	// painter->drawRect(statusRect);
 
 	if (!statusText(index).isEmpty()) {
-		QStyleOptionViewItemV2 sm_o = statusTextStyle(Ya::VisualUtil::RosterStyleNormal, hovered());
+		QStyleOptionViewItem sm_o = statusTextStyle(Ya::VisualUtil::RosterStyleNormal, hovered());
 		sm_o.palette.setColor(QPalette::Highlight, option.palette.color(QPalette::Highlight));
 		drawStatus(painter, sm_o, statusRect, statusText(index), index);
 	}
@@ -341,7 +341,7 @@ QRect YaContactListViewDelegate::groupNameRect(const QStyleOptionViewItem& optio
 	QRect buttonRectDest = this->groupButtonRect(option, index);
 
 	// TODO: use groupFontSize
-	QStyleOptionViewItemV2 o = opt();
+	QStyleOptionViewItem o = opt();
 	QRect groupNameRect;
 	o.font.setBold(true);
 	o.font.setPixelSize(11);
@@ -386,7 +386,7 @@ void YaContactListViewDelegate::drawGroup(QPainter* painter, const QStyleOptionV
 	painter->drawPixmap(buttonRectDest, button, buttonRect);
 
 	// TODO: use groupFontSize
-	QStyleOptionViewItemV2 o = opt();
+	QStyleOptionViewItem o = opt();
 	o.font.setBold(true);
 	o.font.setPixelSize(11);
 	o.fontMetrics = QFontMetrics(o.font);
@@ -429,7 +429,7 @@ void YaContactListViewDelegate::drawAccount(QPainter* painter, const QStyleOptio
 	// painter->drawRect(buttonRectDest);
 
 	// TODO: use accountFontSize
-	QStyleOptionViewItemV2 o = opt();
+	QStyleOptionViewItem o = opt();
 	o.font.setBold(true);
 	o.font.setPixelSize(14);
 	o.fontMetrics = QFontMetrics(o.font);
