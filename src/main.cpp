@@ -51,6 +51,8 @@ extern "C" {
 #include <QComboBox>
 #include <QCheckBox>
 #include <QMessageBox>
+#include <QPalette>
+#include <QColor>
 #include <QtCrypto>
 #include <QTranslator>
 #include <QDir>
@@ -373,6 +375,32 @@ int main(int argc, char *argv[])
 	// it must be initialized first in order for ApplicationInfo::resourcesDir() to work
 	QCA::Initializer init;
 	PsiApplication app(argc, argv);
+
+	// Force light palette — this 2009 app has no dark mode support.
+	// Qt5 on macOS inherits dark system palette colors which causes black
+	// backgrounds on all widgets that don't explicitly set their own colors.
+	{
+		QPalette lightPal;
+		lightPal.setColor(QPalette::Window,          Qt::white);
+		lightPal.setColor(QPalette::WindowText,      Qt::black);
+		lightPal.setColor(QPalette::Base,            Qt::white);
+		lightPal.setColor(QPalette::AlternateBase,   QColor(245, 245, 245));
+		lightPal.setColor(QPalette::ToolTipBase,     Qt::white);
+		lightPal.setColor(QPalette::ToolTipText,     Qt::black);
+		lightPal.setColor(QPalette::Text,            Qt::black);
+		lightPal.setColor(QPalette::BrightText,      Qt::red);
+		lightPal.setColor(QPalette::Button,          QColor(240, 240, 240));
+		lightPal.setColor(QPalette::ButtonText,      Qt::black);
+		lightPal.setColor(QPalette::Link,            QColor(0, 0, 200));
+		lightPal.setColor(QPalette::Highlight,       QColor(42, 130, 218));
+		lightPal.setColor(QPalette::HighlightedText, Qt::white);
+		// Disabled state
+		lightPal.setColor(QPalette::Disabled, QPalette::WindowText, QColor(120, 120, 120));
+		lightPal.setColor(QPalette::Disabled, QPalette::Text,       QColor(120, 120, 120));
+		lightPal.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(120, 120, 120));
+		app.setPalette(lightPal);
+	}
+
 	QApplication::addLibraryPath(ApplicationInfo::resourcesDir());
 	QApplication::addLibraryPath(ApplicationInfo::homeDir());
 	QApplication::setQuitOnLastWindowClosed(false);

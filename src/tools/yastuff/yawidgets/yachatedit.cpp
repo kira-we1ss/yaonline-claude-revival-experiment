@@ -27,6 +27,7 @@
 #include <QStyle>
 #include <QStyleOption>
 #include <QPlastiqueStyle>
+#include <QPalette>
 #include <QApplication>
 
 #include "msgmle.h"
@@ -150,6 +151,14 @@ YaChatEdit::YaChatEdit(QWidget* parent)
 	mle_ = new LineEdit(this);
 	mle_->setObjectName(QString::fromUtf8("mle"));
 	mle_->setFrameShape(QFrame::NoFrame);
+	// Force white/black palette — dark mode would otherwise inherit a black background.
+	mle_->setAutoFillBackground(true);
+	{
+		QPalette p = mle_->palette();
+		p.setColor(QPalette::Base, Qt::white);
+		p.setColor(QPalette::Text, Qt::black);
+		mle_->setPalette(p);
+	}
 
 	horizontalLayout->addWidget(mle_);
 
