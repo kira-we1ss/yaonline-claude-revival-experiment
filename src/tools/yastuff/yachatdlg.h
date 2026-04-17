@@ -22,6 +22,7 @@
 #define YACHATDLG_H
 
 #include <QDateTime>
+#include <QLabel>
 
 #include "chatdlg.h"
 #include "ui_yachatdialog.h"
@@ -112,6 +113,7 @@ private:
 	bool showAuthButton_;
 	QString alternateContactProfile_;
 	mutable QPointer<PsiContact> fakeContact_;
+	QLabel* typingLabel_; // XEP-0085: "Name is typing..." text label above input
 };
 
 #endif

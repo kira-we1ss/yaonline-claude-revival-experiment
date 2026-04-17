@@ -130,6 +130,12 @@ ChatDlg::ChatDlg(const Jid& jid, PsiAccount* pa, TabManager* tabManager)
 	sendComposingEvents_ = false;
 	isComposing_ = false;
 	composingTimer_ = 0;
+
+	// XEP-0085: idle timer — transitions Active → Inactive after 2 minutes of no typing
+	inactiveTimer_ = new QTimer(this);
+	inactiveTimer_->setSingleShot(true);
+	inactiveTimer_->setInterval(120000); // 2 minutes per XEP-0085 §5.2
+	connect(inactiveTimer_, SIGNAL(timeout()), SLOT(inactiveTimeout()));
 }
 
 void ChatDlg::init()
@@ -284,6 +290,11 @@ void ChatDlg::activated()
 	ChatDlgBase::activated();
 
 	emit messagesRead(jid());
+
+	// XEP-0085: notify contact that we are now actively looking at the window
+	if (contactChatState_ != XMPP::StateNone && sendComposingEvents_) {
+		setChatState(XMPP::StateActive);
+	}
 }
 
 void ChatDlg::dropEvent(QDropEvent* event)
@@ -691,6 +702,9 @@ void ChatDlg::doneSend(const XMPP::Message& m)
 	connect(chatEdit(), SIGNAL(textChanged()), this, SLOT(setComposing()));
 	// Reset composing timer
 	resetComposing();
+
+	// XEP-0085: message sent — stop the idle timer (next keystroke will restart it)
+	inactiveTimer_->stop();
 }
 
 void ChatDlg::encryptedMessageSent(int x, bool b, int e)
@@ -941,7 +955,18 @@ void ChatDlg::setChatState(ChatState state)
 		// Save last state
 		if (lastChatState_ != XMPP::StateGone || state == XMPP::StateActive)
 			lastChatState_ = state;
+
+		// XEP-0085: no need to track idleness once we've gone Gone or Inactive
+		if (state == XMPP::StateGone || state == XMPP::StateInactive) {
+			inactiveTimer_->stop();
+		}
 	}
+}
+
+void ChatDlg::inactiveTimeout()
+{
+	// XEP-0085 §5.2: user has been idle for 2 minutes — transition to Inactive
+	setChatState(XMPP::StateInactive);
 }
 
 void ChatDlg::setContactChatState(ChatState state)
@@ -974,6 +999,9 @@ void ChatDlg::setComposing()
 		emit composing(true);
 	}
 	isComposing_ = true;
+
+	// XEP-0085 §5.2: reset the 2-minute idle timer on every keystroke
+	inactiveTimer_->start();
 }
 
 /**

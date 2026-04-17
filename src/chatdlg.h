@@ -118,6 +118,7 @@ private slots:
 	void setContactChatState(ChatState s);
 	void capsChanged(const Jid&);
 	void setComposing();
+	void inactiveTimeout(); // XEP-0085: idle → StateInactive after 2 min
 
 protected slots:
 	void checkComposing();
@@ -178,6 +179,7 @@ private:
 
 	// Message Events & Chat States
 	QTimer* composingTimer_;
+	QTimer* inactiveTimer_; // XEP-0085: fires after 120s of no input → StateInactive
 	bool isComposing_;
 	bool sendComposingEvents_;
 	QString eventId_;

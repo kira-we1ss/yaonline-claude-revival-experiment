@@ -23,6 +23,8 @@
 #include <QTextDocument> // for Qt::escape()
 #include <QMouseEvent>
 #include <QMimeData>
+#include <QLabel>
+#include <QVBoxLayout>
 
 #include "yachatdlg.h"
 #include "yatrayicon.h"
@@ -69,6 +71,7 @@ YaChatDlg::YaChatDlg(const Jid& jid, PsiAccount* acc, TabManager* tabManager)
 	, selfProfile_(YaProfile::create(acc))
 	, contactProfile_(YaProfile::create(acc, jid))
 	, showAuthButton_(true)
+	, typingLabel_(0)
 {
 	connect(this, SIGNAL(invalidateTabInfo()), SLOT(updateComposingMessage()));
 }
@@ -113,6 +116,16 @@ void YaChatDlg::initUi()
 	}
 
 	ui_.bottomFrame->setSendAction(actionSend());
+
+	// XEP-0085: "Name is typing..." label — inserted below chatView, above the splitter handle
+	typingLabel_ = new QLabel(this);
+	typingLabel_->setVisible(false);
+	typingLabel_->setStyleSheet("color: gray; font-size: 11px; padding: 1px 4px;");
+	// topFrame holds the chatView in a QVBoxLayout; append the label there
+	QVBoxLayout* topLayout = qobject_cast<QVBoxLayout*>(ui_.topFrame->layout());
+	if (topLayout) {
+		topLayout->addWidget(typingLabel_);
+	}
 
 	resize(sizeHint());
 	doClear();
@@ -368,6 +381,18 @@ void YaChatDlg::updateComposingMessage()
 	// 	model()->setComposingEventVisible(enable);
 	if (enable != ui_.chatView->composingEventVisible())
 		ui_.chatView->setComposingEventVisible(enable);
+
+	// XEP-0085: update the textual "Name is typing..." label
+	if (typingLabel_) {
+		if (enable) {
+			PsiContact* c = contact();
+			QString name = c ? c->name() : jid().node();
+			typingLabel_->setText(tr("%1 is typing...").arg(name));
+			typingLabel_->setVisible(true);
+		} else {
+			typingLabel_->setVisible(false);
+		}
+	}
 }
 
 /**
