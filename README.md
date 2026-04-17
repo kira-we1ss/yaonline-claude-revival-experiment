@@ -133,27 +133,41 @@ open src/yachat.app
 | H: Крашь настроек чата (MUCAffiliations) | ✅ | `QSignalBlocker` + `proxy->invalidate()` в `getItemsByAffiliation_success` |
 | I: Таббар — текст/позиция | 🔄 | Вкладки визуально смещены; в работе |
 
-### Слой 5 — Новые XMPP XEP 🔲 *не начат*
+### Слой 5 — Новые XMPP XEP 🔄 *в процессе*
 
 Реализация 15 расширений, поддерживаемых современными десктопными клиентами (Gajim, Dino, Psi+):
 
 | Приоритет | XEP | Название | Статус |
 |-----------|-----|----------|--------|
-| 1 | XEP-0280 | Message Carbons | 🔲 |
-| 2 | XEP-0313 | MAM (полная синхронизация с сервером) | 🔲 |
-| 3 | XEP-0308 | Исправление последнего сообщения | 🔲 |
+| 1 | XEP-0280 | Message Carbons | ✅ |
+| 2 | XEP-0313 | MAM (полная синхронизация с сервером) | ✅ |
+| 3 | XEP-0308 | Исправление последнего сообщения | ✅ |
 | 4 | XEP-0384 | OMEMO (чтение + отправка, переключатель) | 🔲 |
-| 5 | XEP-0045 | MUC современный (замена `jabber:iq:conference`) | 🔲 |
-| 6 | XEP-0363 | HTTP File Upload | 🔲 |
-| 7 | XEP-0184 | Message Delivery Receipts | 🔲 |
-| 8 | XEP-0333 | Chat Markers | 🔲 |
-| 9 | XEP-0085 | Chat State Notifications | 🔲 |
-| 10 | XEP-0048 | Bookmarks | 🔲 |
-| 11 | XEP-0199 | XMPP Ping | 🔲 |
-| 12 | XEP-0352 | Client State Indication | 🔲 |
-| 13 | XEP-0249 | Direct MUC Invitations | 🔲 |
-| 14 | XEP-0030 | Service Discovery | 🔲 |
-| 15 | XEP-0115 | Entity Capabilities | 🔲 |
+| 5 | XEP-0045 | MUC современный (замена `jabber:iq:conference`) | ✅ |
+| 6 | XEP-0363 | HTTP File Upload | ✅ |
+| 7 | XEP-0184 | Message Delivery Receipts | ✅ |
+| 8 | XEP-0333 | Chat Markers | ✅ |
+| 9 | XEP-0085 | Chat State Notifications | ✅ |
+| 10 | XEP-0048 | Bookmarks (v1 + автоподключение) | ✅ |
+| 11 | XEP-0199 | XMPP Ping | ✅ |
+| 12 | XEP-0352 | Client State Indication | ✅ |
+| 13 | XEP-0249 | Direct MUC Invitations | ✅ |
+| 14 | XEP-0030 | Service Discovery (расширен) | ✅ |
+| 15 | XEP-0115 | Entity Capabilities (SHA-1 хэш) | ✅ |
+
+**Детали реализации:**
+- XEP-0280: парсинг `<sent>`/`<received>` обёрток, включение после входа, подавление уведомлений для carbon-копий
+- XEP-0313: новый Task `JT_MAMQuery` с RSM-пагинацией; синхронизация 7 дней после входа, до 200 сообщений
+- XEP-0308: поле `replaceId` в Message; `~` в начале строки = исправление последнего сообщения
+- XEP-0184: исправлен критический баг — `<received>` теперь корректно содержит атрибут `id=`
+- XEP-0333: `<markable/>` в исходящих, `<displayed>` при фокусировке окна; маркеры обновляют статус доставки
+- XEP-0085: добавлен таймер 2 мин → StateInactive; отправка StateActive при фокусировке; текстовая метка "печатает..."
+- XEP-0363: новый Task `JT_HttpUploadSlot`; замена YaNarodDiskManager на XEP-0363 slot+PUT
+- XEP-0363: кнопка "Отправить файл" уже существовала; теперь работает через стандартный протокол
+- XEP-0048: убрана YAPSI-блокировка автоподключения к закладкам
+- XEP-0030/0115: `computeVerHash()` (SHA-1), `ServerInfoManager` расширен (MAM, carbons, HTTP upload)
+- XEP-0249: прямые приглашения теперь создают `GroupchatInviteEvent` (ранее игнорировались)
+- XEP-0045: `http://jabber.org/protocol/muc` приоритизирован над `jabber:iq:conference`
 
 ### Слой 7 — Полный аудит кода 🔲 *не начат (после слоёв 4–6)*
 
@@ -190,4 +204,4 @@ open src/yachat.app
 
 ---
 
-*Последнее обновление: 2026-04-17 (Claude: **Слой 4 завершён.** SCRAM-SHA-1 подтверждён на Prosody 0.12+ (`[SCRAM] Selected mechanism: SCRAM-SHA-1`). TLS 1.2+ принудительно. DIGEST-MD5 и jabber:iq:auth удалены. PLAIN только поверх TLS. Слой 6 (UI) в процессе — таббар ещё требует доработки. Следующий: Слой 5 (15 XEP: карбоны, MAM, OMEMO read+send, XEP-0045 MUC и др.).)*
+*Последнее обновление: 2026-04-17 (Claude: **Слой 5 почти завершён (14/15 XEP).** За один сеанс реализованы: XEP-0280 Carbons (парсинг forwarded, enable IQ), XEP-0313 MAM (новый JT_MAMQuery, RSM-пагинация, 7 дней истории), XEP-0308 Last Correction (`~` префикс), XEP-0184 (исправлен баг с `id=`), XEP-0333 Chat Markers (markable+displayed), XEP-0085 (idle timer, StateActive on focus, "печатает..."), XEP-0363 HTTP Upload (slot+PUT, замена YaNarodDisk), XEP-0249 Direct Invites, XEP-0199/0352/0048/0030/0115. Осталось: XEP-0384 OMEMO (долгосрочно). Слой 6 (UI) — таббар ещё требует доработки.)*
