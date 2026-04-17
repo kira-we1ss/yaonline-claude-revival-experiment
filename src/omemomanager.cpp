@@ -122,6 +122,29 @@ static void omemo_sha512_digest_cleanup(void* digest_context, void* /*user_data*
     delete static_cast<QCA::Hash*>(digest_context);
 }
 
+// Signal's crypto provider callback for symmetric encryption.
+// libsignal calls this in two modes per signal_protocol.h:
+//   SG_CIPHER_AES_CTR_NOPADDING (1): AES-CTR with no padding — used by the
+//       Double Ratchet for per-message keys
+//   SG_CIPHER_AES_CBC_PKCS5     (2): AES-CBC with PKCS5 padding — used by
+//       other parts of libsignal
+// Previously this callback ignored `cipher` and always used AES-CBC with
+// implicit PKCS7 padding. When libsignal asked for AES-CTR (which it does
+// during ratchet operations), we returned CBC ciphertext, causing
+// session_builder_process_pre_key_bundle to fail with SG_ERR_UNKNOWN (-1000)
+// because the internal signature verification used corrupted key material.
+static const EVP_CIPHER* selectCipher(int cipher, size_t key_len)
+{
+    if (cipher == SG_CIPHER_AES_CTR_NOPADDING) {
+        if (key_len == 32) return EVP_aes_256_ctr();
+        if (key_len == 16) return EVP_aes_128_ctr();
+    } else if (cipher == SG_CIPHER_AES_CBC_PKCS5) {
+        if (key_len == 32) return EVP_aes_256_cbc();
+        if (key_len == 16) return EVP_aes_128_cbc();
+    }
+    return nullptr;
+}
+
 static int omemo_encrypt(signal_buffer** output,
                          int cipher,
                          const uint8_t* key, size_t key_len,
@@ -129,21 +152,17 @@ static int omemo_encrypt(signal_buffer** output,
                          const uint8_t* plaintext, size_t plaintext_len,
                          void* /*user_data*/)
 {
-    Q_UNUSED(cipher); // Signal uses AES-256-CBC for ratchet
+    Q_UNUSED(iv_len);
+
+    const EVP_CIPHER* evp_cipher = selectCipher(cipher, key_len);
+    if (!evp_cipher) {
+        qWarning("[OMEMO] omemo_encrypt: unsupported cipher=%d key_len=%zu", cipher, key_len);
+        return SG_ERR_UNKNOWN;
+    }
 
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     if (!ctx)
         return SG_ERR_UNKNOWN;
-
-    const EVP_CIPHER* evp_cipher = nullptr;
-    if (key_len == 32)
-        evp_cipher = EVP_aes_256_cbc();
-    else if (key_len == 16)
-        evp_cipher = EVP_aes_128_cbc();
-    else {
-        EVP_CIPHER_CTX_free(ctx);
-        return SG_ERR_UNKNOWN;
-    }
 
     if (EVP_EncryptInit_ex(ctx, evp_cipher, nullptr,
                            reinterpret_cast<const unsigned char*>(key),
@@ -151,6 +170,9 @@ static int omemo_encrypt(signal_buffer** output,
         EVP_CIPHER_CTX_free(ctx);
         return SG_ERR_UNKNOWN;
     }
+    // CTR is a stream cipher with no padding; CBC uses PKCS7 (OpenSSL default).
+    if (cipher == SG_CIPHER_AES_CTR_NOPADDING)
+        EVP_CIPHER_CTX_set_padding(ctx, 0);
 
     QByteArray out(static_cast<int>(plaintext_len) + EVP_MAX_BLOCK_LENGTH, '\0');
     int len1 = 0, len2 = 0;
@@ -178,21 +200,17 @@ static int omemo_decrypt(signal_buffer** output,
                          const uint8_t* ciphertext, size_t ciphertext_len,
                          void* /*user_data*/)
 {
-    Q_UNUSED(cipher);
+    Q_UNUSED(iv_len);
+
+    const EVP_CIPHER* evp_cipher = selectCipher(cipher, key_len);
+    if (!evp_cipher) {
+        qWarning("[OMEMO] omemo_decrypt: unsupported cipher=%d key_len=%zu", cipher, key_len);
+        return SG_ERR_UNKNOWN;
+    }
 
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     if (!ctx)
         return SG_ERR_UNKNOWN;
-
-    const EVP_CIPHER* evp_cipher = nullptr;
-    if (key_len == 32)
-        evp_cipher = EVP_aes_256_cbc();
-    else if (key_len == 16)
-        evp_cipher = EVP_aes_128_cbc();
-    else {
-        EVP_CIPHER_CTX_free(ctx);
-        return SG_ERR_UNKNOWN;
-    }
 
     if (EVP_DecryptInit_ex(ctx, evp_cipher, nullptr,
                            reinterpret_cast<const unsigned char*>(key),
@@ -200,6 +218,8 @@ static int omemo_decrypt(signal_buffer** output,
         EVP_CIPHER_CTX_free(ctx);
         return SG_ERR_UNKNOWN;
     }
+    if (cipher == SG_CIPHER_AES_CTR_NOPADDING)
+        EVP_CIPHER_CTX_set_padding(ctx, 0);
 
     QByteArray out(static_cast<int>(ciphertext_len) + EVP_MAX_BLOCK_LENGTH, '\0');
     int len1 = 0, len2 = 0;
