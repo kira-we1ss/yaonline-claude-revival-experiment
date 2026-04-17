@@ -22,6 +22,7 @@
 
 #include <QMessageBox>
 #include <QMutableListIterator>
+#include <QPalette>
 
 #include "yachatviewmodel.h"
 #include "psiaccount.h"
@@ -60,6 +61,14 @@ void YaGroupchatDlg::initUi()
 	// setAttribute(Qt::WA_DeleteOnClose, false);
 
 	ui_.setupUi(this);
+	// Qt5/macOS: force white on the MUC participant list panel (contactListFrame)
+	ui_.contactListFrame->setAutoFillBackground(true);
+	{
+		QPalette pal = ui_.contactListFrame->palette();
+		pal.setColor(QPalette::Window, Qt::white);
+		pal.setColor(QPalette::Base,   Qt::white);
+		ui_.contactListFrame->setPalette(pal);
+	}
 	ui_.contactList->setModel(contactList_);
 	ui_.contactList->setAccount(account());
 	ui_.contactList->setGroupchat(jid().full());

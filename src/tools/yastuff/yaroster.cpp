@@ -2124,9 +2124,23 @@ YaRoster::YaRoster(QWidget* parent)
 #endif
 	stackedWidget_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	layout->addWidget(stackedWidget_);
+	stackedWidget_->setAutoFillBackground(true);
+	{
+		QPalette pal = stackedWidget_->palette();
+		pal.setColor(QPalette::Window, Qt::white);
+		pal.setColor(QPalette::Base,   Qt::white);
+		stackedWidget_->setPalette(pal);
+	}
 
 	rosterPage_ = new YaToolBox(0);
 	rosterPage_->init();
+	rosterPage_->setAutoFillBackground(true);
+	{
+		QPalette pal = rosterPage_->palette();
+		pal.setColor(QPalette::Window, Qt::white);
+		pal.setColor(QPalette::Base,   Qt::white);
+		rosterPage_->setPalette(pal);
+	}
 	// rosterPage_->layout()->setContentsMargins(0, 1, 0, 0);
 	rosterPage_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	rosterPage_->installEventFilter(this);
@@ -2160,7 +2174,7 @@ bool YaRoster::eventFilter(QObject* obj, QEvent* e)
 {
 	if (obj == rosterPage_ && e->type() == QEvent::Paint) {
 		QPainter p(rosterPage_);
-		p.fillRect(QRect(0, 0, rosterPage_->width(), 1), Qt::white);
+		p.fillRect(rosterPage_->rect(), Qt::white);
 		return true;
 	}
 

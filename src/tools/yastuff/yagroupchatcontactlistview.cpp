@@ -22,6 +22,7 @@
 
 #include <QHeaderView>
 #include <QMouseEvent>
+#include <QPalette>
 
 #include <QDragEnterEvent>
 #include <QDragLeaveEvent>
@@ -57,6 +58,15 @@ YaGroupchatContactListView::YaGroupchatContactListView(QWidget* parent)
 	connect(this, SIGNAL(clicked(const QModelIndex&)), SLOT(clicked(const QModelIndex&)));
 
 	YaOfficeBackgroundHelper::instance()->registerWidget(this);
+
+	// Qt5/macOS: force white background on viewport (empty space below participants)
+	viewport()->setAutoFillBackground(true);
+	{
+		QPalette vp = viewport()->palette();
+		vp.setColor(QPalette::Base,   Qt::white);
+		vp.setColor(QPalette::Window, Qt::white);
+		viewport()->setPalette(vp);
+	}
 }
 
 void YaGroupchatContactListView::setAccount(PsiAccount* account)

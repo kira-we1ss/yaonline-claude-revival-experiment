@@ -30,6 +30,7 @@
 #include <QScrollBar>
 #include <QTimer>
 #include <QPainter>
+#include <QPalette>
 #include <QPainterPath>
 #include <QDragMoveEvent>
 #include <QSortFilterProxyModel>
@@ -122,6 +123,15 @@ YaContactListView::YaContactListView(QWidget* parent)
 
 	SmoothScrollBar::install(this);
 	connect(verticalScrollBar(), SIGNAL(valueChanged(int)), SLOT(scrollbarValueChanged()));
+
+	// Qt5/macOS: force white background on viewport (empty space below contacts)
+	viewport()->setAutoFillBackground(true);
+	{
+		QPalette vp = viewport()->palette();
+		vp.setColor(QPalette::Base,   Qt::white);
+		vp.setColor(QPalette::Window, Qt::white);
+		viewport()->setPalette(vp);
+	}
 }
 
 YaContactListView::~YaContactListView()
