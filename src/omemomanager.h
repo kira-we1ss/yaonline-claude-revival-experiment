@@ -59,6 +59,17 @@ public:
     bool hasMucSessions(const XMPP::Jid& roomJid,
                         const QHash<QString, XMPP::Jid>& nickToRealJid) const;
 
+    // Fetch PEP bundles for every participant in nickToRealJid whose real
+    // bare JID we do NOT yet have a Signal session for. Skips our own JID
+    // (libsignal refuses self-sessions). Async: the individual
+    // fetchContactBundles calls emit sessionsEstablished as they complete.
+    // Idempotent — occupants with sessions already established are skipped.
+    // MUST be called after nickToRealJid is populated (from MUC presence
+    // with <x xmlns='muc#user'><item jid='...'/></x>), typically from
+    // GCMainDlg::doSendMessage or when OMEMO toggle is flipped on.
+    void ensureMucSessions(const XMPP::Jid& roomJid,
+                           const QHash<QString, XMPP::Jid>& nickToRealJid);
+
     // Encrypt body for all MUC participants that have sessions.
     // Emits encryptDone(roomJid, encrypted, plainBody, success) when done.
     void encryptForMuc(const XMPP::Jid& roomJid, const QString& body,

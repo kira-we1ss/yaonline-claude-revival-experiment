@@ -243,10 +243,22 @@ void GCMainDlg::doSendMessage(const XMPP::Message& _m)
 
 	// XEP-0384 OMEMO encryption for MUC
 	OmemoManager* om = account() ? account()->omemoManager() : nullptr;
-	if (om && om->isEnabled(jid()) && om->hasMucSessions(jid(), nickToRealJid_)) {
-		// Async: encrypt for all participants that have Signal sessions.
-		// Lambda captures 'this' with QPointer guard so we don't crash if
-		// the dialog is closed before encryptDone fires.
+	if (om && om->isEnabled(jid())) {
+		// Kick off bundle fetches for any participant we don't yet have a
+		// session for. This is idempotent — ensureMucSessions skips peers
+		// whose sessions already exist. The fetches are async so they
+		// won't block this send; they establish sessions for NEXT sends.
+		// Without this call our peers show '[This message is OMEMO
+		// encrypted]' because we've never addressed a <key rid=theirDev>
+		// to them.
+		om->ensureMucSessions(jid(), nickToRealJid_);
+
+		// Even with zero existing sessions we still go through encryption:
+		// our own other devices + any participant whose bundle is already
+		// cached get proper <key> entries; the rest get skipped (and will
+		// be covered on subsequent sends after ensureMucSessions fetches
+		// resolve). If literally NO keys are produced, encryptForMuc
+		// reports !ok and we fall back to plaintext.
 		QPointer<GCMainDlg> self(this);
 		XMPP::Message msgCopy = m;
 		connect(om, &OmemoManager::encryptDone, this,
@@ -263,7 +275,9 @@ void GCMainDlg::doSendMessage(const XMPP::Message& _m)
 				em.setBody(QObject::tr("[This message is OMEMO encrypted]"));
 				em.addExtension(enc);
 			}
-			// If encryption failed, fall back to plain
+			// If encryption failed completely (no sessions yet), fall
+			// back to plain text — better than swallowing the message.
+			// User will typically retry after bundles are fetched.
 			emit self->aSend(em);
 		});
 		om->encryptForMuc(jid(), m.body(), nickToRealJid_);

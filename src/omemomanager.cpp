@@ -2035,6 +2035,68 @@ bool OmemoManager::hasMucSessions(const XMPP::Jid& /*roomJid*/,
     return false;
 }
 
+void OmemoManager::ensureMucSessions(const XMPP::Jid& roomJid,
+                                      const QHash<QString, XMPP::Jid>& nickToRealJid)
+{
+    if (!d->initialized) {
+        qDebug() << "[OMEMO] ensureMucSessions: not initialized yet, skipping room"
+                 << roomJid.bare();
+        return;
+    }
+
+    // Collect unique bare JIDs (a single real user can have multiple nicks
+    // due to rejoin/nickchange; dedup by bare JID).
+    QSet<QString> toFetch;
+    for (auto it = nickToRealJid.constBegin(); it != nickToRealJid.constEnd(); ++it) {
+        const XMPP::Jid& realJid = it.value();
+        if (realJid.isEmpty())
+            continue;
+        const QString bareJid = realJid.bare();
+        if (bareJid == d->accountId)
+            continue; // libsignal refuses self-sessions
+        toFetch.insert(bareJid);
+    }
+
+    if (toFetch.isEmpty()) {
+        qDebug() << "[OMEMO] ensureMucSessions: no resolvable real JIDs yet for"
+                 << roomJid.bare()
+                 << "(semi-anonymous room? or presence not processed)";
+        return;
+    }
+
+    int fetchedCount = 0;
+    int alreadyHaveCount = 0;
+    for (const QString& bareJid : qAsConst(toFetch)) {
+        const QList<uint32_t> devices = d->deviceLists.value(bareJid);
+        bool haveAny = false;
+        for (uint32_t devId : devices) {
+            const QByteArray jidUtf8 = bareJid.toUtf8();
+            signal_protocol_address addr;
+            addr.name = jidUtf8.constData();
+            addr.name_len = static_cast<size_t>(jidUtf8.size());
+            addr.device_id = static_cast<int32_t>(devId);
+            if (sess_contains_session(&addr, &d->store)) {
+                haveAny = true;
+                break;
+            }
+        }
+        if (haveAny) {
+            ++alreadyHaveCount;
+            continue;
+        }
+        // Async — this issues a PEP devicelist+bundle fetch and builds
+        // sessions when the reply arrives. sessionsEstablished signals
+        // fire per-contact; encryptForMuc will then see the new sessions.
+        fetchContactBundles(XMPP::Jid(bareJid));
+        ++fetchedCount;
+    }
+
+    qDebug() << "[OMEMO] ensureMucSessions for" << roomJid.bare()
+             << "— participants:" << toFetch.size()
+             << "(already-have:" << alreadyHaveCount
+             << "fetching:" << fetchedCount << ")";
+}
+
 void OmemoManager::encryptForMuc(const XMPP::Jid& roomJid, const QString& body,
                                   const QHash<QString, XMPP::Jid>& nickToRealJid)
 {
@@ -2062,26 +2124,45 @@ void OmemoManager::encryptForMuc(const XMPP::Jid& roomJid, const QString& body,
     // Signal-encrypt 32-byte key material (key || tag) per Conversations spec
     QByteArray keyMaterial = aesKey + authTag;
 
-    // Encrypt key material for each participant device that has a session
+    // Encrypt key material for each participant device that has a session.
+    // Also for our OWN other devices so own-device-echo works (symmetric
+    // with encrypt()). libsignal refuses self-sessions, so we skip the
+    // local device ID when iterating our own deviceList.
     QList<XmppOmemo::OmemoKey> keys;
 
+    // Collect unique bareJid targets (participants + ourselves).
+    // Dedup via QSet — in big rooms the same real user can appear under
+    // multiple nicks during nick changes.
+    QSet<QString> targetBares;
     for (auto it = nickToRealJid.constBegin(); it != nickToRealJid.constEnd(); ++it) {
         const XMPP::Jid& realJid = it.value();
         if (realJid.isEmpty())
             continue;
+        const QString b = realJid.bare();
+        if (b == d->accountId)
+            continue; // we add ourselves explicitly below (localDeviceId excluded)
+        targetBares.insert(b);
+    }
+    // Add our own bare JID so our other OMEMO-capable resources can see
+    // what we posted to the room.
+    if (!d->accountId.isEmpty())
+        targetBares.insert(d->accountId);
 
-        QString bareJid = realJid.bare();
+    int missingParticipants = 0;
+    for (const QString& bareJid : qAsConst(targetBares)) {
         QList<uint32_t> devices = d->deviceLists.value(bareJid);
+        bool anyForThisPeer = false;
 
         for (uint32_t devId : devices) {
+            // Skip self-device — libsignal cannot encrypt to own device.
+            if (bareJid == d->accountId && devId == d->store.localDeviceId)
+                continue;
+
             QByteArray jidUtf8 = bareJid.toUtf8();
             signal_protocol_address addr;
             addr.name = jidUtf8.constData();
             addr.name_len = static_cast<size_t>(jidUtf8.size());
             addr.device_id = static_cast<int32_t>(devId);
-
-            // libsignal handles both fresh and established sessions —
-            // no pre-check needed.
 
             session_cipher* cipher = nullptr;
             if (session_cipher_create(&cipher, d->storeCtx, &addr, d->signalCtx) != SG_SUCCESS) {
@@ -2110,15 +2191,31 @@ void OmemoManager::encryptForMuc(const XMPP::Jid& roomJid, const QString& body,
                                 static_cast<int>(signal_buffer_len(serialized)));
             k.prekey = (ciphertext_message_get_type(encryptedKey) == CIPHERTEXT_PREKEY_TYPE);
             keys.append(k);
+            anyForThisPeer = true;
+
+            qDebug() << "[OMEMO] encryptForMuc   -> " << bareJid << "device" << devId
+                     << (k.prekey ? "(PreKey)" : "(SignalMsg)") << k.data.size() << "bytes";
 
             SIGNAL_UNREF(encryptedKey);
+        }
+
+        if (!anyForThisPeer && bareJid != d->accountId) {
+            ++missingParticipants;
+            qDebug() << "[OMEMO] encryptForMuc: NO session for participant"
+                     << bareJid << "— they will see fallback body. "
+                     << "Retry once ensureMucSessions has fetched bundles.";
         }
     }
 
     if (keys.isEmpty()) {
-        qWarning() << "[OMEMO] encryptForMuc: no sessions — falling back to plain";
+        qWarning() << "[OMEMO] encryptForMuc: no sessions for anyone in room" << roomJid.bare()
+                   << "— falling back to plain. ensureMucSessions should have been called first.";
         emit encryptDone(roomJid, QDomElement(), body, false);
         return;
+    }
+    if (missingParticipants > 0) {
+        qWarning() << "[OMEMO] encryptForMuc: partial encryption —" << missingParticipants
+                   << "participant(s) with no session; they'll see fallback body.";
     }
 
     QDomDocument doc;

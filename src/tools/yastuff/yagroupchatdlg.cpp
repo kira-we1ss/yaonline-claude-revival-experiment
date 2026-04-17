@@ -212,7 +212,23 @@ void YaGroupchatDlg::presence(const QString& nick, const Status& s)
 	// XEP-0384 OMEMO MUC: maintain nick → real JID map from MUC presence
 	// <x xmlns='muc#user'><item jid='real@server'/> is exposed via mucItem().jid()
 	if (!nick.isEmpty() && !s.mucItem().jid().isEmpty()) {
-		nickToRealJid_[nick] = s.mucItem().jid().withResource(QString());
+		const XMPP::Jid newReal = s.mucItem().jid().withResource(QString());
+		const bool fresh = !nickToRealJid_.contains(nick) ||
+		                   nickToRealJid_[nick].bare() != newReal.bare();
+		nickToRealJid_[nick] = newReal;
+
+		// When a new occupant's real JID becomes known for the first time
+		// (or changes), pre-fetch their OMEMO bundle so we can encrypt to
+		// them on the next send. Without this, encryptForMuc would skip
+		// them for lack of a session and our peers see the fallback body
+		// '[This message is OMEMO encrypted]'. Only fires if OMEMO is on
+		// for this room — otherwise we don't want to burn PEP IQs on
+		// non-OMEMO rooms. ensureMucSessions is idempotent and dedups.
+		if (fresh && account()) {
+			OmemoManager* om = account()->omemoManager();
+			if (om && om->isEnabled(jid()))
+				om->ensureMucSessions(jid(), nickToRealJid_);
+		}
 	} else if (!nick.isEmpty() && s.mucItem().jid().isEmpty() && !s.isAvailable()) {
 		// Occupant leaving and we had a real JID: keep the mapping (useful for
 		// in-flight OMEMO messages that arrive after the leave presence)
