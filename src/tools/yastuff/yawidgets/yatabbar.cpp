@@ -385,6 +385,12 @@ void YaTabBar::paintEvent(QPaintEvent*)
 
 	QPainter p(this);
 
+	// Qt5/macOS: fill the tab bar background with a visible gray so the white
+	// current-tab (editAreaColor = 0xFFFFFF) stands out against the bar.
+	// Without this, the entire tab bar is white (from global light palette) and
+	// the current tab is invisible (white-on-white).
+	p.fillRect(rect(), QColor(0xCC, 0xCC, 0xCC));
+
 	// extra()->setHighlightColor(drawHighlightChevronBackground() ? highlightColor() : QColor());
 	extra()->setEnableBlinking(drawHighlightChevronBackground());
 
