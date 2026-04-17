@@ -344,13 +344,13 @@ public:
 					goto ready;
 				}
 
-				// Continue with authentication
-				QByteArray plain;
-				if (!authz.isEmpty())
-					plain += authz.toUtf8();
-			   	plain += '\0' + user.toUtf8() + '\0' + pass.toByteArray();
-				out_buf.resize(plain.length());
-				memcpy(out_buf.data(), plain.data(), out_buf.size());
+			// Continue with authentication
+			QByteArray plain;
+			if (!authz.isEmpty())
+				plain += authz.toUtf8();
+		   	plain += '\0' + user.toUtf8() + '\0' + pass.toByteArray();
+			out_buf.resize(plain.length());
+			memcpy(out_buf.data(), plain.data(), out_buf.size());
 			}
 #endif
 			++step;

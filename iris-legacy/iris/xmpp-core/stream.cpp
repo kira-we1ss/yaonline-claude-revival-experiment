@@ -1138,16 +1138,16 @@ bool ClientStream::handleNeed()
 			// if (d->allowXFacebookPlatform)
 			//     auth_flags = (QCA::SASL::AuthFlags) (auth_flags | QCA::SASL::AllowXFacebookPlatform);
 #endif
-			d->sasl->setConstraints(auth_flags,d->minimumSSF,d->maximumSSF);
+		d->sasl->setConstraints(auth_flags,d->minimumSSF,d->maximumSSF);
 
-			QStringList ml;
-			if(!d->sasl_mech.isEmpty())
-				ml += d->sasl_mech;
-			else
-				ml = d->client.features.sasl_mechs;
+		QStringList ml;
+		if(!d->sasl_mech.isEmpty())
+			ml += d->sasl_mech;
+		else
+			ml = d->client.features.sasl_mechs;
 
-			d->sasl->startClient("xmpp", QUrl::toAce(d->server), ml, QCA::SASL::AllowClientSendFirst);
-			return false;
+		d->sasl->startClient("xmpp", QUrl::toAce(d->server), ml, QCA::SASL::AllowClientSendFirst);
+		return false;
 		}
 		case CoreProtocol::NSASLNext: {
 #ifdef XMPP_DEBUG
