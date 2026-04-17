@@ -117,6 +117,8 @@ open src/yachat.app
 | 1 | Замена QCA | ✅ | QCA 2.3.7 собран из исходников с плагином ossl; встроенная 2.0.1 отключена |
 | 1а | TLS-плагин в бандл | ✅ | `libqca-ossl.dylib` скопирован в `yachat.app/Contents/MacOS/crypto/`; `QCA::isSupported("tls") == true` |
 | 1б | Бесконечный цикл reconnect | ✅ | Исправлен: `continueLogin()` / `checkLoginPrerequisites()` больше не вызывают PDD-запрос для не-Яндекс доменов |
+| 1в | QCA двойная загрузка (SIGSEGV KeyStoreThread) | ✅ | QCA_PLUGIN_PATH ограничен бандлом; qca_core.cpp пропатчен; все плагины в crypto/ с исправленными rpath |
+| 1г | SecureStream crash (SIGSEGV bs_readyRead) | ✅ | Guard isEmpty() перед first()/last(); d->active check; fix SNI — hostname всегда передаётся в QCA::TLS::startClient() |
 | 2 | TLS 1.2+ минимум | 🔲 | `QSsl::TlsV1_2OrLater` в stream.cpp, отклонять даунгрейд |
 | 3 | **Добавить** SCRAM-SHA-256 | 🔲 | Через QCA 2.3.x SASL; должен работать end-to-end до шага 5 |
 | 4 | **Добавить** SCRAM-SHA-1 fallback | 🔲 | RFC 5802; широко поддерживается; оставить рядом с SHA-256 |
@@ -159,4 +161,4 @@ open src/yachat.app
 
 ---
 
-*Последнее обновление: 2026-04-17 (Claude: **Layer 4 начат.** QCA 2.3.7 собран из исходников и подключён. Плагин `libqca-ossl.dylib` включён в бандл — `QCA::isSupported("tls") == true`. Исправлен бесконечный цикл подключения: `checkLoginPrerequisites()` и `continueLogin()` теперь пропускают запрос к Яндекс PDD для не-яндексовых доменов и сразу переходят к подключению. Следующий шаг: тест реального подключения к XMPP-серверу, затем задачи 2–7 (TLS 1.2+, SCRAM-SHA-256).)*
+*Последнее обновление: 2026-04-17 (Claude: **Layer 4 в процессе — цепочка стартовых крашей устранена.** (1) QCA 2.3.7 с ossl-плагином; (2) QCA двойная загрузка (SIGSEGV KeyStoreThread) — исправлено патчем qca_core.cpp + QCA_PLUGIN_PATH; (3) Бесконечный цикл reconnect — PDD-проверка пропускается для не-Яндекс доменов; (4) SecureStream SIGSEGV в bs_readyRead — guard isEmpty() + fix SNI (hostname теперь всегда передаётся в QCA::TLS::startClient()). Приложение запускается, логин работает, TCP+STARTTLS инициируется. Следующий шаг: убедиться что SASL-аутентификация проходит до конца.)*
