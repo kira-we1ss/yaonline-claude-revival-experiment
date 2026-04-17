@@ -515,8 +515,10 @@ struct OmemoStore {
 // and every outgoing session establishment fails with -1000.
 static int ik_get_identity_key_pair(signal_buffer** public_data, signal_buffer** private_data, void* user_data)
 {
+    fprintf(stderr, "[OMEMO] >>> ik_get_identity_key_pair CALLED\n"); fflush(stderr);
     auto* ctx = static_cast<IdentityContext*>(user_data);
     if (!ctx || !ctx->identityKeyPairRef || !*ctx->identityKeyPairRef) {
+        fprintf(stderr, "[OMEMO] ik_get_identity_key_pair: no identity key pair loaded (ctx=%p)\n", (void*)ctx); fflush(stderr);
         qWarning("[OMEMO] ik_get_identity_key_pair: no identity key pair loaded");
         return SG_ERR_UNKNOWN;
     }
@@ -566,6 +568,9 @@ static int ik_save_identity(const signal_protocol_address* address,
 static int ik_is_trusted_identity(const signal_protocol_address* address,
                                   uint8_t* key_data, size_t key_len, void* user_data)
 {
+    fprintf(stderr, "[OMEMO] >>> ik_is_trusted_identity CALLED for %.*s:%d (key_len=%zu)\n",
+        (int)address->name_len, address->name, address->device_id, key_len);
+    fflush(stderr);
     auto* ctx = static_cast<IdentityContext*>(user_data);
     OmemoStore* store = ctx->store;
     QString key = QString::fromUtf8(address->name, static_cast<int>(address->name_len))
@@ -661,6 +666,12 @@ static int spk_remove_signed_pre_key(uint32_t signed_pre_key_id, void* user_data
 }
 
 // Session store
+// Per libsignal API contract (signal_protocol.h):
+//   Returns 1 if the session was loaded, 0 if the session was not found,
+//   negative on failure. Previously we returned SG_ERR_UNKNOWN (-1000) on
+//   "not found", which libsignal treats as a hard failure, short-circuiting
+//   session_builder_process_pre_key_bundle with -1000 — THIS was the root
+//   cause of "still TLS-only, never encrypts" after every other layer was fixed.
 static int sess_load_session(signal_buffer** record, signal_buffer** user_record,
                              const signal_protocol_address* address, void* user_data)
 {
@@ -669,11 +680,11 @@ static int sess_load_session(signal_buffer** record, signal_buffer** user_record
     QString key = QString::fromUtf8(address->name, static_cast<int>(address->name_len))
                   + QLatin1Char(':') + QString::number(address->device_id);
     if (!store->sessions.contains(key))
-        return SG_ERR_UNKNOWN;
+        return 0; // not found — NOT an error
     QByteArray d = store->sessions[key];
     *record = signal_buffer_create(reinterpret_cast<const uint8_t*>(d.constData()),
                                    static_cast<size_t>(d.size()));
-    return SG_SUCCESS;
+    return 1; // loaded
 }
 
 static int sess_get_sub_device_sessions(signal_int_list** sessions,
@@ -791,6 +802,8 @@ public:
 static void signalLogFunc(int level, const char* message, size_t len, void* /*user_data*/)
 {
     qDebug("[OMEMO/signal L%d] %.*s", level, static_cast<int>(len), message);
+    fprintf(stderr, "[OMEMO/signal L%d] %.*s\n", level, static_cast<int>(len), message);
+    fflush(stderr);
 }
 
 bool OmemoManager::Private::initialize()

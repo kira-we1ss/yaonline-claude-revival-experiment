@@ -37,6 +37,7 @@ extern "C" {
 #ifdef YAPSI
 #include "yaipc.h"
 #include "yalicense.h"
+#include <cstdlib>
 #endif
 
 #include "main.h"
@@ -533,6 +534,11 @@ int main(int argc, char *argv[])
 	int returnValue = app.exec();
 	delete psi;
 
+	// Bypass atexit handlers. OpenSSL 3 and QCA both register cleanup hooks that
+	// race against each other (double-free in libcrypto's ossl_method_store_free
+	// during OPENSSL_cleanup). We've flushed all our state above; use _exit()
+	// to skip OpenSSL teardown entirely and go straight to kernel.
+	std::_Exit(returnValue);
 	return returnValue;
 #endif
 }
