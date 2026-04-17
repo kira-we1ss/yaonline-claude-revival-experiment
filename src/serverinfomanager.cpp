@@ -143,20 +143,31 @@ void ServerInfoManager::item_info_finished()
 	if (!jt->success())
 		return;
 
-	// Check for HTTP File Upload service: identity category="store" type="file"
-	// (XEP-0363 §4 — upload component advertises this identity)
-	bool changed = false;
-	foreach(const DiscoItem::Identity& i, jt->item().identities()) {
-		if (i.category == QLatin1String("store") && i.type == QLatin1String("file")) {
-			if (!hasHttpUpload_ || httpUploadService_.isEmpty()) {
-				hasHttpUpload_ = true;
-				httpUploadService_ = jt->jid().full();
-				changed = true;
+	// XEP-0363 HTTP File Upload detection.
+	//
+	// Primary check: feature string. Prosody, ejabberd and most modern servers
+	// advertise urn:xmpp:http:upload:0 as a disco feature on the upload
+	// component but do NOT necessarily include the optional store/file identity.
+	// Also accept the legacy namespace without the :0 suffix for older deployments.
+	//
+	// Fallback check: identity category="store" type="file" — required by the
+	// spec but rarely advertised in practice.
+	bool isUploadService = jt->item().features().test(
+		QStringList() << QLatin1String("urn:xmpp:http:upload:0")
+		              << QLatin1String("urn:xmpp:http:upload"));
+
+	if (!isUploadService) {
+		foreach(const DiscoItem::Identity& i, jt->item().identities()) {
+			if (i.category == QLatin1String("store") && i.type == QLatin1String("file")) {
+				isUploadService = true;
+				break;
 			}
-			break;
 		}
 	}
 
-	if (changed)
+	if (isUploadService && (!hasHttpUpload_ || httpUploadService_.isEmpty())) {
+		hasHttpUpload_ = true;
+		httpUploadService_ = jt->jid().full();
 		emit featuresChanged();
+	}
 }
