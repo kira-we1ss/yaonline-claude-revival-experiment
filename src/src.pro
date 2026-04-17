@@ -164,10 +164,17 @@ mac {
 	QMAKE_MACOSX_DEPLOYMENT_TARGET = 11.0
 	QMAKE_INFO_PLIST = ../mac/Info.plist
 	RC_FILE = ../mac/application.icns
+	# Copy QCA framework into the .app bundle so the binary's rpath
+	# (@executable_path/../Frameworks) resolves at runtime. Without this
+	# the app would be tied to whichever machine built it. Uses cp -R with
+	# -n so it's idempotent-ish on incremental rebuilds.
 	QMAKE_POST_LINK = \
 		mkdir -p `dirname $(TARGET)`/../Resources/iconsets/emoticons; \
 		cp -R tools/yastuff/iconsets/emoticons/* `dirname $(TARGET)`/../Resources/iconsets/emoticons; \
 		cp -R ../certs ../sound `dirname $(TARGET)`/../Resources; \
+		mkdir -p `dirname $(TARGET)`/../Frameworks; \
+		rm -rf `dirname $(TARGET)`/../Frameworks/qca-qt5.framework; \
+		cp -R $$PWD/../third-party/qca-qt5-install/qca-qt5.framework `dirname $(TARGET)`/../Frameworks/; \
 		echo "APPLyach" > `dirname $(TARGET)`/../PkgInfo;
 
 	CARBONCOCOA_PRI = $$PWD/tools/carboncocoa/carboncocoa.pri
