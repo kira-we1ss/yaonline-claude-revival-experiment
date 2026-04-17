@@ -161,13 +161,16 @@ static struct UnmappedEntry * _unmappedEntryForKeyCode( UInt16 aKeyCode )
         else
             return &unmappedKeys[mid];
     }
-    return '\0';
+    return NULL;
 }
 
 static NSUInteger _characterForModifierFlags( unichar aBuff[4], UInt32 aModifierFlags )
 {
 	NSUInteger		thePos = 0;
-	memset( aBuff, 0, sizeof(aBuff) );
+	// NB: `aBuff` decays to a pointer in this function parameter, so
+	// `sizeof(aBuff)` would be sizeof(unichar *) = 8, not 4*sizeof(unichar)
+	// as intended. Use the explicit element count.
+	memset( aBuff, 0, 4 * sizeof(unichar) );
 	if(aModifierFlags & NSControlKeyMask)
 		aBuff[thePos++] = kControlUnicode;
 

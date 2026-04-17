@@ -96,7 +96,12 @@ PsiLogger* PsiLogger::instance()
 
 bool PsiLogger::enableLogging()
 {
-	return this && stream_;
+	// Was `return this && stream_;` — UB (implicit non-null 'this' in
+	// well-defined C++); compilers will optimise the `this` check away.
+	// The original intent was to allow callers to do
+	// `PsiLogger::instance()->enableLogging()` even when instance_ is null
+	// during shutdown. Guard that at the call sites instead.
+	return stream_;
 }
 
 void PsiLogger::log(const QString& _msg)

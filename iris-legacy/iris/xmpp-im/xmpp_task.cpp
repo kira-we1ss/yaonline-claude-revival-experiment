@@ -114,7 +114,11 @@ void Task::go(bool autoDelete)
 {
 	d->autoDelete = autoDelete;
 
-	if (!client() || !&client()->stream()) {
+	// Was `!&client()->stream()`; stream() returns a Stream& so taking its
+	// address can never be null. Compilers warn on this. Just check the
+	// client pointer — callers relying on a disconnected-stream guard here
+	// should use higher-level state checks.
+	if (!client()) {
 		qWarning("Task::go(): attempted to send a task over the broken connection.");
 		if (autoDelete) {
 			deleteLater();

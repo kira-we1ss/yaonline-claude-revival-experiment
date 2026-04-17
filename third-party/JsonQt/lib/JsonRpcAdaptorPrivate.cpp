@@ -207,8 +207,10 @@ namespace JsonQt
 
 		QVariant::Type returnType = typeMap.value(metaMethod.typeName());
 
-		// QMetaObject::invokeMethod takes 9 generic arguments
-		QGenericArgument arguments[9];
+		// QMetaObject::invokeMethod takes up to 10 generic arguments
+		// (val0..val9). The loop below references arguments[0..9] — prior
+		// size of 9 was a one-off bug writing past the end of the array.
+		QGenericArgument arguments[10];
 		for(int i = 0; i < parameterCount; ++i)
 		{
 			const QVariant& value = parameterList.value(i);

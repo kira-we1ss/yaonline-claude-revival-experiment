@@ -842,7 +842,11 @@ void S5BManager::srv_incomingReady(SocksClient *sc, const QString &key)
 void S5BManager::srv_incomingUDP(bool init, const QHostAddress &addr, int port, const QString &key, const QByteArray &data)
 {
 	Entry *e = findEntryByHash(key);
-	if(!e->c->d->mode != S5BConnection::Datagram)
+	// BUG: was `!e->c->d->mode != S5BConnection::Datagram` which parses as
+	// `(!mode) != Datagram` — almost always false, so UDP datagrams on
+	// non-datagram connections were actually NOT being dropped. Intent was
+	// "drop if not datagram mode".
+	if(!e || e->c->d->mode != S5BConnection::Datagram)
 		return; // this key isn't in udp mode?  drop!
 
 	if(init) {
@@ -1032,16 +1036,21 @@ void S5BManager::queryProxy(Entry *e)
 void S5BManager::query_finished()
 {
 	JT_S5B *query = (JT_S5B *)sender();
-	Entry *e;
-	bool found = false;
-		for(Entry *e : d->activeList) {
-		if(e->query == query) {
-			found = true;
+	// BUG (uninitialized 'e'): previously an outer `Entry *e` was declared
+	// before the loop and a shadowing inner `e` was used to search the
+	// active list. When the loop ended, the outer `e` was never assigned,
+	// leading to a dereference of a garbage pointer at `e->query = 0`
+	// below. Fix: capture the found entry into a dedicated variable.
+	Entry *found = nullptr;
+	for(Entry *ent : d->activeList) {
+		if(ent->query == query) {
+			found = ent;
 			break;
 		}
 	}
 	if(!found)
 		return;
+	Entry *e = found;
 	e->query = 0;
 
 #ifdef S5B_DEBUG
@@ -2093,7 +2102,11 @@ void S5BServer::ss_incomingReady()
 
 void S5BServer::ss_incomingUDP(const QString &host, int port, const QHostAddress &addr, int sourcePort, const QByteArray &data)
 {
-	if(port != 0 || port != 1)
+	// XEP-0065 UDP packets: port 0 = init, port 1 = data. Drop anything
+	// else. Previously was `!= 0 || != 1` which is tautologically true, so
+	// this entire function was always returning early and no UDP S5B
+	// traffic was ever processed.
+	if(port != 0 && port != 1)
 		return;
 
 		for(S5BManager *m : d->manList) {

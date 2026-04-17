@@ -63,7 +63,12 @@ QDomElement Mood::toXml(QDomDocument& doc)
 	QDomElement mood = doc.createElement("mood");
 	mood.setAttribute("xmlns", "http://jabber.org/protocol/mood");
 
-	if (!type() == Unknown) {
+	// Was `!type() == Unknown` which parses as `(!type()) == Unknown` =
+	// `(type() == 0) == Unknown`. Since Unknown is itself 0 in the enum,
+	// this worked BACKWARDS — entered the "unknown mood" error branch
+	// whenever a real mood was set, and the mood-element branch when the
+	// mood was actually unknown. Classic precedence bug.
+	if (type() != Unknown) {
 		QDomElement el = doc.createElement(MoodCatalog::instance()->findEntryByType(type()).value());
 		mood.appendChild(el);
 	}
