@@ -7775,6 +7775,13 @@ void PsiAccount::omemo_decryptFinished(const XMPP::Jid& from, const QString& pla
             } else {
                 qWarning() << "[OMEMO] decryption failed from" << from.bare()
                            << "— keeping fallback body for display";
+                // Still mark as encrypted so the chat UI doesn't toggle
+                // the 'Encryption Disabled' banner just because one old
+                // replayed message couldn't be decrypted. The message was
+                // genuinely OMEMO-encrypted — we just can't recover the
+                // plaintext because libsignal refused a replay or we
+                // lost state.
+                m.setWasEncrypted(true);
             }
             processIncomingMessage(m);
             return;
