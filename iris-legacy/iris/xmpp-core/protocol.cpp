@@ -1376,6 +1376,19 @@ bool CoreProtocol::normalStep(const QDomElement &e)
 				tls_started = true;
 				need = NStartTLS;
 				spare = resetStream();
+				// XEP-0178 / RFC 6120 §5.4.3.3: between <proceed/> and the
+				// TLS handshake bytes there MUST be nothing. Any data
+				// buffered past the <proceed/> is a STARTTLS command/data
+				// injection attempt (CVE-2011-1575-class). Refuse to feed
+				// those bytes into the TLS stream.
+				if(!spare.isEmpty()) {
+#ifdef XMPP_TEST
+					TD::msg("STARTTLS injection: dropping pre-TLS buffered bytes");
+#endif
+					event = EError;
+					errorCode = ErrProtocol;
+					return true;
+				}
 				step = Start;
 				return false;
 			}

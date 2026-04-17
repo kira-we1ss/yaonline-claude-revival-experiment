@@ -173,6 +173,12 @@ namespace XMPP {
 		// XEP-0280 Message Carbons
 		bool isCarbon() const;
 		bool isCarbonSent() const; // true=sent copy, false=received copy
+		// JID on the outer <message> that delivered the carbon envelope.
+		// SECURITY: Caller MUST verify carbonOuterFrom().bare() equals our
+		// own account bare JID (XEP-0280 §11) before trusting the inner
+		// fields (from/to/body). Otherwise a hostile remote user could
+		// forge the carbon wrapper and impersonate any contact.
+		Jid carbonOuterFrom() const;
 		void setCarbon(bool isSent);
 
 		// XEP-0333 Chat Markers

@@ -943,6 +943,7 @@ public:
 	// XEP-0280 Message Carbons
 	bool isCarbon_;
 	bool isCarbonSent_; // true = sent copy, false = received copy
+	Jid carbonOuterFrom_; // JID on the outer <message> that delivered the carbon envelope; caller MUST verify this is our bare JID (XEP-0280 §11) before trusting inner from/to/body
 
 	// XEP-0333 Chat Markers
 	bool chatMarkable_;
@@ -975,6 +976,7 @@ Message::Message(const Jid &to)
 	d->replaceId = QString();
 	d->isCarbon_ = false;
 	d->isCarbonSent_ = false;
+	d->carbonOuterFrom_ = Jid();
 	d->chatMarkable_ = false;
 	d->chatMarker_ = Message::MarkerNone;
 	d->chatMarkerId_ = QString();
@@ -1459,6 +1461,7 @@ void Message::setReplaceId(const QString& id) { d->replaceId = id; }
 // XEP-0280 Message Carbons accessors
 bool Message::isCarbon() const { return d->isCarbon_; }
 bool Message::isCarbonSent() const { return d->isCarbonSent_; }
+Jid Message::carbonOuterFrom() const { return d->carbonOuterFrom_; }
 void Message::setCarbon(bool isSent) { d->isCarbon_ = true; d->isCarbonSent_ = isSent; }
 
 // XEP-0333 Chat Markers accessors
@@ -2183,7 +2186,16 @@ bool Message::fromStanza(const Stanza &s, int timeZoneOffset)
 	}
 
 	// XEP-0280 Message Carbons
-	// Check for <sent> or <received> wrapper under urn:xmpp:carbons:2
+	// Check for <sent> or <received> wrapper under urn:xmpp:carbons:2.
+	//
+	// SECURITY (XEP-0280 §11): the outer <message> MUST be from our own bare
+	// JID for the envelope to be trusted. A hostile remote user could forge
+	// the carbon wrapper otherwise, making their message appear to come from
+	// any arbitrary contact. We cannot check this here (we do not know our
+	// own JID at the type-level), so we store the outer from in
+	// `carbonOuterFrom_` and expose it via Message::carbonOuterFrom() —
+	// the caller (PsiAccount::client_messageReceived) is responsible for
+	// verifying before acting on the carbon.
 	{
 		const QString carbonsNS = "urn:xmpp:carbons:2";
 		const QString forwardNS = "urn:xmpp:forward:0";
@@ -2204,6 +2216,9 @@ bool Message::fromStanza(const Stanza &s, int timeZoneOffset)
 				if (!innerMsg.isNull()) {
 					d->isCarbon_ = true;
 					d->isCarbonSent_ = isSent;
+					// Capture the outer (delivering) JID for caller-side
+					// verification before trusting any inner fields.
+					d->carbonOuterFrom_ = s.from();
 
 					// Extract body from inner message
 					QDomElement bodyEl = innerMsg.firstChildElement("body");
@@ -2219,6 +2234,23 @@ bool Message::fromStanza(const Stanza &s, int timeZoneOffset)
 					// Extract id from inner message
 					if (!innerMsg.attribute("id").isEmpty())
 						d->id = innerMsg.attribute("id");
+
+					// Re-parse inner-message extensions so that OMEMO
+					// <encrypted>, chat state, markers, correction etc.
+					// carried in a carbon-forwarded message are not silently
+					// dropped. We walk inner children and merge any
+					// foreign-namespace element into unknownExtensions so
+					// getExtension() etc. work downstream.
+					for (QDomNode cn = innerMsg.firstChild(); !cn.isNull(); cn = cn.nextSibling()) {
+						QDomElement ce = cn.toElement();
+						if (ce.isNull())
+							continue;
+						if (ce.tagName() == "body")
+							continue; // already handled
+						QString ns = ce.namespaceURI();
+						if (!ns.isEmpty() && ns != s.baseNS())
+							d->unknownExtensions[ns] = ce;
+					}
 
 					// Extract timestamp from <delay xmlns='urn:xmpp:delay'>
 					QDomElement delay = forwarded.elementsByTagNameNS("urn:xmpp:delay", "delay").item(0).toElement();

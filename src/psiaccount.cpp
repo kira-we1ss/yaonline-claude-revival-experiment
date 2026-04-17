@@ -3481,6 +3481,19 @@ void PsiAccount::client_messageReceived(const Message &m)
 		_m.setFrom(jid().domain());
 	}
 
+	// XEP-0280 §11 Carbons security: the outer <message> that delivered a
+	// carbon envelope MUST come from our own bare JID. Without this check
+	// a remote attacker could forge carbon wrappers to impersonate any
+	// contact in our roster. Drop silently (spec-compliant behavior).
+	if (_m.isCarbon()) {
+		const Jid outerFrom = _m.carbonOuterFrom();
+		if (!outerFrom.isEmpty() && !outerFrom.compare(jid(), false)) {
+			qWarning("[carbons] Rejecting forged carbon envelope: outer from=%s does not match our JID=%s",
+			         qPrintable(outerFrom.full()), qPrintable(jid().bare()));
+			return;
+		}
+	}
+
 	// if the sender is already in the queue, then queue this message also
 	foreach(Message* mi, d->messageQueue) {
 		if(mi->from().compare(_m.from())) {
