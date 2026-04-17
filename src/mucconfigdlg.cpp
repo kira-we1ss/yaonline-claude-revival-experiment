@@ -274,14 +274,21 @@ void MUCConfigDlg::getItemsByAffiliation_success(MUCItem::Affiliation a, const Q
 {
 	if (pending_requests_.contains(a) && ui_.tabs->currentWidget() == ui_.tab_affiliations) {
 		ui_.tv_affiliations->setUpdatesEnabled(false);
-		bool dynamicSortFilter = affiliations_proxy_model_->dynamicSortFilter();
-		affiliations_proxy_model_->setDynamicSortFilter(false);
 
-		affiliations_model_->setAffiliationListEnabled(a);
-		affiliations_model_->addItems(items);
+		// Qt5: QSortFilterProxyModel::layoutChanged clears internal source-index
+		// mapping even when dynamicSortFilter=false.  Subsequent insertRows on
+		// the (now unmapped) source parent then dereferences a null pointer
+		// inside mapToSource (+0x28).  Block all signals from the source model
+		// reaching the proxy while we mutate it; then call invalidate() to
+		// rebuild the mapping in one shot from a clean state.
+		{
+			QSignalBlocker blocker(affiliations_model_);
+			affiliations_model_->setAffiliationListEnabled(a);
+			affiliations_model_->addItems(items);
+		}
+		affiliations_proxy_model_->invalidate();
 		removePendingRequest(a);
 
-		affiliations_proxy_model_->setDynamicSortFilter(dynamicSortFilter);
 		ui_.tv_affiliations->setUpdatesEnabled(true);
 	}
 }
