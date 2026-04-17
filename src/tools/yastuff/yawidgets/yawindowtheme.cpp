@@ -321,7 +321,11 @@ void YaWindowTheme::paintBackground(QPainter* p, const QRect& rect, bool isActiv
 
 	p->drawTiledPixmap(pixmapRect, theme().top());
 	if (plainRect.height() > 0) {
-		p->fillRect(plainRect, theme().bottomColor());
+		// Qt5/macOS: bottomColor() reads the last row of the header pixmap.
+		// For most themes (sky, spring, sea, ice, violet) that pixel is pure black,
+		// flooding the entire content area below the header with black.
+		// The reference design shows white below the header — always use white.
+		p->fillRect(plainRect, Qt::white);
 	}
 
 	if (!theme().relief().isNull()) {
