@@ -21,6 +21,7 @@
 #include "xmpp.h"
 
 #include <qtimer.h>
+#include <QSslConfiguration>
 #include "qca.h"
 
 using namespace XMPP;
@@ -118,6 +119,19 @@ void QCATLSHandler::startClient(const QString &host)
 	d->state = 0;
 	d->err = -1;
 	if (d->internalHostMatch) d->host = host;
+
+	// Enforce TLS 1.2+ minimum — refuse downgrade to SSLv3/TLS1.0/TLS1.1.
+	// QCA uses Qt's QSsl backend; setting the default QSslConfiguration
+	// here propagates the constraint into QCA's internal QSslSocket before
+	// the handshake starts.
+	QSslConfiguration sslConfig = QSslConfiguration::defaultConfiguration();
+	sslConfig.setProtocol(QSsl::TlsV1_2OrLater);
+	QSslConfiguration::setDefaultConfiguration(sslConfig);
+
+	// Also require at least 128-bit cipher suites at the QCA layer
+	// (rejects export-grade and DES ciphers regardless of QSsl backend).
+	d->tls->setConstraints(QCA::SL_Baseline);
+
 	// Always pass the hostname for SNI, even when doing our own cert check.
 	// Passing an empty host disables SNI which breaks TLS with modern servers
 	// (Let's Encrypt, etc.) that rely on SNI to present the correct certificate.

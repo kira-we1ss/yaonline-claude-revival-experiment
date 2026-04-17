@@ -1826,9 +1826,10 @@ void PsiAccount::setUserAccount(const UserAccount &_acc)
 		// we can't rely on other servers using kosher SSL certificates all the time
 		acc.opt_ignoreSSLWarnings = true;
 
-		// since encryption could be turned off, we still should be able to connect to ya.ru, gmail.com
-		// and other plain-text-only services
-		acc.allow_plain = ClientStream::AllowPlain;
+		// Allow PLAIN only over TLS — PLAIN without encryption is insecure.
+		// The original comment about ya.ru/gmail plain-text services is obsolete;
+		// all modern servers require TLS. PLAIN over TLS is fine.
+		acc.allow_plain = ClientStream::AllowPlainOverTLS;
 
 		XMPP::Jid ajid(acc.jid);
 		if (hostPortOverride().contains(ajid.host())) {
