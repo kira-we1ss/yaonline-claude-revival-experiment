@@ -2456,6 +2456,12 @@ void OmemoManager::decrypt(const XMPP::Jid& from, const QDomElement& encryptedEl
     addr.name_len = static_cast<size_t>(fromJidUtf8.size());
     addr.device_id = static_cast<int32_t>(payload.sid);
 
+    qDebug() << "[OMEMO] decrypt: from=" << fromJid << "sid=" << payload.sid
+             << "isPreKey=" << ourKey->prekey
+             << "keyBytes=" << ourKey->data.size()
+             << "ivB64=" << QString::fromLatin1(payload.iv.toBase64())
+             << "payloadBytes=" << payload.payload.size();
+
     session_cipher* cipher = nullptr;
     if (session_cipher_create(&cipher, d->storeCtx, &addr, d->signalCtx) != SG_SUCCESS) {
         qWarning() << "[OMEMO] Failed to create session cipher for" << fromJid;
