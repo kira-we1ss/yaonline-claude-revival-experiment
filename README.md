@@ -2,6 +2,8 @@
 
 > Экспериментальная модернизация Ya.Online 3.0.3 — старого XMPP-клиента Яндекса (форк Psi, 2009 год) — с помощью Claude Code и ChatGPT Codex.
 
+> **Статус: эксперимент завершён (18 апреля 2026).** Клиент **работоспособен, но далеко не идеален**: подключается к современным XMPP-серверам, SCRAM-SHA-1/256, рабочий OMEMO 1-на-1 и в MUC (в обе стороны, на нескольких устройствах), history replay, загрузка файлов (XEP-0363), все 15 XEP из Слоя 5. Базовые фичи современного XMPP-клиента работают корректно. Однако это 15-летний Qt4-проект с до-модерн-Qt паттернами во внутренностях; не ожидайте качества кода зеленого поля.
+
 ---
 
 ## О проекте
@@ -15,15 +17,46 @@
 
 Этот репозиторий — эксперимент: можно ли оживить 15-летний Qt4-проект до рабочего состояния на современном macOS с помощью ИИ-агента (Claude+ChatGPT)?
 
+**Ответ: да, но с оговорками.** За ~3 интенсивных дня работы (14–18 апреля 2026) клиент прошёл путь от «не компилируется ни одного файла на Qt 5.15» до «подключается, шифрует, расшифровывает, отображает файлы, запоминает пароль, работает в группах». Ценой компромиссов: ARM не протестирован, ~371 некритичное предупреждение компилятора осталось, часть внутренностей Iris всё ещё Qt4-эпохи.
+
 ---
 
-## Цель модернизации
+## Что работает
 
-Собрать и запустить клиент на современном macOS (Ventura / Sonoma / Sequoia):
-- подключение к XMPP-серверу ✅
-- отправка и получение сообщений ✅
-- современная безопасность (SCRAM-SHA-1/256, TLS 1.2+) ✅
-- актуальные XMPP-расширения (карбоны, MAM, OMEMO, XEP-0045 и др.) 🔄
+| Фича | Статус | Примечания |
+|---|---|---|
+| Подключение к Prosody 0.12+ | ✅ | SCRAM-SHA-1/256, TLS 1.2+, запоминание пароля |
+| Отправка и получение сообщений | ✅ | 1-на-1, групповые (MUC) |
+| OMEMO 1-на-1 | ✅ | Шифрование ко всем своим устройствам + устройствам получателя |
+| OMEMO в MUC | ✅ | Два направления, включая peer-plaintext cache для history replay |
+| Загрузка файлов (XEP-0363) | ✅ | HTTP Upload slot через сервер, PUT, кликабельные ссылки в чате |
+| История чатов после рестарта | ✅ | Своя отправка пишется plaintext, не `[This message is OMEMO encrypted]` |
+| Yandex custom UI (frame, roster, tab bar) | ✅ | Весь `src/tools/yastuff/` (322 файла) сохранён |
+| Переключение тем | ✅ | 9 скинов в `Preferences → Background`, `spring` подтверждён живым тестом |
+| Автозапуск и автоподключение | ✅ | Пароль сохраняется в профиле |
+| Кнопки OMEMO-замок + исправление сообщения | ✅ | Добавлены в заголовок чата и поле ввода |
+| Все 15 XEP из Слоя 5 | ✅ | Carbons, MAM, Receipts, Markers, Chat states, Ping, CSI, Bookmarks, Disco, Caps, Correction, MUC, HTTP Upload, OMEMO, Direct invites |
+
+## Что НЕ работает (известные ограничения)
+
+- **Apple Silicon нативно** не тестировался — пути в `conf.pri` жёстко зашиты на `/usr/local/opt/qt@5`; на M1/M2/M3 нужен Rosetta Homebrew
+- **Устройства пиров с опубликованным device id, но без опубликованного bundle** (поломанные клиенты) — мы не можем к ним шифровать; 5-минутный backoff на повторную попытку
+- **Сообщения из прошлого, не успевшие попасть в кеш ДО апгрейда на текущую версию** — остаются `[This message is OMEMO encrypted]` навсегда (libsignal отказывается повторно расшифровывать уже-использованный ratchet-counter). Новая переписка работает чисто.
+- **40+ `QXml*` вызовов** в `iris-legacy/iris/xmpp-core/parser.cpp` остались (deprecated с Qt 5.9); переход на `QXmlStreamReader` — отдельный многодневный рефакторинг
+- **130 inconsistent-missing-override warnings** в каскаде `YaGroupchatContactListView` — добавление `override` к одной функции триггерит вирусное требование override ко всем
+- **iris/ (non-legacy) и third-party/qca/** оставлены на диске как reference copies, но не компилируются — 9 МБ мёртвого кода в репозитории
+
+---
+
+## Цель модернизации (итоги)
+
+| Цель | Статус | Как достигнуто |
+|---|---|---|
+| Сборка на macOS Ventura/Sonoma/Sequoia | ✅ | 0 ошибок, 371 предупреждение (было 1981) |
+| Подключение к XMPP-серверу | ✅ | SCRAM-SHA-1/256 на Prosody 0.12+, QCA 2.3.7 |
+| Отправка/получение сообщений | ✅ | Проверено вживую с Conversations/Cheogram/dino/yachat-самого-себя |
+| Современная безопасность | ✅ | TLS 1.2+ minimum, STARTTLS injection fix (CVE-class), Carbons impersonation fix (CVE-class) |
+| Современные XMPP-расширения | ✅ | Все 15 XEP из плана |
 
 ---
 
@@ -337,16 +370,42 @@ The bundled `qca-qt5.framework` (QCA 2.3.7 + OMEMO/TLS plugins) is committed und
 
 ---
 
-*Последнее обновление: 2026-04-17 (Claude: **Layer 7 полностью закрыт** — полный аудит активной кодовой базы с множественными parallel-субагентами, 13 реальных багов из warning-анализа устранены, 2 CVE-уровня уязвимости (STARTTLS-инъекция + XEP-0280 Carbons impersonation) исправлены, QCA фреймворк перенесён из `/tmp` в стабильную локацию в репозитории, dead-code (Sparkle, Growl test, Carbon includes, dead qmake-ветки) удалён, build warnings **1981 → 371 (−81%)**. Все коммиты запушены. Приложение остаётся полностью функциональным; 0 ошибок компиляции.
+## Post-Layer-7 OMEMO стабилизация (2026-04-17 → 2026-04-18)
 
-**Предыдущая большая пачка того же дня — закрыт весь оставшийся Layer 6 UI + вывезли HTTP Upload + OMEMO MUC self-echo.**
+После закрытия Слоя 7 выяснилось что OMEMO имеет несколько корректностных дыр при реальном использовании на нескольких устройствах и после рестарта клиента. Закрыли 14 последовательными коммитами (от `78deb73` до `b0bc4f7`):
 
-**OMEMO multi-device:** свои сообщения из yachat видны на Android-телефоне (Conversations), обратно тоже. Последний пробел закрыли через пять связанных правок: (а) `iris-legacy/iris/xmpp-im/xmpp_task.cpp iqVerify()` молча отбрасывал IQ-ответы на self-PEP запросы с пустым `from` — по RFC 6120 §10.3.3 сервер вправе опустить `from` когда отвечает от имени собственного JID пользователя, так что приняли пустой `from` если `to` совпадает с нашим локальным JID; (б) добавили 10-секундный debounce в `publishBundle()` плюс убрали auto-republish branch из глобального PEP слушателя — без этого мы зацикливались на 131 417 строк лога за 40 секунд когда другой клиент переоверрайтил наш devicelist; (в) `fetchContactBundles()` пропускает наш собственный device id, libsignal не умеет шифровать сам себе; (г) для MUC (где libsignal отказывается в self-session принципиально) сохраняем {iv → plaintext} в памяти при отправке, при приходе self-echo отдаём cached plaintext вместо fallback текста `[This message is OMEMO encrypted]`; (д) этот же кеш персистится в `muc_echo.json` чтобы после рестарта history replay тоже разрезолвил свои шифрованные сообщения. Результат: own messages в комнатах показываются как обычный текст, на телефоне тоже все сообщения расшифровываются, `encrypt: SUCCESS — produced 6 <key> entries` на каждое отправленное сообщение.
+- **Сохранение пароля на YAPSI-сборке:** `setUserAccount()` форсил `opt_pass/opt_auto/opt_reconn=true` на локальной `acc`, но `d->realAcc` снепшотился ДО форсинга — на YAPSI `userAccount()` возвращает `realAcc` для сохранения, так что `<password>` никогда не писался в config и автоподключение тихо умирало на следующем запуске. Пофиксили зеркалированием флагов на `d->realAcc` (коммит `b389480`).
 
-**HTTP Upload (XEP-0363):** загрузка файлов заработала. Баг был в том что `<request xmlns='urn:xmpp:http:upload:0'/>` элемент конструировался через `doc()->createElementNS(UPLOAD_NS, "request")`, а Qt `QDomElement::save()` молча выбрасывает такой namespace-declared элемент при сериализации если сам namespace не объявлен в корне документа — Prosody видел IQ без дочернего элемента и отвечал `<undefined-condition/>`, UI показывал «Could not get upload slot from server». Переключили на паттерн Iris (`createElement + setAttribute("xmlns", NS)`) как в `xmpp_discoinfotask.cpp`. Парсинг ответа тоже переключили с `elementsByTagNameNS` на ручной match по tagName + xmlns-атрибуту/`namespaceURI` чтобы понимать оба стиля namespace-declarations которые используют разные серверы. Сейчас слот возвращается, PUT проходит, URL прилетает в чат как кликабельная ссылка.
+- **1-на-1 OMEMO для своих других устройств:** `encrypt()` для получателя уже объединял `PEP-devicelist ∪ stored-sessions`, но для НАШИХ других устройств ходил только по `deviceLists[ourJid]` который может быть пустым/устаревшим (async PEP race, overwrite от пира который не знал про наш новый device). Отзеркалили union для своих (коммит `43c1034`).
 
-**Yandex custom frame restored + рабочий tab bar на Qt5/macOS:** `options/macosx.xml` держал `custom-frame=false` ещё с Qt4/10.5 эпохи, вырубая весь нарисованный Yandex chrome (жёлтую цветочную шапку, рисованные traffic lights, бесфреймовый roster). Перевернули в `true`. Сразу вылезли три латентных regression в tab bar: (1) переключение вкладок мёртвое потому что `YaMultiLineTabBar::mousePressEvent` цеплялся через `QTabBar::mousePressEvent`, а его native tab-hit-test использует `tabAt()` на Qt-internal layout который на Qt5/macOS не совпадает с нашим `tabRect_[]` вообще — исправили полным обходом Qt-press/release, dispatch делаем сами по `tabRect_[]` через `setCurrentIndex`; (2) текст вкладок рендерился с y=-6 (вне верхнего края таба!) потому что `QTabBar::tabRect` не virtual и `YaTabBarBase::tabTextRect` вызывая `this->tabRect(index)` отдавал dispatch в Qt default (width=barWidth, height=0) вместо override в `YaMultiLineTabBar` — добавили virtual helper `effectiveTabRect()` в базу, переписали математику textRect с нуля через явные left/right/top/height (без `setLeft/setRight/moveCenter` которые могут swap edges на negative-width intermediate states); (3) сам tab bar был 22 px высоты что слишком мало для Arial 12 в vertical metrics Qt5/macOS — подняли `margin()` 3→7, bar теперь 30 px с аккуратным 7 px padding, `SE_TabWidgetTabBar` в стиле теперь anchor'ит bar к низу виджета, `SE_TabWidgetTabContents` заканчивается строго на верху bar'а.
+- **Удалили сломанный `<private xmlns='urn:xmpp:carbons:2'/>` маркер** — он подавлял ВСЮ OMEMO отправку из carbon-потока, включая `<encrypted>` блок который нужен нашим другим устройствам для расшифровки. Также: на ОТПРАВЛЯЮЩЕМ клиенте дропаем sent-carbon своих же сообщений — `doneSend()` уже показал plaintext, а OMEMO-decrypt для self-JID всё равно бы провалился (коммит `e6fb0eb`).
 
-**Theme picker теперь кликабельный:** комбобокс выбора скина в Preferences был уже полностью заведён (девять тем — `academic`, `baroque`, `glamour`, `hawaii`, `ice`, `sea`, `sky`, `spring`, `violet` — подгружались из `YaWindowTheme::funnyThemes()`, сохранение тоже работало), но имел в `.ui` `maximumSize height=16` что на Qt5/macOS делало dropdown слишком коротким чтобы прочитать элементы. Заменил на `minimumSize 140×22`. Теперь через `Preferences → Background:` переключаются темы как в референсе; `spring` подтверждён живым тестом.
+- **Локальная история OMEMO-сообщений:** новое transient-поле `Message::localPlaintextBody()` (не сериализуется в stanza). Пайплайн отправки запоминает оригинальный plaintext, `PsiAccount::dj_sendMessage` пишет его в yahistory вместо fallback-уведомления. Раньше каждое отправленное OMEMO-сообщение сохранялось в локальную историю как `"I sent you an OMEMO encrypted message..."` и после рестарта было видно этот мусор (коммит `a5f997a`).
 
-Коммиты: 8d875af (iqVerify + debounce), 3eecde1 (MUC iv cache), c44fff9 (HTTP upload namespace + MUC cache persistence), 3e16f46 (custom frame + tab bar), 07faf6f (theme picker combobox).)*
+- **MUC OMEMO для multi-device пиров:** `ensureMucSessions()` раньше считал «если есть хоть одна session для пира — всё ок», но пиры с Conversations на телефоне + ПК имеют две разные device id и мы адресовали только одну. Пофикшено требованием сессии для КАЖДОГО анонсированного device (коммит `1680155`).
+
+- **Peer-plaintext cache против `SG_ERR_DUPLICATE_MESSAGE`:** libsignal отказывается повторно расшифровывать уже-использованный ratchet counter. В MUC history replay на re-join это систематически выбивает, и каждое replay'енное сообщение показывается как fallback. Новый кеш `mucPeerPlaintext[bareJid, iv]` сохраняет plaintext при первом успешном decrypt; при повторных попытках отдаём его сразу без обращения к libsignal. Персистится в `muc_peer_cache.json` (коммит `de6ad65`).
+
+- **`nickToRealJid_` теперь персистентный через leaves:** офлайн/ушедшие пиры всё ещё адресуются в исходящих MUC OMEMO сообщениях — ciphertext доходит до них через MAM/offline когда они переподключатся. Раньше мы их роняли при `presence unavailable` и для отправленного во время их отсутствия они видели fallback (коммит `cdb069f`).
+
+- **Broken peer bundle (NecroBread's dino) throttling:** пир анонсирует device id, но bundle-нода 404-ит на PEP — мёртвый клиент или не завершённая OMEMO-инициализация. Без throttle мы долбились в 404 на каждую отправку. Добавили 5-минутный per-(jid:devId) backoff, успешный build очищает запись (коммит `78deb73`).
+
+- **UI:** путь неудачного decrypt теперь ставит `wasEncrypted=true` на fallback-body сообщении, чтобы `ChatDlg::appendMessage` не переключал баннер «Encryption Disabled» на каждом replay'енном сообщении (коммит `4bf4601`).
+
+- **Lock cleanup:** удалили ~50 строк/отправка диагностического лог-спама. Оставлены: startup info, публикация bundle, PEP devicelist update уведомления, строки реальных fetch'ей, per-send SUCCESS summary, per-new-session built, настоящие qWarning. Убраны: per-device encrypt/decrypt детали, per-message-arrival теги, per-presence теги, строки касающиеся plaintext (коммит `b0bc4f7`).
+
+### OMEMO on-disk state (на аккаунт, `<profile>/omemo/<bareJid>/`)
+- `store.json` — libsignal identity + sessions (ключ `jid:devId`) + PEP devicelist cache
+- `muc_echo.json` — `iv → plaintext` для СВОИХ MUC-отправок (libsignal не умеет self-decrypt, резолвим через echo)
+- `muc_peer_cache.json` — `(bareJid, iv) → plaintext` для peer-MUC сообщений чтобы пережить DUPLICATE_MESSAGE replay'ы
+
+### Известные оставшиеся ограничения (приняты как есть)
+- **Пир с опубликованным device id но без bundle** — мы просто пропускаем этот device. Исправление только на стороне пира.
+- **`SG_ERR_DUPLICATE_MESSAGE` для replay сообщения которое мы НИКОГДА не расшифровали** (история с пиром до существования кеша, или после reset store): навсегда fallback. Новый live-трафик работает.
+- **Nuke `store.json`** даёт свежий device id — пиры должны обновить наш devicelist чтобы адресоваться к новому; в промежутке их старые сообщения на нашей стороне показываются как fallback.
+
+---
+
+*Последнее обновление: 2026-04-18. **Эксперимент завершён.** Клиент работоспособен, но далеко не идеален. Базовые фичи современного XMPP-клиента (1-на-1 OMEMO, MUC OMEMO, HTTP upload, SCRAM auth, автоподключение, все 15 XEP) подтверждены рабочими через живые тесты с Conversations/Cheogram/dino. Все коммиты запушены в `main` на GitHub. 0 ошибок компиляции.*
+
+*Ключевые коммиты: `8d875af` (iqVerify + publishBundle debounce), `3eecde1` (MUC iv cache), `c44fff9` (HTTP upload namespace + MUC cache persistence), `3e16f46` (Yandex custom frame + tab bar fix), `07faf6f` (theme picker combobox), `f1b0316` (STARTTLS + Carbons CVE-класс), `56ab61c` (bulk Qt5 deprecation −81%), `55872c3` → `b0bc4f7` (post-Layer-7 OMEMO стабилизация, 14 коммитов).*
