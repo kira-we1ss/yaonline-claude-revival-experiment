@@ -166,6 +166,10 @@ namespace XMPP {
 		bool wasEncrypted() const;
 		void setWasEncrypted(bool);
 
+		// XEP-0308 Last Message Correction
+		QString replaceId() const;
+		void setReplaceId(const QString& id);
+
 		// XEP-0280 Message Carbons
 		bool isCarbon() const;
 		bool isCarbonSent() const; // true=sent copy, false=received copy

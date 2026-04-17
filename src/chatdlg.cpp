@@ -291,6 +291,15 @@ void ChatDlg::activated()
 
 	emit messagesRead(jid());
 
+	// XEP-0333: send <displayed> marker for the last received message that requested markers
+	if (!lastReceivedMsgId_.isEmpty()) {
+		Message marker(jid());
+		marker.setType("chat");
+		marker.setChatMarker(XMPP::Message::MarkerDisplayed, lastReceivedMsgId_);
+		emit aSend(marker);
+		lastReceivedMsgId_.clear();
+	}
+
 	// XEP-0085: notify contact that we are now actively looking at the window
 	if (contactChatState_ != XMPP::StateNone && sendComposingEvents_) {
 		setChatState(XMPP::StateActive);
@@ -654,6 +663,9 @@ void ChatDlg::sendMessage(XMPP::Message m, bool userAction)
 	// our chances of positive reply are slim
 	m.setMessageReceipt(ReceiptRequest);
 
+	// XEP-0333 Chat Markers: request markers from the recipient
+	m.setChatMarkable(true);
+
 	// Request events
 	if (option.messageEvents) {
 		// Only request more events when really necessary
@@ -758,6 +770,12 @@ void ChatDlg::incomingMessage(const Message &m)
 		else {
 			setContactChatState(XMPP::StateNone);
 		}
+
+		// XEP-0333: track id of last incoming message supporting markers
+		if (m.isChatMarkable() && !m.id().isEmpty()) {
+			lastReceivedMsgId_ = m.id();
+		}
+
 		appendMessage(m);
 	}
 }

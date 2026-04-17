@@ -169,6 +169,9 @@ private:
 	bool keepOpen_;
 	bool warnSend_;
 
+	QString lastReceivedMsgId_; // XEP-0333: id of the last incoming message (for <displayed> marker)
+	QString lastSentMsgId_;     // XEP-0308: id of last sent message (for correction)
+
 	QTimer* selfDestruct_;
 
 	QString key_;

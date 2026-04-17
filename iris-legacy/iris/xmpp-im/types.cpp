@@ -937,6 +937,9 @@ public:
 
 	bool spooled, wasEncrypted;
 
+	// XEP-0308 Last Message Correction
+	QString replaceId; // id of the message being corrected
+
 	// XEP-0280 Message Carbons
 	bool isCarbon_;
 	bool isCarbonSent_; // true = sent copy, false = received copy
@@ -969,6 +972,7 @@ Message::Message(const Jid &to)
 	d->mucStatus = -1;
 	d->messageReceipt = ReceiptNone;
 	d->messageReceiptId = QString();
+	d->replaceId = QString();
 	d->isCarbon_ = false;
 	d->isCarbonSent_ = false;
 	d->chatMarkable_ = false;
@@ -1448,6 +1452,10 @@ void Message::setWasEncrypted(bool b)
 	d->wasEncrypted = b;
 }
 
+// XEP-0308 Last Message Correction accessors
+QString Message::replaceId() const { return d->replaceId; }
+void Message::setReplaceId(const QString& id) { d->replaceId = id; }
+
 // XEP-0280 Message Carbons accessors
 bool Message::isCarbon() const { return d->isCarbon_; }
 bool Message::isCarbonSent() const { return d->isCarbonSent_; }
@@ -1770,6 +1778,13 @@ Stanza Message::toStanza(Stream *stream) const
 		s.appendChild(yaMessageId);
 	}
 #endif
+
+	// XEP-0308 Last Message Correction
+	if (!d->replaceId.isEmpty()) {
+		QDomElement replace = s.createElement("urn:xmpp:message-correct:0", "replace");
+		replace.setAttribute("id", d->replaceId);
+		s.appendChild(replace);
+	}
 
 	return s;
 }
@@ -2143,6 +2158,16 @@ bool Message::fromStanza(const Stanza &s, int timeZoneOffset)
 				d->unknownExtensions[i.namespaceURI()] = i;
 			}
 		}
+	}
+
+	// XEP-0308 Last Message Correction
+	{
+		QDomElement replaceEl = root.elementsByTagNameNS(
+		    "urn:xmpp:message-correct:0", "replace").item(0).toElement();
+		if (!replaceEl.isNull())
+			d->replaceId = replaceEl.attribute("id");
+		else
+			d->replaceId = QString();
 	}
 
 	// XEP-0280 Message Carbons
