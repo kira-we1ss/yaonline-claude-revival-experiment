@@ -207,4 +207,4 @@ open src/yachat.app
 
 ---
 
-*Последнее обновление: 2026-04-17 (Claude: **Слой 6: кнопки OMEMO и исправления добавлены.** `QToolButton` OMEMO-замок в заголовке чата (`yachatdlg.cpp`), `QToolButton` карандаш в `YaChatEdit` с сигналом `correctionRequested()`, `ChatDlg::lastSentBody_` для восстановления текста, `PsiAccount::omemoManager()` как публичный accessor. Сборка чистая, 0 ошибок.)*
+*Последнее обновление: 2026-04-17 (Claude: **Слой 6: исправлен баг пустой истории чата при рестарте.** Корень проблемы: `PsiAccount::logEvent()` строил `YaHistoryCacheManager::Message` но никогда не вызывал `appendMessage()` — кэш всегда был пустым, поэтому `YaChatDlg::restoreLastMessages()` показывал пустое окно. Исправление: 1) `appendMessage()` переведён из `protected` в `public` в `yahistorycachemanager.h`; 2) добавлен вызов `psi()->yaHistoryCacheManager()->appendMessage(this, j, msg)` в конце YAPSI-блока в `psiaccount.cpp`. Сборка чистая, 0 ошибок.)*
