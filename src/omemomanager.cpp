@@ -2060,10 +2060,32 @@ void OmemoManager::encrypt(const XMPP::Jid& to, const QString& body)
     // can read what we sent (Conversations does this by design)
     QString ourJid = d->accountId;
     if (ourJid != toJid) {
-        QList<uint32_t> ownDevs = d->deviceLists.value(ourJid);
-        for (uint32_t devId : ownDevs) {
-            if (devId != d->store.localDeviceId)
-                encryptToDevice(ourJid, devId);
+        // Union of (current PEP devicelist) + (stored sessions) for our own
+        // JID. If PEP cache is empty (fresh startup, not yet received the
+        // notify) but sessions from prior runs exist, we can still address
+        // those devices. Also catches the case where a new own-device was
+        // added since last startup — if a session exists from a prior
+        // incoming message, we encrypt to it.
+        QSet<uint32_t> ownDevSet;
+        for (uint32_t d0 : d->deviceLists.value(ourJid))
+            ownDevSet.insert(d0);
+        QString ownPrefix = ourJid + QLatin1Char(':');
+        for (auto it = d->store.sessions.constBegin(); it != d->store.sessions.constEnd(); ++it) {
+            if (it.key().startsWith(ownPrefix)) {
+                bool ok = false;
+                uint32_t devId = it.key().mid(ownPrefix.size()).toUInt(&ok);
+                if (ok) ownDevSet.insert(devId);
+            }
+        }
+        qDebug() << "[OMEMO] encrypt(): own other-devices to address:" << ownDevSet.size()
+                 << "(advertised:" << d->deviceLists.value(ourJid).size()
+                 << " stored sessions:" << (ownDevSet.size() - d->deviceLists.value(ourJid).size()) << ")";
+        for (uint32_t devId : ownDevSet) {
+            if (devId == d->store.localDeviceId) {
+                qDebug() << "[OMEMO] encrypt(): skipping own localDeviceId" << devId;
+                continue;
+            }
+            encryptToDevice(ourJid, devId);
         }
     }
 
