@@ -577,13 +577,16 @@ void JT_Presence::pres(const Status &s)
 			tag.appendChild(x);
 		}
 
-		if(!s.capsNode().isEmpty() && !s.capsVersion().isEmpty()) {
+		if(!s.capsNode().isEmpty()) {
+			// XEP-0115 v1.5: use SHA-1 hash-based ver, drop legacy ext attribute
+			QString verHash = client()->computeVerHash();
+			if (verHash.isEmpty())
+				verHash = s.capsVersion();
 			QDomElement c = doc()->createElement("c");
 			c.setAttribute("xmlns","http://jabber.org/protocol/caps");
+			c.setAttribute("hash","sha-1");
 			c.setAttribute("node",s.capsNode());
-			c.setAttribute("ver",s.capsVersion());
-			if (!s.capsExt().isEmpty()) 
-				c.setAttribute("ext",s.capsExt());
+			c.setAttribute("ver",verHash);
 			tag.appendChild(c);
 		}
 

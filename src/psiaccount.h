@@ -447,6 +447,7 @@ public:
 private slots:
 	void pingServer();
 	void serverPingTimeout();
+	void applicationStateChanged(Qt::ApplicationState state);
 
 signals:
 	void addedContact(PsiContact*);

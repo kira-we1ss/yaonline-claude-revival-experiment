@@ -45,6 +45,7 @@ HEADERS += \
 	$$PWD/xmpp-im/xmpp_chatstate.h \
 	$$PWD/xmpp-im/xmpp_receipts.h \
 	$$PWD/xmpp-im/xmpp_client.h \
+	$$PWD/xmpp-im/xmpp_csi.h \
 	$$PWD/xmpp-core/xmpp_clientstream.h \
 	$$PWD/xmpp-core/xmpp_stanza.h \
 	$$PWD/xmpp-core/xmpp_stream.h \
@@ -90,6 +91,7 @@ SOURCES += \
 	$$PWD/xmpp-im/xmpp_xdata.cpp \
 	$$PWD/xmpp-im/xmpp_task.cpp \
 	$$PWD/xmpp-im/xmpp_tasks.cpp \
+	$$PWD/xmpp-im/xmpp_csi.cpp \
 	$$PWD/xmpp-im/xmpp_xmlcommon.cpp \
 	$$PWD/xmpp-im/xmpp_vcard.cpp \
 	$$PWD/xmpp-im/s5b.cpp \

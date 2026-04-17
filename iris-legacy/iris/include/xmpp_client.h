@@ -96,6 +96,9 @@ namespace XMPP
 		QString capsVersion() const;
 		QString capsExt() const;
 
+		// XEP-0115 v1.5: compute SHA-1 ver hash from identity + features
+		QString computeVerHash() const;
+
 		void setOSName(const QString &);
 		void setTimeZone(const QString &, int);
 		void setClientName(const QString &);

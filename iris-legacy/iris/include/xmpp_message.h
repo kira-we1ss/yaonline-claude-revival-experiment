@@ -160,6 +160,11 @@ namespace XMPP {
 		bool wasEncrypted() const;
 		void setWasEncrypted(bool);
 
+		// XEP-0280 Message Carbons
+		bool isCarbon() const;
+		bool isCarbonSent() const; // true=sent copy, false=received copy
+		void setCarbon(bool isSent);
+
 		Stanza toStanza(Stream *stream) const;
 		bool fromStanza(const Stanza &s, int tzoffset);
 

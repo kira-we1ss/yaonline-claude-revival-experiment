@@ -20,6 +20,7 @@
 
 #include "im.h"
 #include "safedelete.h"
+#include <qca.h>
 
 //! \class XMPP::Client client.h
 //! \brief Communicates with the Jabber network.  Start here.
@@ -1085,6 +1086,34 @@ QStringList Client::extensions() const
 const Features& Client::extension(const QString& ext) const
 {
 	return d->extension_features[ext];
+}
+
+// XEP-0115 v1.5: compute SHA-1 ver hash from identity + all features
+// Canonical form: identity_category/type//name< then each feature< sorted
+QString Client::computeVerHash() const
+{
+	// Build the canonical S string per XEP-0115 §5
+	QString S;
+
+	// Identity line: category/type//name<
+	const DiscoItem::Identity& id = d->identity;
+	S += id.category + "/" + id.type + "//" + id.name + "<";
+
+	// Collect all features (base + all extensions)
+	QStringList allFeatures = d->features.list();
+	foreach (const QString& ext, d->extension_features.keys()) {
+		allFeatures << d->extension_features[ext].list();
+	}
+	allFeatures.removeDuplicates();
+	allFeatures.sort();
+
+	foreach (const QString& f, allFeatures) {
+		S += f + "<";
+	}
+
+	// SHA-1 hash, base64-encoded
+	QByteArray hash = QCA::Hash("sha1").hash(S.toUtf8()).toByteArray();
+	return QCA::Base64().arrayToString(hash);
 }
 
 void Client::s5b_incomingReady()

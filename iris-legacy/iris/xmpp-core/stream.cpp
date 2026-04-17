@@ -1104,9 +1104,18 @@ bool ClientStream::handleNeed()
 #ifdef XMPP_DEBUG
 			printf("Need SASL First Step\n");
 #endif
-			// no SASL plugin?  fall back to Simple SASL
-			if(!QCA::isSupported("sasl")) {
-				QCA::insertProvider(createProviderSimpleSASL());
+			// Always use SimpleSASL as the primary SASL provider at highest
+			// priority so our SCRAM-SHA-256/SHA-1 implementation takes effect.
+			// qca-cyrus-sasl is in the bundle but system cyrus-sasl has no
+			// SCRAM plugin, so it only provides PLAIN — simplesasl covers that
+			// too (and adds SCRAM). Priority 0 = checked before all others.
+			if (!QCA::isSupported("sasl") || true) {
+				static bool simpleSaslInserted = false;
+				if (!simpleSaslInserted) {
+					QCA::insertProvider(createProviderSimpleSASL());
+					QCA::setProviderPriority("simplesasl", 0);
+					simpleSaslInserted = true;
+				}
 			}
 
 			d->sasl = new QCA::SASL();

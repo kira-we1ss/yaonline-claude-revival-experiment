@@ -114,6 +114,7 @@
 #endif
 #include "pepmanager.h"
 #include "serverinfomanager.h"
+#include "xmpp_csi.h"
 #ifdef WHITEBOARDING
 #include "wbmanager.h"
 #endif
@@ -414,6 +415,7 @@ public:
 		, reconnectTimeoutTimer_(0)
 		, reconnectData_(-1)
 		, reconnectInfrequently_(false)
+		, csiManager_(0)
 	{
 		pingServerTimer_ = new QTimer(this);
 		pingServerTimer_->setSingleShot(true);
@@ -1264,6 +1266,9 @@ public:
 	QTimer* reconnectTimeoutTimer_;
 	int reconnectData_;
 	bool reconnectInfrequently_;
+
+	// XEP-0352 Client State Indication
+	XMPP::ClientStateIndication* csiManager_;
 };
 
 PsiAccount::PsiAccount(const UserAccount &acc, PsiContactList *parent, CapsRegistry* capsRegistry, TabManager *tabManager)
@@ -1426,6 +1431,11 @@ PsiAccount::PsiAccount(const UserAccount &acc, PsiContactList *parent, CapsRegis
 	// XMPP Ping
 	d->pongServer_ = new PongServer(d->client->rootTask());
 	connect(d->pongServer_, SIGNAL(serverPing()), d, SLOT(serverPong()));
+
+	// XEP-0352 Client State Indication
+	d->csiManager_ = new XMPP::ClientStateIndication(d->client, this);
+	connect(qApp, SIGNAL(applicationStateChanged(Qt::ApplicationState)),
+	        this, SLOT(applicationStateChanged(Qt::ApplicationState)));
 
 	// Initialize PubSub stuff
 	d->pepManager = new PEPManager(d->client, d->serverInfoManager);
@@ -2980,6 +2990,37 @@ void PsiAccount::resolveContactName()
 void PsiAccount::serverFeaturesChanged()
 {
 	setPEPAvailable(d->serverInfoManager->hasPEP());
+
+	// XEP-0352: check if server supports Client State Indication
+	if (d->csiManager_) {
+		JT_DiscoInfo* jt = new JT_DiscoInfo(d->client->rootTask());
+		// We look up whether urn:xmpp:csi:0 is in the features already
+		// discovered by ServerInfoManager. Re-use the last disco result
+		// by testing the feature on the server domain item we already queried.
+		// Since ServerInfoManager does not expose a raw features list,
+		// we do a lightweight disco check here.
+		// Note: to keep it simple we just re-query server features for CSI.
+		connect(jt, &JT_DiscoInfo::finished, this, [this, jt]() {
+			if (jt->success()) {
+				XMPP::Features f = jt->item().features();
+				d->csiManager_->setServerSupported(
+					f.test(QString(XMPP::ClientStateIndication::NS)));
+			}
+		});
+		jt->get(d->client->jid().domain());
+		jt->go(true);
+	}
+}
+
+void PsiAccount::applicationStateChanged(Qt::ApplicationState state)
+{
+	if (!d->csiManager_)
+		return;
+	if (state == Qt::ApplicationActive) {
+		d->csiManager_->setActive();
+	} else {
+		d->csiManager_->setInactive();
+	}
 }
 
 void PsiAccount::setPEPAvailable(bool b)
