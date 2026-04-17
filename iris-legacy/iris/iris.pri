@@ -35,6 +35,7 @@ HEADERS += \
 	$$PWD/include/xmpp_receipts.h \
 	$$PWD/include/xmpp_client.h \
 	$$PWD/xmpp-im/xmpp_csi.h \
+	$$PWD/xmpp-im/xmpp_httpupload.h \
 	$$PWD/include/xmpp_clientstream.h \
 	$$PWD/include/xmpp_stanza.h \
 	$$PWD/include/xmpp_stream.h \
@@ -64,6 +65,9 @@ HEADERS += \
 HEADERS += \
 	$$PWD/xmpp-core/scrammessage.h
 
+HEADERS += \
+	$$PWD/xmpp-im/xmpp_mam.h
+
 SOURCES += \
 	$$PWD/xmpp-core/connector.cpp \
 	$$PWD/xmpp-core/tlshandler.cpp \
@@ -87,9 +91,11 @@ SOURCES += \
 	$$PWD/xmpp-im/xmpp_task.cpp \
 	$$PWD/xmpp-im/xmpp_tasks.cpp \
 	$$PWD/xmpp-im/xmpp_csi.cpp \
+	$$PWD/xmpp-im/xmpp_httpupload.cpp \
 	$$PWD/xmpp-im/xmpp_xmlcommon.cpp \
 	$$PWD/xmpp-im/xmpp_vcard.cpp \
 	$$PWD/jabber/s5b.cpp \
 	$$PWD/jabber/xmpp_ibb.cpp \
 	$$PWD/jabber/filetransfer.cpp \
-	$$PWD/xmpp-core/xmpp_yadatetime.cpp
+	$$PWD/xmpp-core/xmpp_yadatetime.cpp \
+	$$PWD/xmpp-im/xmpp_mam.cpp

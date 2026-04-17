@@ -23,6 +23,12 @@
 #include <QTimer>
 #include <QScrollBar>
 #include <QKeyEvent>
+#include <QFileInfo>
+#include <QMimeDatabase>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QMessageBox>
 
 #include "psiaccount.h"
 #include "psicon.h"
@@ -34,6 +40,8 @@
 #include "shortcutmanager.h"
 #include "xmpp_xmlcommon.h"
 #include "fileutil.h"
+#include "serverinfomanager.h"
+#include "xmpp_httpupload.h"
 #ifdef YAPSI
 #include "yadayuse.h"
 #endif
@@ -260,7 +268,66 @@ void ChatDlgBase::uploadRecentFile(const QString& fileName, const QString& url, 
 
 void ChatDlgBase::uploadFile(const QString& fileName)
 {
-	account()->psi()->yaNarodDiskManager()->uploadFile(fileName, this, "uploadFileStarted");
+	// XEP-0363: HTTP File Upload — request a slot, PUT the file, then send the GET URL
+	ServerInfoManager* sim = account()->serverInfoManager();
+	if (!sim || !sim->hasHttpUpload()) {
+		QMessageBox::information(this, tr("File Upload"),
+			tr("The server does not support HTTP file upload (XEP-0363)."));
+		return;
+	}
+
+	QFileInfo fi(fileName);
+	qint64 size = fi.size();
+	QString mime = QMimeDatabase().mimeTypeForFile(fi).name();
+
+	XMPP::JT_HttpUploadSlot* slot = new XMPP::JT_HttpUploadSlot(account()->client()->rootTask());
+	slot->setServiceJid(XMPP::Jid(sim->httpUploadService()));
+	slot->setFilename(fi.fileName());
+	slot->setSize(size);
+	slot->setContentType(mime);
+
+	connect(slot, &XMPP::JT_HttpUploadSlot::finished, this, [this, slot, fileName, fi, mime]() {
+		if (!slot->success()) {
+			QMessageBox::warning(this, tr("Upload Failed"),
+				tr("Could not get upload slot from server."));
+			return;
+		}
+
+		QUrl putUrl = slot->putUrl();
+		QUrl getUrl = slot->getUrl();
+		QMap<QString,QString> headers = slot->putHeaders();
+
+		QNetworkAccessManager* nam = new QNetworkAccessManager(this);
+		QNetworkRequest req(putUrl);
+		req.setHeader(QNetworkRequest::ContentTypeHeader, mime.toLatin1());
+		req.setHeader(QNetworkRequest::ContentLengthHeader, fi.size());
+		for (auto it = headers.begin(); it != headers.end(); ++it)
+			req.setRawHeader(it.key().toUtf8(), it.value().toUtf8());
+
+		QFile* file = new QFile(fileName, this);
+		if (!file->open(QIODevice::ReadOnly)) {
+			QMessageBox::warning(this, tr("Upload Failed"), tr("Cannot open file for reading."));
+			nam->deleteLater();
+			file->deleteLater();
+			return;
+		}
+
+		QNetworkReply* reply = nam->put(req, file);
+		connect(reply, &QNetworkReply::finished, this, [this, reply, getUrl, nam, file, fileName, fi]() {
+			file->close();
+			file->deleteLater();
+			if (reply->error() == QNetworkReply::NoError) {
+				// Reuse the existing uploadFinished() flow to build and send the HTML link message
+				uploadFinished(fileName, getUrl.toString(), fi.size());
+			} else {
+				QMessageBox::warning(this, tr("Upload Failed"),
+					tr("Upload error: %1").arg(reply->errorString()));
+			}
+			reply->deleteLater();
+			nam->deleteLater();
+		});
+	});
+	slot->go(true);
 }
 
 void ChatDlgBase::uploadFileStarted(const QString& id)
