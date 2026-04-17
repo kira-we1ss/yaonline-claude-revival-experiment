@@ -23,6 +23,7 @@
 #include <QVBoxLayout>
 #include <QPushButton>
 #include <QStackedWidget>
+#include <QPalette>
 
 #include "yatoolboxanimation.h"
 #include "yatoolboxpage.h"
@@ -31,6 +32,16 @@ YaToolBox::YaToolBox(QWidget *parent)
 	: BaseAnimatedStackedWidget(parent)
 {
 	normalPage_ = new QWidget();
+	// Qt5/macOS: normalPage_ is created with parent=0 and reparented later.
+	// Without explicit white background it renders system-dark, causing the
+	// black area below contact list items.
+	normalPage_->setAutoFillBackground(true);
+	{
+		QPalette pal = normalPage_->palette();
+		pal.setColor(QPalette::Window, Qt::white);
+		pal.setColor(QPalette::Base,   Qt::white);
+		normalPage_->setPalette(pal);
+	}
 	layout_ = new QVBoxLayout(normalPage_);
 	layout_->setMargin(0);
 	layout_->setSpacing(0);
