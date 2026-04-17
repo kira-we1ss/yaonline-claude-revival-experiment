@@ -20,6 +20,7 @@
 
 #include "yamultilinetabbar.h"
 
+#include <QDebug>
 #include <QPainter>
 #include <QToolButton>
 #include <QWheelEvent>
@@ -197,6 +198,11 @@ QRect YaMultiLineTabBar::tabRect(int index) const
 	}
 
 	return tabRect_[index];
+}
+
+QRect YaMultiLineTabBar::effectiveTabRect(int index) const
+{
+	return tabRect(index);
 }
 
 void YaMultiLineTabBar::tabLayoutChange()
@@ -508,7 +514,19 @@ void YaMultiLineTabBar::closeButtonAnimation()
 
 void YaMultiLineTabBar::mousePressEvent(QMouseEvent* event)
 {
-	YaTabBarBase::mousePressEvent(event);
+	// IMPORTANT: do NOT chain through QTabBar::mousePressEvent. QTabBar's
+	// native press logic uses tabAt() which is backed by Qt's internal tab
+	// layout (distinct from our custom tabRect_[] coordinate system), and
+	// on macOS Qt5 that native layout does not match ours at all (tabAt
+	// returns -1 for legitimate tab positions). Letting it run causes Qt
+	// to call style code that later nukes pressedPosition() via our own
+	// startDrag()'s "tabAt returned -1 → clearPressedPosition()" branch,
+	// which made every release see pressedPos=(0,0) and no tab switched.
+	//
+	// Instead we set pressedPosition_ ourselves (stored on the base) and
+	// run our own close-button hit-detect. mouseReleaseEvent below does
+	// the actual tab-switch dispatch.
+	setPressedPosition(event->pos());
 	autoScrollCount_ = 0;
 
 	closeButtonHit_ = false;
@@ -518,6 +536,8 @@ void YaMultiLineTabBar::mousePressEvent(QMouseEvent* event)
 			break;
 		}
 	}
+
+	event->accept();
 }
 
 void YaMultiLineTabBar::mouseMoveEvent(QMouseEvent* event)
@@ -603,9 +623,19 @@ void YaMultiLineTabBar::mouseReleaseEvent(QMouseEvent* event)
 			return;
 		}
 
-		// otherwise we could activate tab which weren't clicked in the first place
-		if (tabRect.contains(pos) && tabRect.contains(event->pos()) && !reorderedTabs) {
-			YaTabBarBase::mouseReleaseEvent(event);
+		// Activate the tab whose rect contains the RELEASE position. We do
+		// not require contains(pos) to also match because in Qt5 the press
+		// position can be wiped by startDrag()'s tabAt-returned-minus-one
+		// branch (Qt's native tabAt uses an internal layout that does not
+		// match our custom tabRect_[]). Relying only on release pos is
+		// safe: a drag that started inside one tab and ended inside
+		// another intentionally switches tabs (matches Psi behavior).
+		if (tabRect.contains(event->pos()) && !reorderedTabs) {
+			// Call setCurrentIndex directly instead of chaining through
+			// YaTabBarBase::mouseReleaseEvent → QTabBar::mouseReleaseEvent;
+			// the native path calls tabAt(releasePos) which returns -1 on
+			// macOS Qt5 because Qt thinks the tabs are at different y's.
+			setCurrentIndex(i);
 			return;
 		}
 	}

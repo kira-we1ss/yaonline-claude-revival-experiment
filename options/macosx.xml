@@ -11,7 +11,7 @@
 			</common>
 		</shortcuts>
 		<ya comment="Yandex-specific options">
-			<custom-frame type="bool" comment="Use custom compact frame style for roster and chat windows">false</custom-frame>
+			<custom-frame type="bool" comment="Use custom compact frame style for roster and chat windows">true</custom-frame>
 		</ya>
 	</options>
 </psi>

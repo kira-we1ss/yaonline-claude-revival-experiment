@@ -46,6 +46,7 @@ protected:
 	void paintEvent(QPaintEvent*);
 	QSize tabSizeHint(int index) const;
 	QRect tabRect(int index) const;
+	QRect effectiveTabRect(int index) const;
 	void tabLayoutChange();
 	void wheelEvent(QWheelEvent* event);
 	void mousePressEvent(QMouseEvent* event);

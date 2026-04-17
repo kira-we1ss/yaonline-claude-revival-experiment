@@ -20,6 +20,7 @@
 
 #include "yatabbarbase.h"
 
+#include <QDebug>
 #include <QPainter>
 #include <QStyleOptionTab>
 #include <QTimeLine>
@@ -35,7 +36,12 @@
 #endif
 #include "psitooltip.h"
 
-static int margin = 3;
+// Bumped from 3 to 7 on Qt5/macOS — with the original 3 the tab bar
+// renders at 22 px tall and Arial 12 px text visibly clips at the top
+// edge (the Qt5 macOS text renderer places glyphs differently than
+// Qt4 did). 7 gives a 30 px bar with a comfortable 7 px top/bottom
+// padding, matching the reference Yandex design.
+static int margin = 7;
 
 QPixmap YaTabBarBase::tabShadow(bool isCurrent)
 {
@@ -100,27 +106,50 @@ bool YaTabBarBase::tabHovered(int index) const
 
 QRect YaTabBarBase::tabIconRect(int index) const
 {
-	QRect iconRect(tabRect(index));
+	// Same caveat as tabTextRect: use effectiveTabRect instead of calling
+	// QTabBar::tabRect through a non-virtual dispatch.
+	QRect iconRect(effectiveTabRect(index));
 	iconRect.setLeft(iconRect.left() + margin());
 	iconRect.setWidth(cachedIconSize_.width());
 	return iconRect;
 }
 
+QRect YaTabBarBase::effectiveTabRect(int index) const
+{
+	// Default: use Qt's native tabRect. Subclasses (YaMultiLineTabBar)
+	// override to return their custom tabRect_[].
+	return QTabBar::tabRect(index);
+}
+
 QRect YaTabBarBase::tabTextRect(int index) const
 {
+	// IMPORTANT: QTabBar::tabRect is NOT virtual, so calling
+	// this->tabRect(index) from this base class dispatches to Qt's default
+	// implementation (width=bar width, height=0 for a bar whose tabs have
+	// Qt sizeHint=0). That gave textTop=0 and clipped text at the top of
+	// the tab. Use the effectiveTabRect virtual helper instead — subclasses
+	// override it to return their real tabRect_[].
+	QRect tabRect = effectiveTabRect(index);
 	QRect iconRect = this->tabIconRect(index);
-	QRect tabRect = this->tabRect(index);
+	iconRect.moveTop(tabRect.top());
+	iconRect.setHeight(tabRect.height());
 	QRect closeRect = closeButtonRect(index, tabRect);
 
-	QRect textRect(tabRect);
-	textRect.setHeight(cachedTextHeight_);
-	textRect.moveCenter(tabRect.center());
-
-	textRect.setLeft(iconRect.right() + margin());
-	if (closeRect.isNull())
-		textRect.setRight(textRect.right() - margin());
-	else
-		textRect.setRight(closeRect.left() - margin());
+	// Build textRect explicitly from axis values. The previous approach
+	// used QRect::moveCenter() + setLeft()/setRight() which on Qt5 / macOS
+	// produced textRect y=-6 (negative!) for a tabRect of (0,0,181,30),
+	// apparently because setLeft/setRight retain opposite edges and can
+	// unexpectedly mutate height when negative-width intermediate states
+	// occur. Computing left/right/top/height directly avoids any reliance
+	// on Qt's undocumented coordinate mutation behaviour.
+	const int textLeft  = iconRect.right() + margin();
+	const int textRight = (closeRect.isNull()
+	                       ? tabRect.right() - margin()
+	                       : closeRect.left() - margin());
+	const int textWidth = qMax(0, textRight - textLeft + 1);
+	const int textTop   = tabRect.top()
+	                      + qMax(0, (tabRect.height() - cachedTextHeight_) / 2);
+	QRect textRect(textLeft, textTop, textWidth, cachedTextHeight_);
 
 	return textRect;
 }
@@ -131,6 +160,15 @@ void YaTabBarBase::drawTab(QPainter* painter, int index, const QRect& tabRect)
 	if (!(tab.state & QStyle::State_Enabled)) {
 		tab.palette.setCurrentColorGroup(QPalette::Disabled);
 	}
+
+#ifndef WIDGET_PLUGIN
+	// Force the painter to use the exact same font we measured textRect
+	// with. Without this the QPainter inherits the widget's current font
+	// (macOS system 13pt default) while our layout math used Arial 12px,
+	// and the mismatch pushed rendered text above the tab top edge.
+	painter->setFont(Ya::VisualUtil::normalFont());
+#endif
+
 
 	// Don't bother drawing a tab if the entire tab is outside of the visible tab bar.
 	if (tabRect.right() < 0 ||
@@ -522,14 +560,30 @@ void YaTabBarBase::clearCaches()
 	cachedIconSize_ = QTabBar::iconSize();
 	cachedTextWidth_.clear();
 	// cachedTextWidth_.reserve(count());
+	// Use the SAME font we actually paint tabs with (Ya::VisualUtil::normalFont,
+	// Arial 12px) rather than the widget's current font — on macOS Qt5 the
+	// widget font defaults to the 13pt system font, and mixing the two made
+	// textRect too short for the Arial 12 glyphs' actual ascent+descent,
+	// pushing the top of the text outside the tab rectangle.
+#ifndef WIDGET_PLUGIN
+	cachedTextHeight_ = QFontMetrics(Ya::VisualUtil::normalFont()).height();
+#else
 	cachedTextHeight_ = fontMetrics().height();
+#endif
 }
 
 int YaTabBarBase::textWidth(const QString& text) const
 {
 	int result = cachedTextWidth_[text];
 	if (!result) {
+#ifndef WIDGET_PLUGIN
+		// Match the metrics used when we actually paint (Ya::VisualUtil::
+		// normalFont); mismatch between layout font and paint font used to
+		// clip the right side of tab labels.
+		result = QFontMetrics(Ya::VisualUtil::normalFont()).horizontalAdvance(text);
+#else
 		result = fontMetrics().horizontalAdvance(text);
+#endif
 		cachedTextWidth_[text] = result;
 	}
 	return result;
@@ -565,6 +619,11 @@ void YaTabBarBase::mouseReleaseEvent(QMouseEvent* event)
 QPoint YaTabBarBase::pressedPosition() const
 {
 	return pressedPosition_;
+}
+
+void YaTabBarBase::setPressedPosition(const QPoint& p)
+{
+	pressedPosition_ = p;
 }
 
 bool YaTabBarBase::isMultiLine() const

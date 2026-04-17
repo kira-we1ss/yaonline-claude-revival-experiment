@@ -85,6 +85,11 @@ protected:
 	virtual bool tabHovered(int index) const;
 	QRect tabIconRect(int index) const;
 	QRect tabTextRect(int index) const;
+	// Returns the actual on-screen rect for the tab, honoring subclass
+	// layouts (YaMultiLineTabBar uses its own tabRect_[]). Needed because
+	// QTabBar::tabRect is NOT virtual, so calling this->tabRect() from
+	// this base class bypasses subclass overrides.
+	virtual QRect effectiveTabRect(int index) const;
 	virtual bool tabTextFits(int index) const;
 
 	// virtual void relayoutTabs() = 0;
@@ -109,6 +114,7 @@ protected:
 
 	void clearPressedPosition();
 	QPoint pressedPosition() const;
+	void setPressedPosition(const QPoint& p);
 
 private:
 	bool layoutUpdatesEnabled_;

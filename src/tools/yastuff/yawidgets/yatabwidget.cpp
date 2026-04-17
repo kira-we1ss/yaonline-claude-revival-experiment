@@ -28,6 +28,7 @@
 #include <QVariant>
 #include <QAction>
 #include <QKeyEvent>
+#include <QDebug>
 
 #ifndef WIDGET_PLUGIN
 #include "tabbablewidget.h"
@@ -147,7 +148,17 @@ public:
 				QRect r  = tw->tabRect();
 				result.setLeft(r.left());
 				result.setWidth(qMin(r.right(), sh.width()));
-				result.setHeight(sh.height() - (widget->height() - r.height()));
+				result.setHeight(sh.height());
+				// Qt's default SE_TabWidgetTabBar rect assumes Qt's native
+				// tab height (22 px on macOS). When our tabSizeHint is
+				// taller than that (30 px after the margin bump), Qt would
+				// leave the tab bar anchored at the original top and it
+				// would overflow the widget bottom (clipped painting →
+				// text visually jumps up out of the tab). Anchor the tab
+				// bar to the BOTTOM of the widget so the full bar is
+				// always visible and the chat-content rect can end at its
+				// top edge without overlap.
+				result.moveTop(widget->height() - sh.height());
 #ifdef CUSTOM_SHADOW
 				result.moveTop(result.top() - Ya::VisualUtil::windowShadowSize(yaWindow->theme()));
 #endif
@@ -155,14 +166,23 @@ public:
 			return result;
 		}
 		case SE_TabWidgetTabContents: {
+			// Content area ends exactly at the top of the tab bar. We
+			// can't query the tab bar rect directly from here (no handle
+			// to the YaTabWidget), but we know the bar is aligned to the
+			// widget bottom at height = tabBar()->sizeHint().height().
+			const QTabWidget* tw = dynamic_cast<const QTabWidget*>(widget);
+			int barHeight = tw && tw->tabBar() ? tw->tabBar()->sizeHint().height() : 22;
 #ifdef CUSTOM_SHADOW
 			int windowShadowSize = Ya::VisualUtil::windowShadowSize(yaWindow->theme());
-			return result.adjusted(windowShadowSize - 4,
-			                       windowShadowSize + 2,
-			                       -windowShadowSize + 4,
-			                       -windowShadowSize);
+			QRect r(0, 0, widget->width(), widget->height() - barHeight);
+			return r.adjusted(windowShadowSize - 4,
+			                  windowShadowSize + 2,
+			                  -windowShadowSize + 4,
+			                  -windowShadowSize);
 #else
-			return result.adjusted(-4, 2, 4, 0);
+			// Full area above tab bar, with the small horizontal bleed that
+			// the original Qt4 code provided for the chat separator.
+			return QRect(-4, 2, widget->width() + 8, widget->height() - barHeight - 2);
 #endif
 		}
 		default:
