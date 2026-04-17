@@ -819,6 +819,25 @@ public:
     void saveMucEchoCache();
     void loadMucEchoCache();
 
+    // Peer-MUC-message plaintext cache. Key: "<fromBareJid>\x00<iv_hex>".
+    // Rationale: MUC server replays room history on every re-join/reconnect.
+    // libsignal's session state records every ratchet counter used and
+    // refuses to re-decrypt the same counter (SG_ERR_DUPLICATE_MESSAGE =
+    // -1001) as an anti-replay defense. But in MUC this fires for every
+    // single legitimate history replay after first decrypt. We cache the
+    // plaintext on first successful decrypt and serve it back on
+    // subsequent duplicate-counter arrivals. Persisted to
+    // muc_peer_cache.json so history replay after restart resolves too.
+    QHash<QByteArray, QString> mucPeerPlaintext;
+    QList<QByteArray> mucPeerOrder; // LIFO eviction order
+    static constexpr int kMucPeerCacheMax = 4096;
+
+    QByteArray mucPeerKey(const QString& fromBareJid, const QByteArray& iv) const {
+        return fromBareJid.toUtf8() + QByteArray(1, '\0') + iv.toHex();
+    }
+    void saveMucPeerCache();
+    void loadMucPeerCache();
+
     QString dataDir;
 
     ~Private() {
@@ -860,6 +879,11 @@ bool OmemoManager::Private::initialize()
     // ciphertext echoes back to their original plaintext (libsignal can't
     // decrypt them since self-sessions aren't allowed).
     loadMucEchoCache();
+
+    // MUC peer-plaintext cache — for DUPLICATE_MESSAGE defense against
+    // MAM/room-history replay of peer-encrypted messages. Details in the
+    // Private::mucPeerPlaintext declaration.
+    loadMucPeerCache();
 
     // Set up signal context
     signal_context_create(&signalCtx, this);
@@ -955,6 +979,53 @@ void OmemoManager::Private::loadMucEchoCache()
     }
     qDebug() << "[OMEMO] Loaded" << mucEchoPlaintext.size()
              << "MUC echo plaintext entries from disk";
+}
+
+void OmemoManager::Private::saveMucPeerCache()
+{
+    if (dataDir.isEmpty()) return;
+
+    QJsonArray arr;
+    for (const QByteArray& key : mucPeerOrder) {
+        auto it = mucPeerPlaintext.constFind(key);
+        if (it == mucPeerPlaintext.constEnd()) continue;
+        QJsonObject o;
+        o[QLatin1String("key")]  = QString::fromLatin1(key.toBase64());
+        o[QLatin1String("body")] = it.value();
+        arr.append(o);
+    }
+
+    QFile f(dataDir + QLatin1String("/muc_peer_cache.json"));
+    if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        f.write(QJsonDocument(arr).toJson(QJsonDocument::Compact));
+}
+
+void OmemoManager::Private::loadMucPeerCache()
+{
+    if (dataDir.isEmpty()) return;
+
+    QFile f(dataDir + QLatin1String("/muc_peer_cache.json"));
+    if (!f.open(QIODevice::ReadOnly))
+        return;
+
+    QJsonParseError err;
+    QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &err);
+    if (err.error != QJsonParseError::NoError || !doc.isArray())
+        return;
+
+    mucPeerPlaintext.clear();
+    mucPeerOrder.clear();
+    for (const QJsonValue& v : doc.array()) {
+        QJsonObject o = v.toObject();
+        QByteArray key = QByteArray::fromBase64(
+            o.value(QLatin1String("key")).toString().toLatin1());
+        QString body = o.value(QLatin1String("body")).toString();
+        if (key.isEmpty()) continue;
+        mucPeerPlaintext.insert(key, body);
+        mucPeerOrder.append(key);
+    }
+    qDebug() << "[OMEMO] Loaded" << mucPeerPlaintext.size()
+             << "MUC peer plaintext entries from disk";
 }
 
 bool OmemoManager::Private::generateKeysIfNeeded()
@@ -2277,6 +2348,27 @@ void OmemoManager::decrypt(const XMPP::Jid& from, const QDomElement& encryptedEl
         return;
     }
 
+    // Peer-MUC-replay shortcut: if we've previously decrypted this exact
+    // (from, iv) pair, return the cached plaintext. Libsignal refuses to
+    // re-decrypt the same ratchet counter (SG_ERR_DUPLICATE_MESSAGE) as
+    // an anti-replay defense, which in MUC context fires every time the
+    // server replays history on reconnect or MAM backfills. Same iv
+    // reuse in Signal ratchets also implies same counter, so if we have
+    // the plaintext stashed we can safely return it without touching
+    // libsignal. Key is (fromBareJid, iv) — iv is 12 bytes of crypto
+    // random per-sender so the uniqueness is more than sufficient.
+    {
+        const QByteArray peerKey = d->mucPeerKey(from.bare(), payload.iv);
+        if (d->mucPeerPlaintext.contains(peerKey)) {
+            QString body = d->mucPeerPlaintext.value(peerKey);
+            qDebug() << "[OMEMO] Peer MUC replay — serving cached plaintext"
+                     << "(from=" << from.bare() << ","
+                     << body.size() << "chars)";
+            emit decryptDone(from, body, payload.sid, true);
+            return;
+        }
+    }
+
     // Find our key entry
     const XmppOmemo::OmemoKey* ourKey = nullptr;
     for (const XmppOmemo::OmemoKey& k : payload.keys) {
@@ -2340,8 +2432,30 @@ void OmemoManager::decrypt(const XMPP::Jid& from, const QDomElement& encryptedEl
     session_cipher_free(cipher);
 
     if (result != SG_SUCCESS || !decryptedKeyBuf) {
+        // SG_ERR_DUPLICATE_MESSAGE = -1001. This fires normally for
+        // MUC history/MAM replay of peer-encrypted messages — the
+        // session has already consumed that ratchet counter on a
+        // previous decrypt. Our peer-plaintext cache above would
+        // already have caught this case; reaching here means the
+        // cache miss-ed, so either this is the very first hit after
+        // upgrading to the cached build, OR the cache file was
+        // cleared / store was reset, OR the message genuinely was
+        // never decrypted before (e.g. libsignal state drift). We
+        // can't recover the plaintext without the counter; fall back
+        // to the encrypted-fallback body that the sender included.
+        //
+        // For other errors (INVALID_KEY, INVALID_MESSAGE, etc.) the
+        // failure is real and decryption is impossible.
+        const char* reason = "decrypt failed";
+        if (result == SG_ERR_DUPLICATE_MESSAGE)       reason = "DUPLICATE_MESSAGE (replay; not cached)";
+        else if (result == SG_ERR_INVALID_KEY)        reason = "INVALID_KEY";
+        else if (result == SG_ERR_INVALID_KEY_ID)     reason = "INVALID_KEY_ID (stale prekey)";
+        else if (result == SG_ERR_INVALID_MAC)        reason = "INVALID_MAC (wrong session)";
+        else if (result == SG_ERR_INVALID_MESSAGE)    reason = "INVALID_MESSAGE";
+        else if (result == SG_ERR_NO_SESSION)         reason = "NO_SESSION";
+        else if (result == SG_ERR_UNTRUSTED_IDENTITY) reason = "UNTRUSTED_IDENTITY";
         qWarning() << "[OMEMO] Failed to decrypt AES key from" << fromJid
-                   << "(error:" << result << ")";
+                   << "(error:" << result << reason << ")";
         emit decryptDone(from, QString(), payload.sid, false);
         return;
     }
@@ -2399,6 +2513,23 @@ void OmemoManager::decrypt(const XMPP::Jid& from, const QDomElement& encryptedEl
     QString body = QString::fromUtf8(plaintext);
     qDebug() << "[OMEMO] Decrypted message from" << fromJid << "(device" << payload.sid
              << "):" << body.left(50);
+
+    // Cache plaintext keyed by (fromBareJid, iv) so a subsequent
+    // DUPLICATE_MESSAGE from the MUC server replaying history can be
+    // resolved without involving libsignal. LIFO-evict past
+    // kMucPeerCacheMax to bound the hash. Persist to disk so restart
+    // doesn't lose the mapping (history replay after cold start).
+    const QByteArray peerKey = d->mucPeerKey(fromJid, payload.iv);
+    if (!d->mucPeerPlaintext.contains(peerKey)) {
+        d->mucPeerPlaintext.insert(peerKey, body);
+        d->mucPeerOrder.append(peerKey);
+        while (d->mucPeerOrder.size() > Private::kMucPeerCacheMax) {
+            QByteArray old = d->mucPeerOrder.takeFirst();
+            d->mucPeerPlaintext.remove(old);
+        }
+        d->saveMucPeerCache();
+    }
+
     emit decryptDone(from, body, payload.sid, true);
 }
 
