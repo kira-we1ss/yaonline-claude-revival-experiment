@@ -725,6 +725,11 @@ void ChatDlg::sendMessage(XMPP::Message m, bool userAction)
 					chatEdit()->setEnabled(true);
 					if (encOk) {
 						XMPP::Message em = m;
+						// Carry the real plaintext on a transient shadow
+						// field so PsiAccount::dj_sendMessage can log the
+						// original body to yahistory instead of the
+						// fallback notice. Never serialized to the wire.
+						em.setLocalPlaintextBody(m.body());
 						em.setBody(QLatin1String(
 						    "I sent you an OMEMO encrypted message "
 						    "but your client doesn't seem to support that. "

@@ -950,6 +950,10 @@ public:
 	Message::ChatMarkerType chatMarker_;
 	QString chatMarkerId_;
 
+	// Transient plaintext copy used when the wire body holds an OMEMO
+	// fallback notice — not serialized, see Message::localPlaintextBody.
+	QString localPlaintextBody_;
+
 	QHash<QString, QDomElement> unknownExtensions;
 };
 
@@ -1470,6 +1474,13 @@ void Message::setChatMarkable(bool m) { d->chatMarkable_ = m; }
 Message::ChatMarkerType Message::chatMarker() const { return d->chatMarker_; }
 void Message::setChatMarker(Message::ChatMarkerType t, const QString& id) { d->chatMarker_ = t; d->chatMarkerId_ = id; }
 QString Message::chatMarkerId() const { return d->chatMarkerId_; }
+
+// Transient plaintext companion for OMEMO outgoing — see header
+// comment. Deliberately NOT touched by fromStanza/toStanza: the
+// on-the-wire <body> is the fallback notice, the real plaintext
+// rides here only on the sender side for history-logging purposes.
+QString Message::localPlaintextBody() const { return d->localPlaintextBody_; }
+void    Message::setLocalPlaintextBody(const QString& b) { d->localPlaintextBody_ = b; }
 
 #ifdef YAPSI
 const YaLastMail& XMPP::Message::lastMailNotify() const

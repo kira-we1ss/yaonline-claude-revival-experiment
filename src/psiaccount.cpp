@@ -5636,10 +5636,19 @@ void PsiAccount::dj_sendMessage(const Message &m, bool log)
 	// don't log groupchat, private messages, or encrypted messages
 	if(log) {
 		if(m.type() != "groupchat" && m.xencrypted().isEmpty() && !findGCContact(m.to())) {
-			MessageEvent *me = new MessageEvent(m, this);
+			// If this is an OMEMO-wrapped send, the on-the-wire body is
+			// the fallback notice "I sent you an OMEMO encrypted message
+			// but your client doesn't seem to support that..."  — we
+			// don't want to pollute yahistory with 100 copies of that.
+			// ChatDlg::sendMessage stashes the original plaintext on
+			// localPlaintextBody(); use it for the history entry.
+			Message mLog = m;
+			if (!m.localPlaintextBody().isEmpty())
+				mLog.setBody(m.localPlaintextBody());
+			MessageEvent *me = new MessageEvent(mLog, this);
 			me->setOriginLocal(true);
 			me->setTimeStamp(QDateTime::currentDateTime());
-			logEvent(m.to(), me);
+			logEvent(mLog.to(), me);
 			delete me;
 		}
 	}

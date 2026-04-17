@@ -189,6 +189,18 @@ namespace XMPP {
 		void setChatMarker(ChatMarkerType type, const QString& id);
 		QString chatMarkerId() const;
 
+		// Transient plaintext shadow used by yachat's OMEMO path.
+		// When we send an OMEMO-encrypted 1-on-1 message, the on-the-wire
+		// body gets set to the "[This message is OMEMO encrypted]" /
+		// Conversations-style non-supporter notice, and the <encrypted>
+		// extension carries the real content. This field lets the send
+		// pipeline carry the ORIGINAL plaintext alongside the wire
+		// representation, so local-history logging (eventdb / yahistory)
+		// can record the real body instead of the fallback notice. It is
+		// NEVER serialized into a stanza; toStanza/fromStanza ignore it.
+		QString localPlaintextBody() const;
+		void    setLocalPlaintextBody(const QString& body);
+
 		Stanza toStanza(Stream *stream) const;
 		bool fromStanza(const Stanza &s, int tzoffset);
 
